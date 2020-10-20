@@ -1,0 +1,3 @@
+build/**
+dist/**
+kipr.egg-info/**
