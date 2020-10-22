@@ -1,19 +1,19 @@
-import winsound
 from IPython.display import Audio
 
 def sys_bgcolor(pyplot):
-	"""Reads system preference and sets plt background accordingly"""
-	from winreg import ConnectRegistry, HKEY_CURRENT_USER, OpenKeyEx, QueryValueEx
-	root = ConnectRegistry(None, HKEY_CURRENT_USER)
-	policy_key = OpenKeyEx(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize")
-	light, _ = QueryValueEx(policy_key, "AppsUseLightTheme")
-	if light:
-		pyplot.style.use('default')
-	else:
-		pyplot.style.use('dark_background')
+		"""Reads system preference and sets plt background accordingly"""
+		from winreg import ConnectRegistry, HKEY_CURRENT_USER, OpenKeyEx, QueryValueEx
+		root = ConnectRegistry(None, HKEY_CURRENT_USER)
+		policy_key = OpenKeyEx(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+		light, _ = QueryValueEx(policy_key, "AppsUseLightTheme")
+		if light:
+			pyplot.style.use('default')
+		else:
+			pyplot.style.use('dark_background')
 
 def winplay(data, rate, *, width=3, offset=0, seconds=15):
 	"""Plays a numpy array as a sound on Windows (and is unstoppable)"""
+	import winsound
 	data = data[rate*offset:rate*(offset + seconds)]
 	r = bytearray()
 	r += b'\x52\x49\x46\x46' # RIFF
@@ -36,5 +36,6 @@ def winplay(data, rate, *, width=3, offset=0, seconds=15):
 	winsound.PlaySound(r, winsound.SND_MEMORY)
 
 def finished():
+	"""To play a sound after execution"""
 	return Audio('https://www.soundboard.com/mediafiles/23/230637-88d7c1eb-fd29-4c12-9775-f8dff855374b.mp3',
 		         autoplay=True)
