@@ -1,4 +1,5 @@
 import winsound
+from IPython.display import Audio
 
 def sys_bgcolor(pyplot):
 	"""Reads system preference and sets plt background accordingly"""
@@ -33,3 +34,7 @@ def winplay(data, rate, *, width=3, offset=0, seconds=15):
 	for e in data:
 		r += int(e*max_number/max_value).to_bytes(width, 'little', signed=True)
 	winsound.PlaySound(r, winsound.SND_MEMORY)
+
+def finished():
+	return Audio('https://www.soundboard.com/mediafiles/23/230637-88d7c1eb-fd29-4c12-9775-f8dff855374b.mp3',
+		         autoplay=True)

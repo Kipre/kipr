@@ -7,5 +7,5 @@ setuptools.setup(
     description="Personal toolbox",
     url="https://github.com/Kipre/kipr",
     packages=setuptools.find_packages(),
-    python_requires='>=3.8',
+    python_requires='>=3.7',
 )
