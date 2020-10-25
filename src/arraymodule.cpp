@@ -139,10 +139,33 @@ static int copy_data(PyObject * input, int * shape, float * result, int depth=0,
         result[position++] = scalar;
         Py_DECREF(float_obj);
     } else {
-        PyErr_SetString(PyExc_TypeError, "Could not read input data as floats.");
+        PyErr_SetString(PyExc_TypeError, "Data should be numerical.");
         return -1;
     }
     return position;
+}
+
+static int parse_shape(PyObject * sequence, int * shape) {
+    if (PySequence_Check(sequence)) {
+        int nd = PySequence_Length(sequence);
+        if (nd < 1) {
+            PyErr_SetString(PyExc_TypeError, "Shape must have at least one element.");
+            return -1;
+        }
+        for (int k=0; k<nd; k++) {
+            PyObject * element = PySequence_GetItem(shape, k);
+            shape[k] = (int) PyLong_AsLong(element);
+            if (PyErr_Occurred() || shape[k] == 0) {
+                PyErr_SetString(PyExc_TypeError, "Shape must ba a sequence of non-zero integers.");
+                return -1;
+            }
+            Py_DECREF(element);
+        }
+        return nd;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Shape must be a sequence.");
+        return -1;
+    } 
 }
 
 static int
@@ -176,43 +199,27 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
     }
 
     if (shape) {
-        if (PySequence_Check(shape)) {
-            proposed_nd = PySequence_Length(shape);
-            if (proposed_nd < 1) {
-                PyErr_SetString(PyExc_TypeError, "Shape must have at least one element.");
+        int proposed_nd = parse_shape(shape, proposed_shape);
+        int proposed_length = product(proposed_shape, proposed_nd);
+
+        // Check if the propsed makes sense with repect to data
+        if (data_theo_length(self) != proposed_length) {
+            // If it doesn't but data is scalar then we can replicate the value
+            if (is_scalar(self)) {
+                float current_value = self->data[0];
+                delete[] self->data;
+                self->data = new float [proposed_length];
+                for (int k=0; k<proposed_length; k++) {
+                    self->data[k] = current_value;
+                }
+            } else {
+                PyErr_SetString(PyExc_TypeError, "Proposed shape doesn't align with data.");
                 goto fail;
             }
-            for (int k=0; k<proposed_nd; k++) {
-                PyObject * element = PySequence_GetItem(shape, k);
-                proposed_shape[k] = (int) PyLong_AsLong(element);
-                if (PyErr_Occurred()) {
-                    PyErr_SetString(PyExc_TypeError, "Shape must ba a sequence of integers.");
-                    goto fail;
-                }
-                Py_DECREF(element);
-            }
-            int proposed_length = product(proposed_shape, proposed_nd);
-            if (data_theo_length(self) != proposed_length) {
-                if (is_scalar(self)) {
-                    float current_value = self->data[0];
-                    delete[] self->data;
-                    self->data = new float [proposed_length];
-                    for (int k=0; k<proposed_length; k++) {
-                        self->data[k] = current_value;
-                    }
-                } else {
-                    PyErr_SetString(PyExc_TypeError, "Proposed shape doesn't align with data.");
-                    goto fail;
-                }
-            }
-            
-            self->nd = proposed_nd;
-            set_shape(self, proposed_shape);
-
         } else {
-            PyErr_SetString(PyExc_TypeError, "Shape must ba a sequence of integers.");
-            goto fail;
-        }
+            self->nd = proposed_nd;
+            set_shape(self, proposed_shape);   
+        }        
     }
 
     print_arr(self, "array initialized successfully");
@@ -223,6 +230,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
         Py_DECREF(input);
         return -1;
 }
+
 
 static PyMemberDef Karray_members[] = {
     {"attr", T_INT, offsetof(Karray, attr), 0,
@@ -261,6 +269,12 @@ Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored))
         dims[k] = (npy_intp) self->shape[k];
     }
     return PyArray_SimpleNewFromData(self->nd, dims, NPY_FLOAT, self->data);
+}
+
+static PyObject *
+Karray_reshape(Karray *self, PyObject *shape)
+{
+
 }
 
 static PyMethodDef Karray_methods[] = {
