@@ -1,0 +1,418 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"pro",
+				"proposed_length"
+			],
+			[
+				"p",
+				"proposed_nd"
+			],
+			[
+				"fla",
+				"flat_data"
+			],
+			[
+				"is",
+				"is_scalar"
+			],
+			[
+				"infe",
+				"inferred_shape"
+			],
+			[
+				"P",
+				"Python"
+			],
+			[
+				"floa",
+				"float_obj"
+			],
+			[
+				"Py",
+				"PyObject"
+			],
+			[
+				"pri",
+				"print_arr"
+			],
+			[
+				"ass",
+				"assertEqual"
+			],
+			[
+				"data",
+				"data_theo_length"
+			],
+			[
+				"fl",
+				"flat_data"
+			],
+			[
+				"flat",
+				"flat_length"
+			],
+			[
+				"dpr",
+				"dptr2"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "kipr.sublime-project",
+			"settings":
+			{
+				"buffer_size": 453,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/arraymodule.cpp",
+			"settings":
+			{
+				"buffer_size": 10269,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "test/test.py",
+			"settings":
+			{
+				"buffer_size": 630,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		}
+	],
+	"build_system": "Clear workspace",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Buils install to Python",
+					""
+				],
+				[
+					"Clear workspace",
+					""
+				],
+				[
+					"Test",
+					""
+				]
+			],
+			[
+				"Clear workspace",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"bui",
+				"Build With: Clear workspace"
+			],
+			[
+				"colo",
+				"UI: Select Color Scheme"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/C/Users/kipr/repos/kipr/",
+		"/C/Users/kipr/repos/kipr//src",
+		"/C/Users/kipr/repos/kipr//test"
+	],
+	"file_history":
+	[
+		"/C/Users/kipr/repos/kipr/src/arraymodule.cpp",
+		"/C/Users/kipr/repos/kipr/natmodule.cpp",
+		"/C/Users/kipr/repos/kipr/test.bat",
+		"/C/Users/kipr/repos/kipr/_pyproject.toml",
+		"/C/Users/kipr/repos/kipr/_setup.cfg",
+		"/C/Users/kipr/Desktop/log.txt",
+		"/C/Program Files/Python39/Lib/site-packages/setuptools/build_meta.py",
+		"/C/Users/kipr/repos/perso/art/3d/chain.py",
+		"/C/Users/kipr/Downloads/small_train.csv",
+		"/C/Users/kipr/repos/kipr/pyproject.toml",
+		"/C/Users/kipr/repos/kipr/setup.py",
+		"/C/Users/kipr/repos/perso/documents/cover.md",
+		"/C/Users/kipr/repos/perso/notebooks/col_desc.tsv",
+		"/C/Users/kipr/Downloads/recap.csv",
+		"/C/Users/kipr/repos/perso/notebooks/tmp.txt",
+		"/C/Users/kipr/repos/kipr/.gitignore",
+		"/C/Users/kipr/repos/kipre.github.io/contents.json",
+		"/C/Users/kipr/repos/kipr/kipr/__init__.py",
+		"/C/Users/kipr/Downloads/tutorial1/tutorial1_audio_intro.ipynb",
+		"/C/Users/kipr/repos/surf/README.md",
+		"/C/Users/kipr/repos/surf/.gitattributes",
+		"/C/Users/kipr/Desktop/target.csv",
+		"/C/Users/kipr/Desktop/data.csv",
+		"/C/Users/kipr/Downloads/python-sample-vs-cpp-extension-master/python-sample-vs-cpp-extension-master/superfastcode/setup.py",
+		"/C/Users/kipr/Downloads/python-sample-vs-cpp-extension-master/python-sample-vs-cpp-extension-master/superfastcode/module.cpp",
+		"/C/Users/kipr/Desktop/bide.obj",
+		"/C/Users/kipr/repos/surf/serve.bat",
+		"/C/Users/kipr/Desktop/untitled.obj",
+		"/C/Users/kipr/AppData/Roaming/Python/Python38/site-packages/cu_nn.cp38-win_amd64.pyd",
+		"/C/Program Files/Python38/Lib/webbrowser.py",
+		"/C/Users/kipr/AppData/Roaming/Python/Python38/site-packages/cu_nn-0.0-py3.8.egg-info",
+		"/C/Users/kipr/Downloads/python-sample-vs-cpp-extension-master/python-sample-vs-cpp-extension-master/superfastcode/superfastcode.vcxproj"
+	],
+	"find":
+	{
+		"height": 39.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": true,
+		"find_history":
+		[
+			"data_length(",
+			"shape(",
+			"data_theo_length(",
+			"data_length(",
+			"flat_data",
+			"input",
+			"shape",
+			"current_",
+			"self",
+			"rm -r"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "kipr.sublime-project",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 453,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								362,
+								362
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 99.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "src/arraymodule.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 10269,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4360,
+								4360
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2399.33333333,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "test/test.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 630,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								124,
+								197
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 24.0
+	},
+	"input":
+	{
+		"height": 36.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 332.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "Buils install to Python",
+	"project": "kipr.sublime-project",
+	"replace":
+	{
+		"height": 44.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 171.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

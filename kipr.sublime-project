@@ -1,0 +1,27 @@
+{
+    "folders":
+    [
+        {
+            "path": "/",
+        }
+    ],
+    "settings":
+    {
+        "tab_size": 4
+    },
+    "build_systems":
+    [
+        {
+            "name": "Buils install to Python",
+            "cmd": "python setup.py install --user"
+        },
+        {
+            "name": "Test",
+            "cmd": "python test/test.py"
+        },
+        {
+            "name": "Clear workspace",
+            "cmd": "cd"
+        }
+    ]
+}

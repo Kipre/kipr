@@ -1,3 +1,5 @@
 build/**
 dist/**
 kipr.egg-info/**
+**/__pycache__/**
+**/**.pdb
