@@ -11,11 +11,12 @@ typedef struct {
     int nd;
     int shape [MAX_NDIMS];
     float * data;
+    int attr;
 } Karray;
 
 int product(int * arr, int len) {
     int result = 1;
-    while (len >=  0) result *= arr[len--];
+    while (len >  0) result *= arr[--len];
     return result;
 }
 
@@ -38,8 +39,9 @@ void reset_shape(Karray *self) {
 // DEBUG FUNCTION
 void print_arr(Karray * self, char * message) {
 
-    printf("number of dimensions: %i\n", self->nd);
-    printf("shape: ");
+    printf("%s\n", message);
+    printf("\tnumber of dimensions: %i\n", self->nd);
+    printf("\tshape: ");
     if (self->nd > 0 && self->nd < MAX_NDIMS) {
         for (int k=0; k<self->nd + 2; k++) {
             printf(" %i,", self->shape[k]);
@@ -47,15 +49,14 @@ void print_arr(Karray * self, char * message) {
     }
     printf("\n");
     int length = data_theo_length(self);
-    printf("data theoretical length: %i\n", length);
+    printf("\tdata theoretical length: %i\n", length);
     if (length < 1000) {
-        printf("data: ");
+        printf("\tdata: ");
         for (int k=0; k<length; k++) {
             printf(" %f,", self->data[k]);
         }
         printf("\n");
     }
-    printf("%s\n", message);
 } 
 
 static void
@@ -80,25 +81,6 @@ Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
     return (PyObject *) self;
 }
-
-// static int flat_length(PyObject * input) 
-// {
-//     int length = 0;
-//     int sub_length = 1;
-//     if (PySequence_Check(input)) {
-//         length = PySequence_Length(input);
-//         if (length > 0) {
-//             PyObject *item = PySequence_GetItem(input, 0);
-//             sub_length = flat_length(item);
-//             Py_DECREF(item);
-//         } else {
-//             return -1;
-//         }
-//     } else {
-//         length = 1;
-//     }
-//     return length*sub_length;
-// }
 
 static int infer_shape(PyObject * input, int * shape, int depth=0) 
 {
@@ -132,30 +114,33 @@ static bool is_scalar(Karray * self) {
     return (self->nd == 1) && (self->shape[0] == 1);
 }
 
-static int flat_data(PyObject * input, int * shape, float * result, int depth=0, int position=0)
-{
-    for (int k=0; k<shape[depth]; k++) {
-        if (shape[depth + 1] > 0) {
+static int copy_data(PyObject * input, int * shape, float * result, int depth=0, int position=0)
+{   
+    if (shape[depth] > 0 && PySequence_Check(input)) {
+        for (int k=0; k<shape[depth]; k++) {
             PyObject *item = PySequence_GetItem(input, k);
             if (PyErr_Occurred()) {
-                PyErr_SetString(PyExc_TypeError, "Input data should be well formed.");;
+                PyErr_SetString(PyExc_TypeError, "Input data should be well formed.");
                 return -1;
             }
-            flat_data(item, shape, result, depth + 1, position);
+            position = copy_data(item, shape, result, depth + 1, position);
+            if (position == -1) {
+                return -1;
+            }
             Py_DECREF(item);
-        } else if (PyNumber_Check(input)) {
-            PyObject *float_obj = PyNumber_Float(input);
-            float scalar = (float) PyFloat_AsDouble(float_obj);
-            if (PyErr_Occurred()) {
-                PyErr_Print();
-                return -1;
-            }
-            result[position++] = scalar;
-            Py_DECREF(float_obj);
-        } else {
+        }
+    } else if (PyNumber_Check(input)) {
+        PyObject *float_obj = PyNumber_Float(input);
+        float scalar = (float) PyFloat_AsDouble(float_obj);
+        if (PyErr_Occurred()) {
             PyErr_SetString(PyExc_TypeError, "Could not read input data as floats.");
             return -1;
         }
+        result[position++] = scalar;
+        Py_DECREF(float_obj);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Could not read input data as floats.");
+        return -1;
     }
     return position;
 }
@@ -178,18 +163,25 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
     self->nd = infer_shape(input, inferred_shape);
     set_shape(self, inferred_shape);
     data_length = data_theo_length(self);
-    printf("flat_length: %i\n", data_length);
     delete[] self->data;
     self->data = new float[data_length];
-    print_arr(self, "about to copy data");
-    if (data_length != flat_data(input, self->shape, self->data)) {
-        PyErr_SetString(PyExc_TypeError, "Could not read data.");
+    int final_position = copy_data(input, self->shape, self->data);
+    if (data_length != final_position) {
+        if (PyErr_Occurred()) {
+            PyErr_Print();
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Data read failed.");
+        }
         goto fail;
     }
 
     if (shape) {
         if (PySequence_Check(shape)) {
             proposed_nd = PySequence_Length(shape);
+            if (proposed_nd < 1) {
+                PyErr_SetString(PyExc_TypeError, "Shape must have at least one element.");
+                goto fail;
+            }
             for (int k=0; k<proposed_nd; k++) {
                 PyObject * element = PySequence_GetItem(shape, k);
                 proposed_shape[k] = (int) PyLong_AsLong(element);
@@ -233,8 +225,8 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
 }
 
 static PyMemberDef Karray_members[] = {
-    {"nd", T_INT, offsetof(Karray, nd), 0,
-     "Number of dimensions"},
+    {"attr", T_INT, offsetof(Karray, attr), 0,
+     "Arbitrary attribute."},
     {NULL}  /* Sentinel */
 };
 
@@ -264,8 +256,11 @@ static PyGetSetDef Karray_getsetters[] = {
 static PyObject *
 Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored))
 {   
-    print_arr(self, "transforming to numpy");
-    return PyArray_SimpleNewFromData(self->nd, (npy_intp *) self->shape, NPY_FLOAT, self->data);
+    npy_intp * dims = new npy_intp[self->nd];
+    for (int k=0; k<self->nd; k++) {
+        dims[k] = (npy_intp) self->shape[k];
+    }
+    return PyArray_SimpleNewFromData(self->nd, dims, NPY_FLOAT, self->data);
 }
 
 static PyMethodDef Karray_methods[] = {
