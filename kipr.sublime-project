@@ -13,11 +13,13 @@
     [
         {
             "name": "Buils install to Python",
-            "cmd": "python setup.py install --user"
+            "cmd": "python setup.py install --user",
+            "working_dir": "$folder"
         },
         {
             "name": "Test",
-            "cmd": "python test/test.py"
+            "cmd": "python test/test.py",
+            "working_dir": "$folder"
         },
         {
             "name": "Clear workspace",

@@ -2,17 +2,40 @@ import unittest
 import kipr as kp
 import numpy as np
 
-max_nd = 8
+max_nd = kp.max_nd()
 
 class TestKarray(unittest.TestCase):
 
     def test_init(self):
 
+        # at least one argument
         with self.assertRaises(TypeError):
             kp.arr()
+
+        # too deep
+        with self.assertRaises(TypeError):
+            kp.arr([[[[[[[[[[1]]]]]]]]]])
         
+        # mustn't be any zeros in shape
+        with self.assertRaises(TypeError):
+            kp.arr(1, shape=[0, 1])
+        
+        # data must be a sequence of numbers
+        with self.assertRaises(TypeError):
+            kp.arr(['a', 'b'])
+
+        # shape len must be > 1
         with self.assertRaises(TypeError):
             kp.arr(1, shape=[])
+        
+        # shape must be a sequence
+        with self.assertRaises(TypeError):
+            kp.arr(1, shape=2)
+        
+        # print('pathology'
+        # BUG! shape must be a sequence
+        # with self.assertRaises(TypeError):
+        #     kp.arr(1, shape=np.array([]))
         
         self.assertTrue(kp.arr(1))
         
@@ -24,8 +47,9 @@ class TestKarray(unittest.TestCase):
             kp.arr(range(2), shape=[1, 1, 1, 2]).numpy(), 
             np.arange(2).reshape([1, 1, 1, 2])
         )
+
         for k in range(5):
-            nd = np.random.randint(max_nd)
+            nd = np.random.randint(1, max_nd + 1)
             shape = np.random.randint(1,5, size=(nd))
             print(f'{shape = }')
 

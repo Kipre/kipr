@@ -9,7 +9,7 @@ arrays = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],
                               include_dirs=[np.get_include()],
                               library_dirs=['C:\\Program Files\\Python39\\libs'],
-                              extra_compile_args=['/std:c++latest','/Zi', '/Od'],
+                              extra_compile_args=['/std:c++latest','/Zi', '/Od', "/arch:AVX2"],
                               extra_link_args=['/DEBUG'])
 
 setuptools.setup(name='kipr',

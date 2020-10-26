@@ -3,8 +3,13 @@
 #include "structmember.h"
 #include <numpy/arrayobject.h>
 #include <new>
+#include <string>
+#include <immintrin.h>
 
 #define MAX_NDIMS 8
+
+int MAX_PRINT_SIZE = 30;
+int STR_OFFSET = 10;
 
 typedef struct {
     PyObject_HEAD
@@ -14,9 +19,9 @@ typedef struct {
     int attr;
 } Karray;
 
-int product(int * arr, int len) {
+int product(int * arr, int len, int increment=0) {
     int result = 1;
-    while (len >  0) result *= arr[--len];
+    while (len >  0) result *= arr[--len] + increment;
     return result;
 }
 
@@ -62,9 +67,7 @@ void print_arr(Karray * self, char * message) {
 static void
 Karray_dealloc(Karray *self)
 {
-    // NOT SURE
     delete[] self->data;
-    // END NOT SURE
     Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -153,7 +156,7 @@ static int parse_shape(PyObject * sequence, int * shape) {
             return -1;
         }
         for (int k=0; k<nd; k++) {
-            PyObject * element = PySequence_GetItem(shape, k);
+            PyObject * element = PySequence_GetItem(sequence, k);
             shape[k] = (int) PyLong_AsLong(element);
             if (PyErr_Occurred() || shape[k] == 0) {
                 PyErr_SetString(PyExc_TypeError, "Shape must ba a sequence of non-zero integers.");
@@ -184,6 +187,10 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
     
     int inferred_shape[MAX_NDIMS] = {1};
     self->nd = infer_shape(input, inferred_shape);
+    if (PyErr_Occurred()) {
+        PyErr_Print();
+        goto fail;
+    }
     set_shape(self, inferred_shape);
     data_length = data_theo_length(self);
     delete[] self->data;
@@ -200,6 +207,10 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
 
     if (shape) {
         int proposed_nd = parse_shape(shape, proposed_shape);
+        if (PyErr_Occurred()) {
+            PyErr_Print(); 
+            goto fail;
+        }
         int proposed_length = product(proposed_shape, proposed_nd);
 
         // Check if the propsed makes sense with repect to data
@@ -221,14 +232,73 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
             set_shape(self, proposed_shape);   
         }        
     }
-
-    print_arr(self, "array initialized successfully");
     return 0;
 
     fail:
-        if (shape) Py_DECREF(shape);
+        Py_XDECREF(shape);
         Py_DECREF(input);
+        PyErr_Clear();
+        PyErr_SetString(PyExc_TypeError, "Failed to build array.");
         return -1;
+}
+
+int offset(Karray * self, int * index) {
+    int k=0;
+    int result = 0;
+    while (k<self->nd-1) {
+        result = (result + index[k])*self->shape[k+1];
+        ++k;
+    }
+    result += index[k];
+    return result;
+} 
+
+std::string str(Karray * self, int * index, int depth=0, bool repr=false) 
+{
+    std::string result = "[";
+    int current_offset = offset(self, index);
+
+    if (depth < self->nd && (current_offset < MAX_PRINT_SIZE) && !repr) {
+        for (int k=0; k<self->shape[depth]; k++) {
+            index[depth] = k;
+            if (k != 0 && depth != self->nd-1) {
+                result += std::string(depth + STR_OFFSET, ' ');
+            }
+            std::string sub = str(self, index, depth + 1);
+            result += sub;
+            if (sub == "....") return result;
+        } 
+        //remove last newline and comma
+        if (depth != self->nd) {
+            result.pop_back(); result.pop_back();
+        }
+        return result + "],\n";
+    } else if (current_offset < MAX_PRINT_SIZE && !repr) {
+        return " " + std::to_string(self->data[current_offset]) + ",";
+    } else {
+        return std::string("....");
+    }
+}
+
+std::string shape_str(Karray * self) {
+    std::string result = "[";
+    for (int k=0; k<self->nd; k++) {
+        result += " " + std::to_string(self->shape[k]) + ",";
+    }
+    result.pop_back();
+    return result + "]";
+}
+
+static PyObject * 
+Karray_str(Karray * self) 
+{   
+    int index [MAX_NDIMS] = {0};
+    std::string result = "kipr.arr(" + str(self, index);
+    result.pop_back();
+    result += '\n';
+    result += std::string(STR_OFFSET, ' ') + "shape=" + shape_str(self);
+    result += ')';
+    return PyUnicode_FromString(result.c_str());
 }
 
 
@@ -268,16 +338,47 @@ Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored))
     for (int k=0; k<self->nd; k++) {
         dims[k] = (npy_intp) self->shape[k];
     }
+    Py_INCREF(self);
     return PyArray_SimpleNewFromData(self->nd, dims, NPY_FLOAT, self->data);
 }
 
 static PyObject *
-Karray_reshape(Karray *self, PyObject *shape)
+Karray_reshape(Karray *self, PyObject *args)
 {
+    PyObject *shape;
+    int proposed_shape [MAX_NDIMS] = {1};
 
+    if (!PyArg_ParseTuple(args, "O", &shape))
+        return NULL;
+
+    int proposed_nd = parse_shape(shape, proposed_shape);
+    if (proposed_nd < 1) {
+        return NULL;
+    }
+    if (data_theo_length(self) == product(proposed_shape, proposed_nd)) {
+        set_shape(self, proposed_shape);
+        return (PyObject *) self;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Proposed shape doesn't align with data.");
+        return NULL;
+    }
 }
 
+static PyObject *
+max_nd(PyObject *self, PyObject *Py_UNUSED(ignored))
+{
+    return PyLong_FromLong((long) MAX_NDIMS);
+}
+
+static PyMethodDef arraymodule_methods[] = {
+    {"max_nd",  max_nd, METH_NOARGS,
+     "Get maximum number of dimentions for a kipr.arr() array."},
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
+
 static PyMethodDef Karray_methods[] = {
+    {"reshape", (PyCFunction) Karray_reshape, METH_VARARGS,
+     "Return the kipr.arr with the new shape."},
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
      "Return a numpy representtion of the Karray."
     },
@@ -300,7 +401,7 @@ static PyTypeObject KarrayType = {
     0,                              /* tp_as_mapping */
     0,                              /* tp_hash */
     0,                              /* tp_call */
-    0,                              /* tp_str */
+    (reprfunc) Karray_str,          /* tp_str */
     0,                              /* tp_getattro */
     0,                              /* tp_setattro */
     0,                              /* tp_as_buffer */
@@ -330,6 +431,7 @@ static PyModuleDef arraymodule = {
     "kipr_array",
     "Array backend.",
     -1,
+    arraymodule_methods
 };
 
 PyMODINIT_FUNC
