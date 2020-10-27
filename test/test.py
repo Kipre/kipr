@@ -16,7 +16,7 @@ class TestKarray(unittest.TestCase):
         with self.assertRaises(TypeError):
             kp.arr([[[[[[[[[[1]]]]]]]]]])
         
-        # mustn't be any zeros in shape
+        # shouldn't be any zeros in shape
         with self.assertRaises(TypeError):
             kp.arr(1, shape=[0, 1])
         
@@ -32,7 +32,7 @@ class TestKarray(unittest.TestCase):
         with self.assertRaises(TypeError):
             kp.arr(1, shape=2)
         
-        # print('pathology'
+        # print('pathology')
         # BUG! shape must be a sequence
         # with self.assertRaises(TypeError):
         #     kp.arr(1, shape=np.array([]))

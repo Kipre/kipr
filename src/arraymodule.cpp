@@ -6,6 +6,10 @@
 #include <string>
 #include <immintrin.h>
 
+// To avoid c++ mix designated initializers error
+#define Karray_HEAD_INIT        \
+    .ob_base={.ob_base={1, NULL }, .ob_size=0},
+
 #define MAX_NDIMS 8
 
 int MAX_PRINT_SIZE = 30;
@@ -386,45 +390,22 @@ static PyMethodDef Karray_methods[] = {
 };
 
 static PyTypeObject KarrayType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "kipr.arr",                     /* tp_name */
-    sizeof(Karray),                 /* tp_basicsize */
-    0,                              /* tp_itemsize */
-    (destructor) Karray_dealloc,    /* tp_dealloc */
-    0,                              /* tp_vectorcall_offset */
-    0,                              /* tp_getattr */
-    0,                              /* tp_setattr */
-    0,                              /* tp_as_async */
-    0,                              /* tp_repr */
-    0,                              /* tp_as_number */
-    0,                              /* tp_as_sequence */
-    0,                              /* tp_as_mapping */
-    0,                              /* tp_hash */
-    0,                              /* tp_call */
-    (reprfunc) Karray_str,          /* tp_str */
-    0,                              /* tp_getattro */
-    0,                              /* tp_setattro */
-    0,                              /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,/* tp_flags */
-    "Array object from kipr.",      /* tp_doc */
-    0,                              /* tp_traverse */
-    0,                              /* tp_clear */
-    0,                              /* tp_richcompare */
-    0,                              /* tp_weaklistoffset */
-    0,                              /* tp_iter */
-    0,                              /* tp_iternext */
-    Karray_methods,                 /* tp_methods */
-    Karray_members,                 /* tp_members */
-    Karray_getsetters,              /* tp_getset */
-    0,                              /* tp_base */
-    0,                              /* tp_dict */
-    0,                              /* tp_descr_get */
-    0,                              /* tp_descr_set */
-    0,                              /* tp_dictoffset */
-    (initproc) Karray_init,         /* tp_init */
-    0,                              /* tp_alloc */
-    Karray_new,                     /* tp_new */
+    Karray_HEAD_INIT
+    .tp_name = "kipr.arr",
+    .tp_basicsize = sizeof(Karray) - sizeof(float),
+    .tp_itemsize = sizeof(float),
+    .tp_dealloc = (destructor) Karray_dealloc,
+    .tp_str = (reprfunc) Karray_str,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc = "Array object from kipr.",
+    .tp_methods = Karray_methods,
+    .tp_members = Karray_members,
+    .tp_getset = Karray_getsetters,
+    .tp_init = (initproc) Karray_init,
+    .tp_new = Karray_new,
 };
+
+
 
 static PyModuleDef arraymodule = {
     PyModuleDef_HEAD_INIT,
