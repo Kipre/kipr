@@ -4,48 +4,168 @@
 		"selected_items":
 		[
 			[
-				"pro",
-				"proposed_length"
+				"PyE",
+				"PyErr_Clear"
 			],
 			[
-				"p",
-				"proposed_nd"
-			],
-			[
-				"fla",
-				"flat_data"
+				"PyEr",
+				"PyErr_Clear"
 			],
 			[
 				"is",
-				"is_scalar"
+				"is_Karray"
 			],
 			[
-				"infe",
-				"inferred_shape"
-			],
-			[
-				"P",
-				"Python"
-			],
-			[
-				"floa",
-				"float_obj"
+				"DE",
+				"DEBUG_print_type"
 			],
 			[
 				"Py",
 				"PyObject"
 			],
 			[
+				"debu",
+				"DEBUG_print_type"
+			],
+			[
+				"Debug",
+				"DebugBreak"
+			],
+			[
+				"p",
+				"printf\tprintf …"
+			],
+			[
+				"tes",
+				"test_add_operation"
+			],
+			[
+				"Tes",
+				"TestKarray"
+			],
+			[
+				"assert",
+				"assertEqual"
+			],
+			[
+				"P",
+				"PyObject"
+			],
+			[
+				"new",
+				"new_value"
+			],
+			[
+				"safe",
+				"safe_Karray_cast"
+			],
+			[
+				"K",
+				"Karray"
+			],
+			[
+				"Ka",
+				"KarrayType"
+			],
+			[
+				"print",
+				"printf\tprintf …"
+			],
+			[
+				"inc",
+				"Py_INCREF"
+			],
+			[
+				"py",
+				"Py_INCREF"
+			],
+			[
+				"dat",
+				"data_theo_length"
+			],
+			[
+				"if",
+				"Karray_IF_ERR_GOTO_FAIL"
+			],
+			[
+				"to",
+				"to_new_Karray"
+			],
+			[
+				"Karr",
+				"Karray"
+			],
+			[
+				"prin",
+				"printf\tprintf …"
+			],
+			[
 				"pri",
 				"print_arr"
 			],
 			[
-				"ass",
-				"assertEqual"
+				"IF",
+				"Karray_IF_ERR_GOTO_FAIL"
+			],
+			[
+				"pro",
+				"proposed_nd"
+			],
+			[
+				"Ma",
+				"MAX_NDIMS"
 			],
 			[
 				"data",
-				"data_theo_length"
+				"data_length"
+			],
+			[
+				"asser",
+				"assertRaises"
+			],
+			[
+				"ass",
+				"assertTrue"
+			],
+			[
+				"MAX",
+				"MAX_NDIMS"
+			],
+			[
+				"shape",
+				"shape_str"
+			],
+			[
+				"max",
+				"MAX_PRINT_SIZE"
+			],
+			[
+				"prop",
+				"proposed_shape"
+			],
+			[
+				"M",
+				"MAX_NDIMS"
+			],
+			[
+				"PyS",
+				"PySequence_Check"
+			],
+			[
+				"arra",
+				"arraymodule"
+			],
+			[
+				"fla",
+				"flat_data"
+			],
+			[
+				"infe",
+				"inferred_shape"
+			],
+			[
+				"floa",
+				"float_obj"
 			],
 			[
 				"fl",
@@ -64,34 +184,44 @@
 	"buffers":
 	[
 		{
-			"file": "kipr.sublime-project",
+			"file": "src/arraymodule.cpp",
 			"settings":
 			{
-				"buffer_size": 453,
+				"buffer_size": 13835,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/arraymodule.cpp",
+			"file": "setup.py",
 			"settings":
 			{
-				"buffer_size": 10269,
+				"buffer_size": 890,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/arraymodule.hpp",
+			"settings":
+			{
+				"buffer_size": 3500,
+				"encoding": "UTF-8",
+				"line_ending": "Windows",
+				"name": "arraymodule.hpp"
 			}
 		},
 		{
 			"file": "test/test.py",
 			"settings":
 			{
-				"buffer_size": 630,
+				"buffer_size": 4514,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		}
 	],
-	"build_system": "Clear workspace",
+	"build_system": "Packages/Python/Python.sublime-build",
 	"build_system_choices":
 	[
 		[
@@ -113,6 +243,22 @@
 				"Clear workspace",
 				""
 			]
+		],
+		[
+			[
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
 		]
 	],
 	"build_varint": "",
@@ -123,19 +269,27 @@
 		"selected_items":
 		[
 			[
-				"bui",
-				"Build With: Clear workspace"
-			],
-			[
 				"colo",
 				"UI: Select Color Scheme"
+			],
+			[
+				"Snippet: ",
+				"Snippet: For Loop"
+			],
+			[
+				"co",
+				"UI: Select Color Scheme"
+			],
+			[
+				"bui",
+				"Build With: Clear workspace"
 			]
 		],
 		"width": 0.0
 	},
 	"console":
 	{
-		"height": 0.0,
+		"height": 168.0,
 		"history":
 		[
 		]
@@ -157,6 +311,15 @@
 	],
 	"file_history":
 	[
+		"/C/Users/kipr/repos/kipr/doc/doc.ipynb",
+		"/C/Users/kipr/repos/perso/notebooks/soundradix_puzzle.ipynb",
+		"/C/Users/kipr/repos/kipr/test/test.py",
+		"/C/Users/kipr/repos/kipr/kipr.sublime-project",
+		"/C/Users/kipr/repos/kipr/.gitignore",
+		"/C/Users/kipr/repos/perso/documents/cover.md",
+		"/C/Users/kipr/Downloads/garbage/garbage.cpp",
+		"/C/Users/kipr/Downloads/test-develop/test-develop/include/boost/test/minimal.hpp",
+		"/C/Users/kipr/repos/kipr/src/arraymodule.hpp",
 		"/C/Users/kipr/repos/kipr/src/arraymodule.cpp",
 		"/C/Users/kipr/repos/kipr/natmodule.cpp",
 		"/C/Users/kipr/repos/kipr/test.bat",
@@ -168,11 +331,9 @@
 		"/C/Users/kipr/Downloads/small_train.csv",
 		"/C/Users/kipr/repos/kipr/pyproject.toml",
 		"/C/Users/kipr/repos/kipr/setup.py",
-		"/C/Users/kipr/repos/perso/documents/cover.md",
 		"/C/Users/kipr/repos/perso/notebooks/col_desc.tsv",
 		"/C/Users/kipr/Downloads/recap.csv",
 		"/C/Users/kipr/repos/perso/notebooks/tmp.txt",
-		"/C/Users/kipr/repos/kipr/.gitignore",
 		"/C/Users/kipr/repos/kipre.github.io/contents.json",
 		"/C/Users/kipr/repos/kipr/kipr/__init__.py",
 		"/C/Users/kipr/Downloads/tutorial1/tutorial1_audio_intro.ipynb",
@@ -192,7 +353,7 @@
 	],
 	"find":
 	{
-		"height": 39.0
+		"height": 39.3333333333
 	},
 	"find_in_files":
 	{
@@ -206,6 +367,66 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"printf",
+			"    DEBUG",
+			"DEBUG_print_type",
+			"DEBUG",
+			"input",
+			"// DEBUG",
+			"range(5)",
+			"    DEBUG",
+			"DEBUG",
+			"print_int_carr",
+			"print_arr",
+			"b",
+			"other",
+			"new_value",
+			"donor",
+			"DebugBreak",
+			"a",
+			"Karray_add",
+			"a",
+			"Karray",
+			"_Karray_init_from_data",
+			"new_value",
+			"a",
+			"self",
+			"a",
+			"self",
+			"not",
+			"print_i",
+			"printf",
+			"print_in",
+			"print_arr",
+			"print",
+			"self",
+			"a",
+			"candidate",
+			"self->nd",
+			"a",
+			"self",
+			"        \n",
+			";",
+			"KarrayType",
+			"PyTypeObject",
+			".",
+			"KarrayType",
+			",",
+			"    ",
+			"/* ",
+			"/*",
+			"tp_vectorcall_offset",
+			"long",
+			"pylong",
+			"y",
+			"x",
+			"print_",
+			"-1",
+			"nd",
+			"copy_data(",
+			"flat_data(",
+			"flat_length(",
+			"get_shape(",
 			"data_length(",
 			"shape(",
 			"data_theo_length(",
@@ -233,54 +454,24 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "kipr.sublime-project",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 453,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								362,
-								362
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 99.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
 					"file": "src/arraymodule.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 10269,
+						"buffer_size": 13835,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4360,
-								4360
+								2769,
+								2769
 							]
 						],
 						"settings":
@@ -290,27 +481,92 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 2399.33333333,
+						"translation.y": 1407.33333333,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
 					"type": "text"
 				},
 				{
-					"buffer": 2,
-					"file": "test/test.py",
+					"buffer": 1,
+					"file": "setup.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 630,
+						"buffer_size": 890,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								124,
-								197
+								705,
+								686
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 2,
+					"file": "src/arraymodule.hpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3500,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								154,
+								154
+							]
+						],
+						"settings":
+						{
+							"auto_name": "arraymodule.hpp",
+							"syntax": "Packages/C++/C++.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 504.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "test/test.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4514,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								624,
+								525
 							]
 						],
 						"settings":
@@ -323,7 +579,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
@@ -331,7 +587,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 24.0
+		"height": 23.0
 	},
 	"input":
 	{
@@ -346,11 +602,18 @@
 				0,
 				1,
 				1
+			],
+			[
+				1,
+				0,
+				2,
+				1
 			]
 		],
 		"cols":
 		[
 			0.0,
+			0.514256075874,
 			1.0
 		],
 		"rows":
@@ -359,10 +622,10 @@
 			1.0
 		]
 	},
-	"menu_visible": true,
+	"menu_visible": false,
 	"output.exec":
 	{
-		"height": 332.0
+		"height": 206.0
 	},
 	"output.find_results":
 	{
@@ -372,7 +635,7 @@
 	"project": "kipr.sublime-project",
 	"replace":
 	{
-		"height": 44.0
+		"height": 70.0
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -409,9 +672,9 @@
 	"show_minimap": true,
 	"show_open_files": false,
 	"show_tabs": true,
-	"side_bar_visible": true,
-	"side_bar_width": 171.0,
-	"status_bar_visible": true,
+	"side_bar_visible": false,
+	"side_bar_width": 155.0,
+	"status_bar_visible": false,
 	"template_settings":
 	{
 	}
