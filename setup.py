@@ -1,5 +1,20 @@
 import setuptools
 import numpy as np
+from sys import platform
+
+extra_args = {}
+
+if platform == "linux" or platform == "linux2":
+    extra_args = {
+      'extra_compile_args': ['-mavx2']
+    }
+elif platform == "darwin":
+    pass
+elif platform == "win32":
+    extra_args = {
+      'extra_compile_args': ['/std:c++latest','/Zi', '/Od', "/arch:AVX2"],
+      'extra_link_args': ['/DEBUG']
+    }
 
 native_side = setuptools.Extension(name='kipr_nat',
                                    sources=['src/natmodule.cpp'],
@@ -9,8 +24,7 @@ arrays = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],
                               include_dirs=[np.get_include()],
                               library_dirs=['C:\\Program Files\\Python39\\libs'],
-                              extra_compile_args=['/std:c++latest','/Zi', '/Od', "/arch:AVX2"],
-                              extra_link_args=['/DEBUG'])
+                              **extra_args)
 
 setuptools.setup(name='kipr',
                  version='0.0',
