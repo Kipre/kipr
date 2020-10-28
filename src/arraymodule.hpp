@@ -7,8 +7,8 @@
 #include <immintrin.h>
 
 // Breakpoint
-#include <windows.h>
-#include <debugapi.h>
+// #include <windows.h>
+// #include <debugapi.h>
 
 #define Py_DEBUG
 // To avoid c++ mix designated initializers error
