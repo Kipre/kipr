@@ -4,14 +4,14 @@
 #include <numpy/arrayobject.h>
 #include <new>
 #include <string>
+// #include <vector>
 #include <immintrin.h>
 
 // Breakpoint
-// #include <windows.h>
-// #include <debugapi.h>
+#include <windows.h>
+#include <debugapi.h>
 
-#define Py_DEBUG
-// To avoid c++ mix designated initializers error
+// To avoid c++ mixed designated initializers error
 #define Karray_HEAD_INIT \
     .ob_base={.ob_base={1, NULL }, .ob_size=0},
 
@@ -37,7 +37,7 @@ typedef struct {
 } Karray;
 
 // utility functions
-int data_theo_length(Karray *self);
+int Karray_length(Karray *self);
 bool is_Karray(PyObject * obj);
 
 // member functions
@@ -49,6 +49,9 @@ static PyObject *  Karray_str(Karray * self);
 // math member functions
 static PyObject * Karray_add(PyObject * self, PyObject * other);
 
+// mapping methods
+static PyObject* Karray_subscript(PyObject *o, PyObject *key);
+
 // getters and setters
 static PyObject * Karray_getshape(Karray *self, void *closure);
 
@@ -58,6 +61,7 @@ static PyObject * Karray_reshape(Karray *self, PyObject *shape);
 
 // independent methods
 static PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
+static PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
 
 // python overhead
 static PyMemberDef Karray_members[] = {
@@ -85,6 +89,10 @@ static PyNumberMethods Karray_as_number = {
     .nb_add = Karray_add
 };
 
+static PyMappingMethods Karray_as_mapping = {
+    .mp_subscript = Karray_subscript
+};
+
 static PyTypeObject KarrayType = {
     Karray_HEAD_INIT
     .tp_name = "kipr.arr",
@@ -93,6 +101,7 @@ static PyTypeObject KarrayType = {
     .tp_dealloc = (destructor) Karray_dealloc,
     .tp_repr = (reprfunc) Karray_str, // Not ideal
     .tp_as_number = &Karray_as_number,
+    .tp_as_mapping = &Karray_as_mapping,
     .tp_str = (reprfunc) Karray_str,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_doc = "Array object from kipr.",
@@ -106,6 +115,8 @@ static PyTypeObject KarrayType = {
 static PyMethodDef arraymodule_methods[] = {
     {"max_nd",  max_nd, METH_NOARGS,
      "Get maximum number of dimensions for a kipr.arr() array."},
+    {"execute",  execute_func, METH_NOARGS,
+     "Testing function to execute C code."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

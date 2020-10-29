@@ -9,7 +9,7 @@
 void DEBUG_print_int_carr(int * carr, int len, char * message="") 
 {
     printf("%s\n", message);
-    printf("\tprinting array, length: %i\n", len);
+    printf("\tprinting array, length: %k\n", len);
     printf("\telements: ");
     for (int k=0; k<len + 1; k++) {
         printf(" %i,", carr[k]);
@@ -26,7 +26,7 @@ void DEBUG_print_arr(Karray * self, char * message="")
         printf(" %i,", self->shape[k]);
     }
     printf("\n");
-    int length = data_theo_length(self);
+    int length = Karray_length(self);
     printf("\tdata theoretical length: %i\n", length);
     if (length < 50) {
         printf("\tdata: ");
@@ -48,15 +48,24 @@ void DEBUG_print_type(PyObject * obj, char * message="")
     printf("\tis Karray %i \n", is_Karray(obj));
     printf("\tis mapping %i \n", PyMapping_Check(obj));
     printf("\tis index %i \n", PyIndex_Check(obj));
+    printf("\tis slice %i \n", PySlice_Check(obj));
 }
+
+#define DEBUG_P(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
 
 /************************************************
                 Utility functions
 ************************************************/
 
-int product(int * arr, int len, int increment=0) {
+int product(int * arr, int len, int increment=0, int depth=0) {
     int result = 1;
-    while (len >  0) result *= arr[--len] + increment;
+    while (len >  depth) result *= arr[--len] + increment;
+    return result;
+}
+
+int sum(int * arr, int len, int depth=0) {
+    int result = 0;
+    while (len >  depth) result += arr[--len];
     return result;
 }
 
@@ -64,7 +73,7 @@ int product(int * arr, int len, int increment=0) {
             Member utility functions
 ************************************************/
 
-int data_theo_length(Karray *self) {
+int Karray_length(Karray *self) {
     return product(self->shape, self->nd);
 }
 
@@ -187,7 +196,7 @@ Karray_init_from_data(Karray * self, PyObject * sequence)
 
     Py_INCREF(self);
     set_shape(self, inferred_shape);
-    int data_length = data_theo_length(self);
+    int data_length = Karray_length(self);
     if (self->data)
         delete[] self->data;
     self->data = new float[data_length];
@@ -251,6 +260,33 @@ std::string shape_str(Karray * self) {
 bool is_Karray(PyObject * obj) 
 {
     return (obj->ob_type == &KarrayType);
+}
+
+char char_type(PyObject * obj) {
+
+    if (is_Karray(obj))
+        return 'k';
+    if (PyArray_Check(obj))
+        return 'a';
+    if (PyUnicode_Check(obj))
+        return 'u';
+    if (PyTuple_Check(obj))
+        return 't';
+    if (PySequence_Check(obj))
+        return 's';
+    if (PyNumber_Check(obj))
+        return 'n';
+    if (PyIndex_Check(obj))
+        return 'i';
+    if (PyMapping_Check(obj))
+        return 'm';
+    if (PyObject_CheckBuffer(obj))
+        return 'b';
+    if (PyIter_Check(obj))
+        return '$';
+    if (PySlice_Check(obj))
+        return ':';
+    return '?';
 }
 
 
@@ -392,7 +428,7 @@ Karray_reshape(Karray *self, PyObject *shape)
         PyErr_SetString(PyExc_TypeError, "Failed to reshape array.");
         return NULL;
     }
-    if (data_theo_length(self) == product(proposed_shape, proposed_nd)) {
+    if (Karray_length(self) == product(proposed_shape, proposed_nd)) {
         set_shape(self, proposed_shape);
         self->nd = proposed_nd;
         Py_INCREF(self);
@@ -407,6 +443,14 @@ static PyObject *
 max_nd(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     return PyLong_FromLong((long) MAX_NDIMS);
+}
+
+static PyObject *
+execute_func(PyObject *self, PyObject *Py_UNUSED(ignored))
+{
+    
+    DEBUG_print_type(Karray_new(&KarrayType, NULL, NULL));
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -439,8 +483,8 @@ Karray_add(PyObject * self, PyObject * other) {
 
     // DEBUG_print_arr(b, "b");
 
-    int data_length = data_theo_length(a);
-    if (data_length == data_theo_length(b)) {
+    int data_length = Karray_length(a);
+    if (data_length == Karray_length(b)) {
         int k;
         for (k=0; k<data_length-8; k += 8) {
             __m256 v_a = _mm256_load_ps(&a->data[k]);
@@ -470,6 +514,148 @@ Karray_add(PyObject * self, PyObject * other) {
         Py_XDECREF(a);
         Py_XDECREF(b);
         PyErr_SetString(PyExc_TypeError, "Failed to add elements.");
+        return NULL;
+}
+
+static int transfer_data(Karray * from, Karray * to, int * filter, int * index,
+                   int depth = 0, int position = -1) {
+    if (depth < from->nd) {
+        int depth_offset = sum(from->shape, depth);
+        int ind;
+        bool bypass = (filter[depth_offset] == -1);
+        for (int k=0; k<from->shape[depth]; ++k) {
+            if (bypass) {
+                index[depth] = k;
+                position = transfer_data(from, to, filter, index, depth + 1, position);
+            } else if ((ind = filter[depth_offset + k]) >= 0) {
+                index[depth] = ind;
+                position = transfer_data(from, to, filter, index, depth + 1, position);
+            }
+        }
+        return position;
+    } else {
+        to->data[++position] = from->data[offset(from, index)];
+        return position;
+    }
+}
+
+static int align_index(Karray * self, int axis, int index) {
+    int length = self->shape[axis];
+    if (index < length && index > -length) {
+        return (length + index) % length;
+    }
+
+    PyErr_Format(PyExc_IndexError, "Index %i out of bounds on axis %i with length %i.", index, axis, length);
+    // PyErr_SetString(PyExc_IndexError, "Index out of bounds.");
+    return 0;
+}
+
+
+static PyObject * Karray_subscript(PyObject *o, PyObject *key) 
+{   
+    // Py_INCREF(o);
+    Karray * self = (Karray *) o;
+    Karray * result = (Karray *) Karray_new(&KarrayType, NULL, NULL);
+
+    int nb_indices = sum(self->shape, self->nd);
+    int * filters = new int[nb_indices];
+    for (int k=0; k<nb_indices; k++) {
+        filters[k] = -1;
+    }
+
+    
+
+    Py_INCREF(key);
+    if (!PyTuple_Check(key))
+        key = Py_BuildValue("(O)", key);
+
+
+    int position=0, seq_length, shape_count=0, current_dim=0, current_tup_item=0;
+    bool found_ellipsis = false;
+    int tup_length = PyTuple_Size(key);
+
+    printf("tuple seq_length %i\n", tup_length);
+    while (current_tup_item<tup_length) {
+        PyObject * current_indices = PyTuple_GetItem(key, current_tup_item++);
+        // printf("current_tup_item %i, current_dim %i, shape_count %i, \n", current_tup_item, current_dim, shape_count);
+        // DEBUG_P(current_indices);
+        int index_position = -1;
+        if (PySlice_Check(current_indices)) {
+            Py_ssize_t start, stop, step, slicelength;
+            PySlice_GetIndicesEx(current_indices, self->shape[current_dim], 
+                                 &start, &stop, &step, 
+                                 &slicelength);
+            printf("start, stop, step, slicelength %i, %i, %i, %i, \n", start, stop, step, slicelength);
+            if (start == stop) {
+                filters[position] = start;
+                position += self->shape[current_dim++];
+            } else {
+                for (int i=start; i<stop; i+=step) {
+                    filters[++index_position + position] = i;
+                }
+                position += self->shape[current_dim++];
+                result->shape[shape_count++] = slicelength;
+            }
+        } else if (PyNumber_Check(current_indices)) {
+            int index = (int) PyLong_AsLong(current_indices);
+            index = align_index(self, current_dim, index);
+            Karray_IF_ERR_GOTO_FAIL;
+            filters[position] = index;
+            position += self->shape[current_dim++];
+        } else if (PySequence_Check(current_indices) &&
+                   (seq_length = PySequence_Length(current_indices)) > 0 &&
+                   seq_length < self->shape[current_dim]) {
+            for (int i=0; i<seq_length; i++) {
+                PyObject * item = PySequence_GetItem(current_indices, i);
+                filters[++index_position + position] = align_index(self, current_dim, (int) PyLong_AsLong(item));
+                Karray_IF_ERR_GOTO_FAIL;
+            }
+            position += self->shape[current_dim++];
+            result->shape[shape_count++] = seq_length;
+        } else if (current_indices == Py_Ellipsis &&
+                   !found_ellipsis) {
+            printf("current_dim before elli, %i \n", current_dim);
+            int nb_axes_to_elli = self->nd - tup_length + 1;
+            int done_axes = current_dim;
+            while (current_dim < nb_axes_to_elli + done_axes) {
+                position += self->shape[current_dim];
+                result->shape[shape_count++] = self->shape[current_dim++];            
+            }
+            printf("after nb_axes_to_elli %i, %i, %i \n", nb_axes_to_elli, current_dim, shape_count);
+
+            found_ellipsis = true;
+        } else {
+            goto fail;
+        }
+    }
+    // finish index creation
+    while (current_dim < self->nd) {
+        // for (int j=0; j<self->shape[current_dim]; ++j)
+        //     filters[j + position] = j;
+        position += self->shape[current_dim];
+        result->shape[shape_count++] = self->shape[current_dim];
+        ++current_dim;
+    }
+    result->nd = shape_count + (current_dim == 1);
+
+
+    // DEBUG_print_arr(result, "result");
+    DEBUG_print_int_carr(filters, nb_indices, "filters");
+
+    // printf("shape count %i\n", shape_count);
+    // printf("result length %i\n", Karray_length(result));
+    delete[] result->data;
+    int result_length = Karray_length(result);
+    result->data = new float[result_length];
+    int index[MAX_NDIMS] = {};
+
+    if (transfer_data(self, result, filters, index) != result_length - 1)
+        goto fail;
+
+    return (PyObject *) result;
+
+    fail:
+        PyErr_SetString(PyExc_IndexError, "Failed to understand subscript.");
         return NULL;
 }
 

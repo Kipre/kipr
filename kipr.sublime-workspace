@@ -4,8 +4,112 @@
 		"selected_items":
 		[
 			[
+				"curre",
+				"current_dim"
+			],
+			[
+				"sha",
+				"shape_count"
+			],
+			[
+				"nb",
+				"nb_treated_axes"
+			],
+			[
+				"curr",
+				"current_dim"
+			],
+			[
+				"cu",
+				"current_tup_item"
+			],
+			[
+				"al",
+				"align_index"
+			],
+			[
+				"resul",
+				"result_length"
+			],
+			[
+				"resu",
+				"result_length"
+			],
+			[
+				"print",
+				"printf\tprintf …"
+			],
+			[
+				"DE",
+				"DEBUG_print_arr"
+			],
+			[
+				"P",
+				"Py_INCREF"
+			],
+			[
+				"G",
+				"Karray_IF_ERR_GOTO_FAIL"
+			],
+			[
+				"PyLong",
+				"PyLong_AsLong"
+			],
+			[
+				"PySe",
+				"PySequence_GetItem"
+			],
+			[
+				"pri",
+				"DEBUG_print_arr"
+			],
+			[
+				"slice",
+				"slicelength"
+			],
+			[
+				"Ka",
+				"KarrayType"
+			],
+			[
+				"sel",
+				"self-"
+			],
+			[
+				"data",
+				"data_theo_length"
+			],
+			[
 				"PyE",
-				"PyErr_Clear"
+				"PyExc_TypeError"
+			],
+			[
+				"PyS",
+				"PySlice_Check"
+			],
+			[
+				"PyTuple",
+				"PyTuple_Check"
+			],
+			[
+				"cha",
+				"char_type"
+			],
+			[
+				"re",
+				"return"
+			],
+			[
+				"D",
+				"DEBUG_print_type"
+			],
+			[
+				"depth",
+				"depth_shape"
+			],
+			[
+				"Py_E",
+				"PyErr_Print"
 			],
 			[
 				"PyEr",
@@ -14,10 +118,6 @@
 			[
 				"is",
 				"is_Karray"
-			],
-			[
-				"DE",
-				"DEBUG_print_type"
 			],
 			[
 				"Py",
@@ -48,10 +148,6 @@
 				"assertEqual"
 			],
 			[
-				"P",
-				"PyObject"
-			],
-			[
 				"new",
 				"new_value"
 			],
@@ -62,14 +158,6 @@
 			[
 				"K",
 				"Karray"
-			],
-			[
-				"Ka",
-				"KarrayType"
-			],
-			[
-				"print",
-				"printf\tprintf …"
 			],
 			[
 				"inc",
@@ -100,10 +188,6 @@
 				"printf\tprintf …"
 			],
 			[
-				"pri",
-				"print_arr"
-			],
-			[
 				"IF",
 				"Karray_IF_ERR_GOTO_FAIL"
 			],
@@ -114,10 +198,6 @@
 			[
 				"Ma",
 				"MAX_NDIMS"
-			],
-			[
-				"data",
-				"data_length"
 			],
 			[
 				"asser",
@@ -146,10 +226,6 @@
 			[
 				"M",
 				"MAX_NDIMS"
-			],
-			[
-				"PyS",
-				"PySequence_Check"
 			],
 			[
 				"arra",
@@ -187,7 +263,7 @@
 			"file": "src/arraymodule.cpp",
 			"settings":
 			{
-				"buffer_size": 13835,
+				"buffer_size": 19962,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -196,7 +272,7 @@
 			"file": "setup.py",
 			"settings":
 			{
-				"buffer_size": 890,
+				"buffer_size": 1133,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -205,7 +281,7 @@
 			"file": "src/arraymodule.hpp",
 			"settings":
 			{
-				"buffer_size": 3500,
+				"buffer_size": 3878,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "arraymodule.hpp"
@@ -215,7 +291,7 @@
 			"file": "test/test.py",
 			"settings":
 			{
-				"buffer_size": 4514,
+				"buffer_size": 5439,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -311,6 +387,7 @@
 	],
 	"file_history":
 	[
+		"/C/Users/kipr/repos/kipr/docs/doc.ipynb",
 		"/C/Users/kipr/repos/kipr/doc/doc.ipynb",
 		"/C/Users/kipr/repos/perso/notebooks/soundradix_puzzle.ipynb",
 		"/C/Users/kipr/repos/kipr/test/test.py",
@@ -353,7 +430,7 @@
 	],
 	"find":
 	{
-		"height": 39.3333333333
+		"height": 39.0
 	},
 	"find_in_files":
 	{
@@ -367,6 +444,29 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"1",
+			"align_index",
+			"tuple",
+			"position",
+			"++shape_count",
+			"shape_count",
+			"dim",
+			"l",
+			"length",
+			"depth_offset",
+			"position",
+			"result",
+			"write_position",
+			"k",
+			"write_position",
+			"position",
+			"i",
+			"uint8_t",
+			"k",
+			"(Py_ssize_t *) ",
+			"data_theo_length",
+			"compile_args",
+			";\n",
 			"printf",
 			"    DEBUG",
 			"DEBUG_print_type",
@@ -463,15 +563,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 13835,
+						"buffer_size": 19962,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2769,
-								2769
+								17423,
+								17423
 							]
 						],
 						"settings":
@@ -481,7 +581,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1407.33333333,
+						"translation.y": 8081.33333333,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -493,15 +593,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 890,
+						"buffer_size": 1133,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								705,
-								686
+								78,
+								78
 							]
 						],
 						"settings":
@@ -529,15 +629,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3500,
+						"buffer_size": 3878,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								154,
-								154
+								350,
+								350
 							]
 						],
 						"settings":
@@ -546,7 +646,7 @@
 							"syntax": "Packages/C++/C++.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 504.0,
+						"translation.y": 0.666666666667,
 						"zoom_level": 1.0
 					},
 					"stack_index": 2,
@@ -558,15 +658,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4514,
+						"buffer_size": 5439,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								624,
-								525
+								5086,
+								5086
 							]
 						],
 						"settings":
@@ -576,7 +676,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 2501.33333333,
 						"zoom_level": 1.0
 					},
 					"stack_index": 1,
@@ -613,7 +713,7 @@
 		"cols":
 		[
 			0.0,
-			0.514256075874,
+			0.577276909207,
 			1.0
 		],
 		"rows":

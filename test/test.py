@@ -153,12 +153,54 @@ class TestKarray(unittest.TestCase):
             # )
 
 
-    # def test_split(self):
-    #     s = 'hello world'
-    #     self.assertEqual(s.split(), ['hello', 'world'])
-    #     # check that s.split fails when the separator is not a string
-    #     with self.assertRaises(TypeError):
-    #         s.split(2)
+    def test_subscript(self):
+
+        a = kp.arr(range(5**5), shape=[5, 5, 5, 5, 5])
+        b = a.numpy()
+
+        
+        with self.assertRaises(IndexError):
+            a[..., ...]
+
+        with self.assertRaises(IndexError):
+            a[5]
+
+        with self.assertRaises(IndexError):
+            print(a[-7])
+
+
+        with self.assertRaises(IndexError):
+            a[..., 5]
+
+        with self.assertRaises(IndexError):
+            a[..., 5]
+
+        a[1:1]
+
+        subscripts = [(1),
+                      (-1),
+                      (-3),
+                      (-3),
+                      (0, ...),
+                      (..., 0),
+                      (..., 4),
+                      (slice(None),slice(None)),
+                      (..., slice(1, 2, 3)),
+                      (..., (1, 2, 3)),
+                      (1, 2, ..., slice(1, 2, 3)),
+                      (slice(None), ..., slice(1, 2, 3)),
+                      (..., slice(None), slice(1, 2, 3)),
+                      (0, 1, 2, 3, 4)]
+
+        for sub in subscripts:
+            print(f"{sub = }")
+            np.testing.assert_almost_equal(
+                a[sub].numpy(), 
+                 b[sub]
+            )
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
