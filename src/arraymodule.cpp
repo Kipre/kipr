@@ -73,6 +73,26 @@ int sum(int * arr, int len, int depth=0) {
             Member utility functions
 ************************************************/
 
+void get_strides(Karray * self, int * holder) 
+{
+    int current_value = 1;
+    int dim = self->nd - 1;
+
+    while (dim >= 0) {
+        holder[dim] = current_value;
+        current_value *= self->shape[dim--];
+    }
+}
+
+void filter_offsets(Karray * origin, int * offsets)
+{   
+    offsets[0] = 0;
+    for (int k=1; k<origin->nd; ++k) {
+        offsets[k] = offsets[k-1] + origin->shape[k-1];
+    }
+}
+
+
 int Karray_length(Karray *self) {
     return product(self->shape, self->nd);
 }
@@ -448,8 +468,15 @@ max_nd(PyObject *self, PyObject *Py_UNUSED(ignored))
 static PyObject *
 execute_func(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
-    
-    DEBUG_print_type(Karray_new(&KarrayType, NULL, NULL));
+    DEBUG_P(self);
+
+    int strides[MAX_NDIMS] = {};
+    Karray * arr = (Karray *) self;
+
+    get_strides(arr, strides);
+
+    DEBUG_print_int_carr(strides, arr->nd, "strides");
+
     Py_RETURN_NONE;
 }
 
@@ -517,26 +544,47 @@ Karray_add(PyObject * self, PyObject * other) {
         return NULL;
 }
 
-static int transfer_data(Karray * from, Karray * to, int * filter, int * index,
-                   int depth = 0, int position = -1) {
+static void transfer(Karray * from, Karray * to, 
+                     int * filter, int * strides, 
+                     int * positions, int * offsets,
+                     int depth) {
     if (depth < from->nd) {
-        int depth_offset = sum(from->shape, depth);
-        int ind;
-        bool bypass = (filter[depth_offset] == -1);
-        for (int k=0; k<from->shape[depth]; ++k) {
-            if (bypass) {
-                index[depth] = k;
-                position = transfer_data(from, to, filter, index, depth + 1, position);
-            } else if ((ind = filter[depth_offset + k]) >= 0) {
-                index[depth] = ind;
-                position = transfer_data(from, to, filter, index, depth + 1, position);
+        // printf("filter[offsets[depth]], offsets[depth], depth %i %i %i\n", filter[offsets[depth]], offsets[depth], depth);
+        if (filter[offsets[depth]] == -1) {
+            for (int k=0; k<from->shape[depth]; ++k) {
+                // printf("current_index k  %i\n", k);
+                positions[1] += strides[depth]*(k != 0);
+                transfer(from, to, filter, strides, positions, offsets, depth + 1);
             }
+            positions[1] -= strides[depth]*(from->shape[depth] - 1);
+        } else {
+            int last_index = 0, current_index = 0,  k = 0;
+            for (;k<from->shape[depth]; ++k) {
+                current_index = filter[offsets[depth] + k];
+                // printf("current_index %i\n", current_index);
+                if (current_index < 0) break;
+                positions[1] += strides[depth] * (current_index - last_index);
+                transfer(from, to, filter, strides, positions, offsets, depth + 1);
+                last_index = current_index;
+            }
+            positions[1] -= strides[depth]*last_index;
         }
-        return position;
     } else {
-        to->data[++position] = from->data[offset(from, index)];
-        return position;
+        // DEBUG_print_int_carr(positions, 2, "positions");
+        to->data[positions[0]++] = from->data[positions[1]];
     }
+}
+
+static int transfer_data(Karray * from, Karray * to, int * filter, int * offsets) {
+
+    int strides[MAX_NDIMS] = {};
+    get_strides(from, strides);
+    int positions[2] = {0, 0};
+    DEBUG_print_int_carr(positions, 2, "positions");
+    
+    transfer(from, to, filter, strides, positions, offsets, 0);
+
+    return positions[0];
 }
 
 static int align_index(Karray * self, int axis, int index) {
@@ -546,14 +594,12 @@ static int align_index(Karray * self, int axis, int index) {
     }
 
     PyErr_Format(PyExc_IndexError, "Index %i out of bounds on axis %i with length %i.", index, axis, length);
-    // PyErr_SetString(PyExc_IndexError, "Index out of bounds.");
     return 0;
 }
 
 
 static PyObject * Karray_subscript(PyObject *o, PyObject *key) 
 {   
-    // Py_INCREF(o);
     Karray * self = (Karray *) o;
     Karray * result = (Karray *) Karray_new(&KarrayType, NULL, NULL);
 
@@ -574,18 +620,14 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
     bool found_ellipsis = false;
     int tup_length = PyTuple_Size(key);
 
-    printf("tuple seq_length %i\n", tup_length);
     while (current_tup_item<tup_length) {
         PyObject * current_indices = PyTuple_GetItem(key, current_tup_item++);
-        // printf("current_tup_item %i, current_dim %i, shape_count %i, \n", current_tup_item, current_dim, shape_count);
-        // DEBUG_P(current_indices);
         int index_position = -1;
         if (PySlice_Check(current_indices)) {
             Py_ssize_t start, stop, step, slicelength;
             PySlice_GetIndicesEx(current_indices, self->shape[current_dim], 
                                  &start, &stop, &step, 
                                  &slicelength);
-            printf("start, stop, step, slicelength %i, %i, %i, %i, \n", start, stop, step, slicelength);
             if (start == stop) {
                 filters[position] = start;
                 position += self->shape[current_dim++];
@@ -614,15 +656,12 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
             result->shape[shape_count++] = seq_length;
         } else if (current_indices == Py_Ellipsis &&
                    !found_ellipsis) {
-            printf("current_dim before elli, %i \n", current_dim);
             int nb_axes_to_elli = self->nd - tup_length + 1;
             int done_axes = current_dim;
             while (current_dim < nb_axes_to_elli + done_axes) {
                 position += self->shape[current_dim];
                 result->shape[shape_count++] = self->shape[current_dim++];            
             }
-            printf("after nb_axes_to_elli %i, %i, %i \n", nb_axes_to_elli, current_dim, shape_count);
-
             found_ellipsis = true;
         } else {
             goto fail;
@@ -630,32 +669,23 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
     }
     // finish index creation
     while (current_dim < self->nd) {
-        // for (int j=0; j<self->shape[current_dim]; ++j)
-        //     filters[j + position] = j;
         position += self->shape[current_dim];
         result->shape[shape_count++] = self->shape[current_dim];
         ++current_dim;
     }
     result->nd = shape_count + (current_dim == 1);
 
-
-    // DEBUG_print_arr(result, "result");
-    DEBUG_print_int_carr(filters, nb_indices, "filters");
-
-    // printf("shape count %i\n", shape_count);
-    // printf("result length %i\n", Karray_length(result));
     delete[] result->data;
     int result_length = Karray_length(result);
     result->data = new float[result_length];
-    int index[MAX_NDIMS] = {};
 
-    if (transfer_data(self, result, filters, index) != result_length - 1)
-        goto fail;
+    int offsets[MAX_NDIMS] = {};
+    filter_offsets(self, offsets);
 
     return (PyObject *) result;
 
     fail:
-        PyErr_SetString(PyExc_IndexError, "Failed to understand subscript.");
+        PyErr_SetString(PyExc_IndexError, "Failed to apply subscript.");
         return NULL;
 }
 

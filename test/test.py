@@ -206,6 +206,9 @@ if __name__ == '__main__':
     unittest.main()
     # TestKarray().test_init()
     # TestKarray().test_add_operation()
+    # TestKarray().test_subscript()
+    
+
 
     
 
