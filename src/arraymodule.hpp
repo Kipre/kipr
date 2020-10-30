@@ -31,13 +31,13 @@ int STR_OFFSET = 10;
 typedef struct {
     PyObject_HEAD
     int nd;
-    int shape [MAX_NDIMS];
+    Py_ssize_t shape [MAX_NDIMS];
     float * data;
     int attr;
 } Karray;
 
 // utility functions
-int Karray_length(Karray *self);
+Py_ssize_t Karray_length(Karray * self);
 bool is_Karray(PyObject * obj);
 
 // member functions

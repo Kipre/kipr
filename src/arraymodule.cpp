@@ -9,12 +9,13 @@
 void DEBUG_print_int_carr(int * carr, int len, char * message="") 
 {
     printf("%s\n", message);
-    printf("\tprinting array, length: %k\n", len);
+    printf("\tprinting array, length: %i\n", len);
     printf("\telements: ");
     for (int k=0; k<len + 1; k++) {
         printf(" %i,", carr[k]);
     }
     printf("\n");
+
 }
 
 void DEBUG_print_arr(Karray * self, char * message="")
@@ -23,11 +24,11 @@ void DEBUG_print_arr(Karray * self, char * message="")
     printf("\tnumber of dimensions: %i\n", self->nd);
     printf("\tshape: ");
     for (int k=0; k<self->nd + 1; k++) {
-        printf(" %i,", self->shape[k]);
+        printf(" %Ii,", self->shape[k]);
     }
     printf("\n");
-    int length = Karray_length(self);
-    printf("\tdata theoretical length: %i\n", length);
+    Py_ssize_t length = Karray_length(self);
+    printf("\tdata theoretical length: %Ii\n", length);
     if (length < 50) {
         printf("\tdata: ");
         for (int k=0; k<length; k++) {
@@ -57,25 +58,41 @@ void DEBUG_print_type(PyObject * obj, char * message="")
                 Utility functions
 ************************************************/
 
-int product(int * arr, int len, int increment=0, int depth=0) {
-    int result = 1;
-    while (len >  depth) result *= arr[--len] + increment;
+// Py_ssize_t product(Py_ssize_t * arr, int len, int increment=0, int depth=0) {
+//     Py_ssize_t result = 1;
+//     while (len >  depth) result *= arr[--len] + (Py_ssize_t) increment;
+//     return result;
+// }
+
+template <typename T> 
+inline T product(T * arr, int len, int increment=0, int depth=0) 
+{
+    T result = 1;
+    while (len >  depth) result *= arr[--len] + (T) increment;
     return result;
 }
 
-int sum(int * arr, int len, int depth=0) {
-    int result = 0;
+template <typename T> 
+inline T sum(T * arr, int len, int depth=0) 
+{
+    T result = 0;
     while (len >  depth) result += arr[--len];
     return result;
 }
+
+// int sum(int * arr, int len, int depth=0) {
+//     int result = 0;
+//     while (len >  depth) result += arr[--len];
+//     return result;
+// }
 
 /************************************************
             Member utility functions
 ************************************************/
 
-void get_strides(Karray * self, int * holder) 
+void get_strides(Karray * self, Py_ssize_t * holder) 
 {
-    int current_value = 1;
+    Py_ssize_t current_value = 1;
     int dim = self->nd - 1;
 
     while (dim >= 0) {
@@ -84,7 +101,7 @@ void get_strides(Karray * self, int * holder)
     }
 }
 
-void filter_offsets(Karray * origin, int * offsets)
+void filter_offsets(Karray * origin, Py_ssize_t * offsets)
 {   
     offsets[0] = 0;
     for (int k=1; k<origin->nd; ++k) {
@@ -93,18 +110,18 @@ void filter_offsets(Karray * origin, int * offsets)
 }
 
 
-int Karray_length(Karray *self) {
+Py_ssize_t Karray_length(Karray *self) {
     return product(self->shape, self->nd);
 }
 
-void set_shape(Karray *self, int * shape) {
+void set_shape(Karray *self, Py_ssize_t * shape) {
     for (int k=0; k<MAX_NDIMS; k++) {
         self->shape[k] = shape[k];
     }
 }
 
 void reset_shape(Karray *self) {
-    int shape [MAX_NDIMS] = {1};
+    Py_ssize_t shape [MAX_NDIMS] = {1};
     set_shape(self, shape);
 }
 
@@ -112,9 +129,9 @@ static bool is_scalar(Karray * self) {
     return (self->nd == 1) && (self->shape[0] == 1);
 }
 
-int offset(Karray * self, int * index) {
+Py_ssize_t offset(Karray * self, Py_ssize_t * index) {
     int k=0;
-    int result = 0;
+    Py_ssize_t result = 0;
     while (k<self->nd-1) {
         result = (result + index[k])*self->shape[k+1];
         ++k;
@@ -123,8 +140,8 @@ int offset(Karray * self, int * index) {
     return result;
 } 
 
-static int infer_shape(PyObject * input, int * shape, int depth=0) {
-    int length;
+static int infer_shape(PyObject * input, Py_ssize_t * shape, int depth=0) {
+    Py_ssize_t length;
 
     if (depth > MAX_NDIMS)
         return -1;
@@ -144,7 +161,7 @@ static int infer_shape(PyObject * input, int * shape, int depth=0) {
     }
 }
 
-static int copy_data(PyObject * input, int * shape, float * result, int depth=0, int position=0)
+static int copy_data(PyObject * input, Py_ssize_t * shape, float * result, int depth=0, int position=0)
 {   
     if (PySequence_Check(input)) {
         for (int k=0; k<shape[depth]; k++) {
@@ -170,9 +187,10 @@ static int copy_data(PyObject * input, int * shape, float * result, int depth=0,
     return position;
 }
 
-static int parse_shape(PyObject * sequence, int * shape) {
+static int parse_shape(PyObject * sequence, Py_ssize_t * shape) {
+    // returns the nb of dimensions
     if (PySequence_Check(sequence)) {
-        int nd = PySequence_Length(sequence);
+        Py_ssize_t nd = PySequence_Length(sequence);
         if (nd < 1 || nd > MAX_NDIMS) {
             PyErr_SetString(PyExc_TypeError, "Shape must have between one and kipr.max_nd() elements.");
             return -1;
@@ -186,49 +204,42 @@ static int parse_shape(PyObject * sequence, int * shape) {
             }
             Py_DECREF(element);
         }
-        return nd;
+        return (int) nd;
     } else {
         PyErr_SetString(PyExc_TypeError, "Shape must be a sequence.");
         return -1;
     } 
 }
 
-static int 
+static Py_ssize_t
 Karray_init_from_data(Karray * self, PyObject * sequence) 
 {
-    int inferred_shape[MAX_NDIMS] = {1};
-    // int depth_shape[MAX_NDIMS] = {1};
-    // int depth = 2;
-
-
-    // printf("depth check \n");
-    // printf("\tdepth %i \n", depth = depth_check(sequence, depth_shape)); 
-    // DEBUG_print_int_carr(depth_shape, depth, "depth checked shape");
-
+    // TODO: clean-up this function
+    Py_ssize_t inferred_shape[MAX_NDIMS] = {1};
+    
     int nd = infer_shape(sequence, inferred_shape);
     if (nd < 1) {
         PyErr_SetString(PyExc_TypeError, "Shape inference failed.");
         goto fail;
     }
     self->nd = nd;
-    // printf("after infer %s\n", "");
-    // DEBUG_print_int_carr(inferred_shape, self->nd, "inferred shape...");
-
+    
     Py_INCREF(self);
     set_shape(self, inferred_shape);
-    int data_length = Karray_length(self);
+    Py_ssize_t data_length = Karray_length(self);
     if (self->data)
         delete[] self->data;
     self->data = new float[data_length];
+
     Py_INCREF(sequence);
     int final_position = copy_data(sequence, self->shape, self->data);
     Karray_IF_ERR_GOTO_FAIL;
+
     if (final_position != data_length) goto fail;
 
-    // DEBUG_print_arr(self, "self in kinit");
     Py_INCREF(sequence);
     Py_INCREF(self);
-    // DebugBreak();
+    
     return data_length;
 
     fail:
@@ -239,12 +250,13 @@ Karray_init_from_data(Karray * self, PyObject * sequence)
         return -1;
 }
 
-std::string str(Karray * self, int * index, int depth=0, bool repr=false) 
+std::string str(Karray * self, Py_ssize_t * index, int depth=0, bool repr=false) 
 {
+    // TODO: rewrite function without index
     // DEBUG_print_arr(self);
     // printf("%i\n", depth);
     std::string result = "[";
-    int current_offset = offset(self, index);
+    Py_ssize_t current_offset = offset(self, index);
 
     if (depth < self->nd && (current_offset < MAX_PRINT_SIZE) && !repr) {
         for (int k=0; k<self->shape[depth]; k++) {
@@ -340,7 +352,8 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"data", "shape", NULL};
     PyObject *input = NULL, *shape = NULL;
-    int proposed_nd = 0, proposed_shape[MAX_NDIMS] = {0};
+    int proposed_nd = 0;
+    Py_ssize_t proposed_shape[MAX_NDIMS] = {0};
 
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|$O", kwlist,
@@ -349,7 +362,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
 
     Py_INCREF(input);
     Py_INCREF(self);
-    int data_length = Karray_init_from_data(self, input);
+    Py_ssize_t data_length = Karray_init_from_data(self, input);
     Karray_IF_ERR_GOTO_FAIL;
 
     if (shape) {
@@ -357,7 +370,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
         int proposed_nd = parse_shape(shape, proposed_shape);
         Karray_IF_ERR_GOTO_FAIL;
 
-        int proposed_length = product(proposed_shape, proposed_nd);
+        Py_ssize_t proposed_length = product(proposed_shape, proposed_nd);
         // DEBUG_print_int_carr(proposed_shape, proposed_nd, "the shape...");
 
         // Check if the propsed makes sense with repect to data
@@ -399,7 +412,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
 static PyObject * 
 Karray_str(Karray * self) 
 {   
-    int index [MAX_NDIMS] = {0};
+    Py_ssize_t index [MAX_NDIMS] = {0};
     std::string result = "kipr.arr(" + str(self, index);
     result.pop_back();
     result += '\n';
@@ -413,7 +426,7 @@ Karray_getshape(Karray *self, void *closure)
 {
     PyObject * result = PyTuple_New(self->nd);
     for (int k=0; k<self->nd; k++) {
-        PyTuple_SET_ITEM(result, k, PyLong_FromLong(self->shape[k]));
+        PyTuple_SET_ITEM(result, k, PyLong_FromSsize_t(self->shape[k]));
     }
     return result;
 }
@@ -440,7 +453,7 @@ Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored))
 static PyObject *
 Karray_reshape(Karray *self, PyObject *shape)
 {
-    int proposed_shape [MAX_NDIMS] = {1};
+    Py_ssize_t proposed_shape [MAX_NDIMS] = {1};
 
     int proposed_nd = parse_shape(shape, proposed_shape);
     if (proposed_nd < 1) {
@@ -470,12 +483,12 @@ execute_func(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     DEBUG_P(self);
 
-    int strides[MAX_NDIMS] = {};
+    Py_ssize_t strides[MAX_NDIMS] = {};
     Karray * arr = (Karray *) self;
 
     get_strides(arr, strides);
 
-    DEBUG_print_int_carr(strides, arr->nd, "strides");
+    DEBUG_print_int_carr((int *) strides, arr->nd, "strides");
 
     Py_RETURN_NONE;
 }
@@ -510,7 +523,7 @@ Karray_add(PyObject * self, PyObject * other) {
 
     // DEBUG_print_arr(b, "b");
 
-    int data_length = Karray_length(a);
+    Py_ssize_t data_length = Karray_length(a);
     if (data_length == Karray_length(b)) {
         int k;
         for (k=0; k<data_length-8; k += 8) {
@@ -545,8 +558,8 @@ Karray_add(PyObject * self, PyObject * other) {
 }
 
 static void transfer(Karray * from, Karray * to, 
-                     int * filter, int * strides, 
-                     int * positions, int * offsets,
+                     Py_ssize_t * filter, Py_ssize_t * strides, 
+                     Py_ssize_t * positions, Py_ssize_t * offsets,
                      int depth) {
     if (depth < from->nd) {
         // printf("filter[offsets[depth]], offsets[depth], depth %i %i %i\n", filter[offsets[depth]], offsets[depth], depth);
@@ -558,7 +571,7 @@ static void transfer(Karray * from, Karray * to,
             }
             positions[1] -= strides[depth]*(from->shape[depth] - 1);
         } else {
-            int last_index = 0, current_index = 0,  k = 0;
+            Py_ssize_t last_index = 0, current_index = 0, k = 0;
             for (;k<from->shape[depth]; ++k) {
                 current_index = filter[offsets[depth] + k];
                 // printf("current_index %i\n", current_index);
@@ -575,19 +588,23 @@ static void transfer(Karray * from, Karray * to,
     }
 }
 
-static int transfer_data(Karray * from, Karray * to, int * filter, int * offsets) {
+static Py_ssize_t transfer_data(Karray * from, Karray * to, Py_ssize_t * filter, Py_ssize_t * offsets) {
 
-    int strides[MAX_NDIMS] = {};
+    Py_ssize_t strides[MAX_NDIMS] = {};
     get_strides(from, strides);
-    int positions[2] = {0, 0};
+    Py_ssize_t positions[2] = {0, 0};
     
     transfer(from, to, filter, strides, positions, offsets, 0);
 
     return positions[0];
 }
 
-static int align_index(Karray * self, int axis, int index) {
-    int length = self->shape[axis];
+static Py_ssize_t align_index(Karray * self, int axis, Py_ssize_t index) {
+    Py_ssize_t length = self->shape[axis];
+    if (axis > MAX_NDIMS) {
+        PyErr_Format(PyExc_IndexError, "Subscript is probably too wide becaut the array can't have an axis %i.", axis);
+        return 0; 
+    }
     if (index < length && index > -length) {
         return (length + index) % length;
     }
@@ -596,10 +613,11 @@ static int align_index(Karray * self, int axis, int index) {
     return 0;
 }
 
-void make_filter(PyObject * tuple, Karray * from, Karray * to, int * filter) {
-    int position=0, seq_length, shape_count=0, current_dim=0, current_tup_item=0;
+void make_filter(PyObject * tuple, Karray * from, Karray * to, Py_ssize_t * filter) {
+    Py_ssize_t position=0, seq_length;
+    int shape_count=0, current_dim=0, current_tup_item=0;
     bool found_ellipsis = false;
-    int tup_length = PyTuple_Size(tuple);
+    Py_ssize_t tup_length = PyTuple_Size(tuple);
 
     while (current_tup_item<tup_length) {
         PyObject * current_indices = PyTuple_GetItem(tuple, current_tup_item++);
@@ -613,14 +631,14 @@ void make_filter(PyObject * tuple, Karray * from, Karray * to, int * filter) {
                 filter[position] = start;
                 position += from->shape[current_dim++];
             } else {
-                for (int i=start; i<stop; i+=step) {
+                for (Py_ssize_t i=start; i<stop; i+=step) {
                     filter[++index_position + position] = i;
                 }
                 position += from->shape[current_dim++];
                 to->shape[shape_count++] = slicelength;
             }
         } else if (PyNumber_Check(current_indices)) {
-            int index = (int) PyLong_AsLong(current_indices);
+            Py_ssize_t index = (Py_ssize_t) PyLong_AsLong(current_indices);
             index = align_index(from, current_dim, index);
             Karray_IF_ERR_GOTO_FAIL;
             filter[position] = index;
@@ -637,7 +655,7 @@ void make_filter(PyObject * tuple, Karray * from, Karray * to, int * filter) {
             to->shape[shape_count++] = seq_length;
         } else if (current_indices == Py_Ellipsis &&
                    !found_ellipsis) {
-            int nb_axes_to_elli = from->nd - tup_length + 1;
+            Py_ssize_t nb_axes_to_elli = from->nd - tup_length + 1;
             int done_axes = current_dim;
             while (current_dim < nb_axes_to_elli + done_axes) {
                 position += from->shape[current_dim];
@@ -668,8 +686,8 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
     Karray * self = (Karray *) o;
     Karray * result = (Karray *) Karray_new(&KarrayType, NULL, NULL);
 
-    int nb_indices = sum(self->shape, self->nd);
-    int * filters = new int[nb_indices];
+    Py_ssize_t nb_indices = sum(self->shape, self->nd);
+    Py_ssize_t * filters = new Py_ssize_t[nb_indices];
     for (int k=0; k<nb_indices; k++) {
         filters[k] = -1;
     }
@@ -682,10 +700,10 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
     Karray_IF_ERR_GOTO_FAIL;
 
     delete[] result->data;
-    int result_length = Karray_length(result);
+    Py_ssize_t result_length = Karray_length(result);
     result->data = new float[result_length];
 
-    int offsets[MAX_NDIMS] = {};
+    Py_ssize_t offsets[MAX_NDIMS] = {};
     filter_offsets(self, offsets);
 
     transfer_data(self, result, filters, offsets);
