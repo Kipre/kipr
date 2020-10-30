@@ -4,12 +4,12 @@
 #include <numpy/arrayobject.h>
 #include <new>
 #include <string>
-// #include <vector>
 #include <immintrin.h>
 
-// Breakpoint
-#include <windows.h>
-#include <debugapi.h>
+#ifdef _WIN32 
+#include <windows.h> 
+#include <debugapi.h> 
+#endif
 
 // To avoid c++ mixed designated initializers error
 #define Karray_HEAD_INIT \
