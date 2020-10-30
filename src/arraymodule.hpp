@@ -4,7 +4,10 @@
 #include <numpy/arrayobject.h>
 #include <new>
 #include <string>
+
+#if __AVX__ 
 #include <immintrin.h>
+#endif
 
 #ifdef _WIN32 
 #include <windows.h> 

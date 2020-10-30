@@ -6,7 +6,7 @@ extra_args = {}
 
 if platform == "linux" or platform == "linux2":
     extra_args = {
-      'extra_compile_args': ['-mavx2']
+      # 'extra_compile_args': ['-mavx2']
     }
 elif platform == "darwin":
     pass

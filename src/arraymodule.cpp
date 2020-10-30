@@ -6,7 +6,7 @@
 ************************************************/
     // DEBUG
 
-void DEBUG_print_int_carr(int * carr, int len, char * message="") 
+void DEBUG_print_int_carr(int * carr, int len, char const * message="") 
 {
     printf("%s\n", message);
     printf("\tprinting array, length: %i\n", len);
@@ -18,7 +18,7 @@ void DEBUG_print_int_carr(int * carr, int len, char * message="")
 
 }
 
-void DEBUG_print_arr(Karray * self, char * message="")
+void DEBUG_print_arr(Karray * self, char const * message="")
 {
     printf("%s\n", message);
     printf("\tnumber of dimensions: %i\n", self->nd);
@@ -38,7 +38,7 @@ void DEBUG_print_arr(Karray * self, char * message="")
     }
 }  
 
-void DEBUG_print_type(PyObject * obj, char * message="") 
+void DEBUG_print_type(PyObject * obj, char const * message="") 
 {
     printf("type check in %s\n", message);
     printf("\tis sequence %i \n", PySequence_Check(obj)); 
@@ -220,18 +220,20 @@ static Py_ssize_t
 Karray_init_from_data(Karray * self, PyObject * sequence) 
 {
     Py_ssize_t inferred_shape[MAX_NDIMS] = {1};
+    Py_ssize_t data_length;
+    int final_position;
     
     int nd = infer_shape(sequence, inferred_shape);
     Karray_IF_ERR_GOTO_FAIL;
     self->nd = nd;
     
     set_shape(self, inferred_shape);
-    Py_ssize_t data_length = Karray_length(self);
+    data_length = Karray_length(self);
     if (self->data)
         delete[] self->data;
     self->data = new float[data_length];
 
-    int final_position = copy_data(sequence, self->shape, self->data);
+    final_position = copy_data(sequence, self->shape, self->data);
     Karray_IF_ERR_GOTO_FAIL;
 
     if (final_position != data_length) goto fail;
@@ -506,7 +508,6 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"data", "shape", NULL};
     PyObject *input = NULL, *shape = NULL;
-    int proposed_nd = 0;
     Py_ssize_t proposed_shape[MAX_NDIMS] = {0};
 
 
@@ -638,7 +639,9 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
 {   
     
     Karray * self = (Karray *) o;
-    Karray * result = (Karray *) Karray_new(&KarrayType, NULL, NULL);
+    Karray * result = new_Karray();
+    Py_ssize_t offsets[MAX_NDIMS] = {};
+    Py_ssize_t result_length;
 
     Py_ssize_t nb_indices = sum(self->shape, self->nd);
     Py_ssize_t * filters = new Py_ssize_t[nb_indices];
@@ -654,10 +657,10 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
     Karray_IF_ERR_GOTO_FAIL;
 
     delete[] result->data;
-    Py_ssize_t result_length = Karray_length(result);
+    result_length = Karray_length(result);
     result->data = new float[result_length];
 
-    Py_ssize_t offsets[MAX_NDIMS] = {};
+
     filter_offsets(self, offsets);
 
     transfer_data(self, result, filters, offsets);
@@ -673,6 +676,7 @@ static PyObject *
 Karray_add(PyObject * self, PyObject * other) 
 {
     Karray * a, * b;
+    Py_ssize_t data_length;
 
     a = safe_cast(self);
     Karray_IF_ERR_GOTO_FAIL;
@@ -680,8 +684,10 @@ Karray_add(PyObject * self, PyObject * other)
     Karray_IF_ERR_GOTO_FAIL;
 
 
-    Py_ssize_t data_length = Karray_length(a);
+    data_length = Karray_length(a);
     if (data_length == Karray_length(b)) {
+
+        #if __AVX__
         int k;
         for (k=0; k<data_length-8; k += 8) {
             __m256 v_a = _mm256_load_ps(&a->data[k]);
@@ -693,11 +699,11 @@ Karray_add(PyObject * self, PyObject * other)
             a->data[k] += b->data[k];
             k++;
         }
-
-        // for (int k=0; k<data_length; k++) {
-        //     a->data[k] += b->data[k];
-        // }
-
+        #else
+        for (int k=0; k<data_length; k++) {
+            a->data[k] += b->data[k];
+        }
+        #endif
     } else {
         PyErr_SetString(PyExc_TypeError, "Data length does not match.");
         PyErr_Print();
