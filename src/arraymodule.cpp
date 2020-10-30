@@ -580,7 +580,6 @@ static int transfer_data(Karray * from, Karray * to, int * filter, int * offsets
     int strides[MAX_NDIMS] = {};
     get_strides(from, strides);
     int positions[2] = {0, 0};
-    DEBUG_print_int_carr(positions, 2, "positions");
     
     transfer(from, to, filter, strides, positions, offsets, 0);
 
@@ -600,6 +599,7 @@ static int align_index(Karray * self, int axis, int index) {
 
 static PyObject * Karray_subscript(PyObject *o, PyObject *key) 
 {   
+    
     Karray * self = (Karray *) o;
     Karray * result = (Karray *) Karray_new(&KarrayType, NULL, NULL);
 
@@ -609,13 +609,11 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
         filters[k] = -1;
     }
 
-    
-
     Py_INCREF(key);
     if (!PyTuple_Check(key))
         key = Py_BuildValue("(O)", key);
 
-
+// bool make_filter(PyObject * tuple, Karray * from, Karray * to, int * filter) {
     int position=0, seq_length, shape_count=0, current_dim=0, current_tup_item=0;
     bool found_ellipsis = false;
     int tup_length = PyTuple_Size(key);
@@ -674,6 +672,7 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
         ++current_dim;
     }
     result->nd = shape_count + (current_dim == 1);
+// }
 
     delete[] result->data;
     int result_length = Karray_length(result);
@@ -681,6 +680,8 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
 
     int offsets[MAX_NDIMS] = {};
     filter_offsets(self, offsets);
+
+    transfer_data(self, result, filters, offsets);
 
     return (PyObject *) result;
 

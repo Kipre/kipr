@@ -192,11 +192,11 @@ class TestKarray(unittest.TestCase):
                       (..., slice(None), slice(1, 2, 3)),
                       (0, 1, 2, 3, 4)]
 
-        for sub in subscripts:
-            print(f"{sub = }")
+        for subscript in subscripts:
+            print(f"{subscript = }")
             np.testing.assert_almost_equal(
-                a[sub].numpy(), 
-                 b[sub]
+                a[subscript].numpy(), 
+                 b[subscript]
             )
 
 
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     # TestKarray().test_init()
     # TestKarray().test_add_operation()
     # TestKarray().test_subscript()
-    
+
 
 
     
