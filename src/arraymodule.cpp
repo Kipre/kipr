@@ -596,6 +596,71 @@ static int align_index(Karray * self, int axis, int index) {
     return 0;
 }
 
+void make_filter(PyObject * tuple, Karray * from, Karray * to, int * filter) {
+    int position=0, seq_length, shape_count=0, current_dim=0, current_tup_item=0;
+    bool found_ellipsis = false;
+    int tup_length = PyTuple_Size(tuple);
+
+    while (current_tup_item<tup_length) {
+        PyObject * current_indices = PyTuple_GetItem(tuple, current_tup_item++);
+        int index_position = -1;
+        if (PySlice_Check(current_indices)) {
+            Py_ssize_t start, stop, step, slicelength;
+            PySlice_GetIndicesEx(current_indices, from->shape[current_dim], 
+                                 &start, &stop, &step, 
+                                 &slicelength);
+            if (start == stop) {
+                filter[position] = start;
+                position += from->shape[current_dim++];
+            } else {
+                for (int i=start; i<stop; i+=step) {
+                    filter[++index_position + position] = i;
+                }
+                position += from->shape[current_dim++];
+                to->shape[shape_count++] = slicelength;
+            }
+        } else if (PyNumber_Check(current_indices)) {
+            int index = (int) PyLong_AsLong(current_indices);
+            index = align_index(from, current_dim, index);
+            Karray_IF_ERR_GOTO_FAIL;
+            filter[position] = index;
+            position += from->shape[current_dim++];
+        } else if (PySequence_Check(current_indices) &&
+                   (seq_length = PySequence_Length(current_indices)) > 0 &&
+                   seq_length < from->shape[current_dim]) {
+            for (int i=0; i<seq_length; i++) {
+                PyObject * item = PySequence_GetItem(current_indices, i);
+                filter[++index_position + position] = align_index(from, current_dim, (int) PyLong_AsLong(item));
+                Karray_IF_ERR_GOTO_FAIL;
+            }
+            position += from->shape[current_dim++];
+            to->shape[shape_count++] = seq_length;
+        } else if (current_indices == Py_Ellipsis &&
+                   !found_ellipsis) {
+            int nb_axes_to_elli = from->nd - tup_length + 1;
+            int done_axes = current_dim;
+            while (current_dim < nb_axes_to_elli + done_axes) {
+                position += from->shape[current_dim];
+                to->shape[shape_count++] = from->shape[current_dim++];            
+            }
+            found_ellipsis = true;
+        } else {
+            goto fail;
+        }
+    }
+    // finish index creation
+    while (current_dim < from->nd) {
+        position += from->shape[current_dim];
+        to->shape[shape_count++] = from->shape[current_dim];
+        ++current_dim;
+    }
+    to->nd = shape_count + (current_dim == 1);
+    return;
+
+    fail:            
+        PyErr_Format(PyExc_TypeError, "Could not understand item %i of the subscript.", current_tup_item - 1);
+        return;
+}
 
 static PyObject * Karray_subscript(PyObject *o, PyObject *key) 
 {   
@@ -613,66 +678,8 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key)
     if (!PyTuple_Check(key))
         key = Py_BuildValue("(O)", key);
 
-// bool make_filter(PyObject * tuple, Karray * from, Karray * to, int * filter) {
-    int position=0, seq_length, shape_count=0, current_dim=0, current_tup_item=0;
-    bool found_ellipsis = false;
-    int tup_length = PyTuple_Size(key);
-
-    while (current_tup_item<tup_length) {
-        PyObject * current_indices = PyTuple_GetItem(key, current_tup_item++);
-        int index_position = -1;
-        if (PySlice_Check(current_indices)) {
-            Py_ssize_t start, stop, step, slicelength;
-            PySlice_GetIndicesEx(current_indices, self->shape[current_dim], 
-                                 &start, &stop, &step, 
-                                 &slicelength);
-            if (start == stop) {
-                filters[position] = start;
-                position += self->shape[current_dim++];
-            } else {
-                for (int i=start; i<stop; i+=step) {
-                    filters[++index_position + position] = i;
-                }
-                position += self->shape[current_dim++];
-                result->shape[shape_count++] = slicelength;
-            }
-        } else if (PyNumber_Check(current_indices)) {
-            int index = (int) PyLong_AsLong(current_indices);
-            index = align_index(self, current_dim, index);
-            Karray_IF_ERR_GOTO_FAIL;
-            filters[position] = index;
-            position += self->shape[current_dim++];
-        } else if (PySequence_Check(current_indices) &&
-                   (seq_length = PySequence_Length(current_indices)) > 0 &&
-                   seq_length < self->shape[current_dim]) {
-            for (int i=0; i<seq_length; i++) {
-                PyObject * item = PySequence_GetItem(current_indices, i);
-                filters[++index_position + position] = align_index(self, current_dim, (int) PyLong_AsLong(item));
-                Karray_IF_ERR_GOTO_FAIL;
-            }
-            position += self->shape[current_dim++];
-            result->shape[shape_count++] = seq_length;
-        } else if (current_indices == Py_Ellipsis &&
-                   !found_ellipsis) {
-            int nb_axes_to_elli = self->nd - tup_length + 1;
-            int done_axes = current_dim;
-            while (current_dim < nb_axes_to_elli + done_axes) {
-                position += self->shape[current_dim];
-                result->shape[shape_count++] = self->shape[current_dim++];            
-            }
-            found_ellipsis = true;
-        } else {
-            goto fail;
-        }
-    }
-    // finish index creation
-    while (current_dim < self->nd) {
-        position += self->shape[current_dim];
-        result->shape[shape_count++] = self->shape[current_dim];
-        ++current_dim;
-    }
-    result->nd = shape_count + (current_dim == 1);
-// }
+    make_filter(key, self, result, filters);
+    Karray_IF_ERR_GOTO_FAIL;
 
     delete[] result->data;
     int result_length = Karray_length(result);
