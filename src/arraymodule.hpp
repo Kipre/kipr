@@ -8,7 +8,7 @@
 // #include <iterator>
 
 #if __AVX__ 
-#include <immintrin.h>
+  #include <immintrin.h>
 #endif
 
 #ifdef _WIN32 
@@ -53,6 +53,13 @@ static PyObject *  Karray_str(Karray * self);
 
 // math member functions
 static PyObject * Karray_add(PyObject * self, PyObject * other);
+static PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
+static PyObject * Karray_sub(PyObject * self, PyObject * other);
+static PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
+static PyObject * Karray_mul(PyObject * self, PyObject * other);
+static PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
+static PyObject * Karray_div(PyObject * self, PyObject * other);
+static PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 
 // mapping methods
 static PyObject* Karray_subscript(PyObject *o, PyObject *key);
@@ -92,7 +99,16 @@ static PyMethodDef Karray_methods[] = {
 };
 
 static PyNumberMethods Karray_as_number = {
-    .nb_add = Karray_add
+    .nb_add = Karray_add,
+    .nb_subtract = Karray_sub,
+    .nb_multiply = Karray_mul,
+
+    .nb_inplace_add = Karray_inplace_add,
+    .nb_inplace_subtract = Karray_inplace_sub,
+    .nb_inplace_multiply = Karray_inplace_mul,
+
+    .nb_true_divide = Karray_div,
+    .nb_inplace_true_divide = Karray_inplace_div
 };
 
 static PyMappingMethods Karray_as_mapping = {

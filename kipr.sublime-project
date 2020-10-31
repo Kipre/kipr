@@ -14,12 +14,20 @@
         {
             "name": "Buils install to Python",
             "cmd": "python setup.py install --user",
+            "file_regex": "src\\/([^(]*)\\(([0-9]+)\\):(\\s)([^\n]*)",
             "working_dir": "$folder"
         },
         {
             "name": "Test",
             "cmd": "python test/test.py",
             "working_dir": "$folder"
+        },
+        {
+            "name": "CppLint",
+            "target": "exec",
+            "cmd": "cpplint $file",
+            "file_regex": "^(.\\S[^:]*):([0-9]+):(\\s) ([^\n]+)",
+            "cancel": {"kill": "true"},
         },
         {
             "name": "Clear workspace",

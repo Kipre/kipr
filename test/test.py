@@ -9,7 +9,7 @@ nb_random_checks = 5
 
 
 
-class TestKarray(unittest.TestCase):
+class TestKarrayObject(unittest.TestCase):
 
     def test_init(self):
 
@@ -96,12 +96,10 @@ class TestKarray(unittest.TestCase):
             )
 
     def test_print(self):
-        print("calling")
         print(kp.arr(1, shape=[2, 3]))
 
     def test_shape_attr(self):
 
-        print("here")
         shape = [3, 4, 5]
         print(kp.arr(1, shape=shape))
 
@@ -113,50 +111,6 @@ class TestKarray(unittest.TestCase):
             kp.arr(1, shape=shape).shape,
             tuple(shape)
         )
-
-    def test_add_operation(self):
-
-        np.testing.assert_almost_equal(
-            (kp.arr(1) + kp.arr(2)).numpy(), 
-            [3]
-        )
-
-        np.testing.assert_almost_equal(
-            (kp.arr(1) + 2).numpy(), 
-            [3]
-        )
-
-        np.testing.assert_almost_equal(
-            (1 + kp.arr(2)).numpy(), 
-            [3]
-        )
-
-        for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(1, 5, size=(nd))
-            a = np.random.rand(*shape)
-            b = np.random.rand(*shape)
-
-            print(a.shape)
-
-            print(kp.arr(a) + kp.arr(b))
-            
-            np.testing.assert_almost_equal(
-                (kp.arr(a) + kp.arr(b)).numpy(), 
-                a + b
-            )
-
-            np.testing.assert_almost_equal(
-                (kp.arr(a) + b).numpy(), 
-                a + b
-            )
-
-            # BUG
-            # print(a)
-            # np.testing.assert_almost_equal(
-            #     (a + kp.arr(b)).numpy(), 
-            #     a + b
-            # )
 
 
     def test_subscript(self):
@@ -210,15 +164,151 @@ class TestKarray(unittest.TestCase):
                 b[subscript]
             )
 
+    def runTest(self):
+        self.test_init()
+        self.test_subscript()
+        self.test_reshape()
+        self.test_shape_attr()
+        self.test_print()
+
+class TestKarrayMath(unittest.TestCase):
+
+
+    def test_add(self):
+
+        with self.assertRaises(TypeError):
+            kp.arr(1) + ''
+
+        with self.assertRaises(TypeError):
+            kp.arr(1) + '33'
+            
+        with self.assertRaises(TypeError):
+            kp.arr(1) + 1
+            
+        with self.assertRaises(TypeError):
+            1 + kp.arr(1)
+
+
+        np.testing.assert_almost_equal(
+            (kp.arr(1) + kp.arr(2)).numpy(), 
+            [3]
+        )
+
+        for k in range(nb_random_checks):
+            nd = np.random.randint(1, max_nd + 1)
+            shape = np.random.randint(1, 5, size=(nd))
+            a = np.random.rand(*shape)
+            b = np.random.rand(*shape)
+
+            print(a.shape)
+
+            print(kp.arr(a) + kp.arr(b))
+            
+            np.testing.assert_almost_equal(
+                (kp.arr(a) + kp.arr(b)).numpy(), 
+                a + b
+            )
+
+    def test_inplace_add(self):
+
+        ka = kp.arr(1)
+
+        ka += kp.arr(2)
+        np.testing.assert_almost_equal(
+            ka.numpy(), 
+            [3]
+        )
+
+        for k in range(nb_random_checks):
+            nd = np.random.randint(1, max_nd + 1)
+            shape = np.random.randint(1, 5, size=(nd))
+            a = np.random.rand(*shape).astype(np.float32)
+            b = np.random.rand(*shape).astype(np.float32)
+
+            ka = kp.arr(a)
+            print(a.shape)
+
+            ka += kp.arr(b)
+
+            np.testing.assert_almost_equal(
+                ka.numpy(), 
+                a + b
+            )
+
+    def test_sub(self):
+
+        np.testing.assert_almost_equal(
+            (kp.arr(2) - kp.arr(3)).numpy(), 
+            [-1]
+        )
+
+    def test_inplace_sub(self):
+
+        a = kp.arr(2);
+        a -= kp.arr(1)
+
+        np.testing.assert_almost_equal(
+            a.numpy(), 
+            [1]
+        )
+
+    def test_mul(self):
+
+        np.testing.assert_almost_equal(
+            (kp.arr(2) * kp.arr(3)).numpy(), 
+            [6]
+        )
+
+    def test_inplace_mul(self):
+
+        a = kp.arr(2);
+        a *= kp.arr(1.5)
+        
+        np.testing.assert_almost_equal(
+            a.numpy(), 
+            [3]
+        )
+
+    def test_div(self):
+
+        np.testing.assert_almost_equal(
+            (kp.arr(2) / kp.arr(3)).numpy(), 
+            [0.6666666666666]
+        )
+
+    def test_inplace_div(self):
+
+        a = kp.arr(2);
+        a /= kp.arr(1.5)
+        
+        np.testing.assert_almost_equal(
+            a.numpy(), 
+            [1.33333333]
+        )
+
+    def runTest(self):
+        self.test_add()
+        self.test_inplace_add()
+        self.test_sub()
+        # self.test_inplace_sub()
+        # self.test_mul()
+        # self.test_inplace_mul()
+        # self.test_div()
+        # self.test_inplace_div()
+
+
 
 
 
 if __name__ == '__main__':
-    unittest.main()
-    # TestKarray().test_init()
-    # TestKarray().test_add_operation()
+    # unittest.main()
+    # TestKarray().test_init()
     # TestKarray().test_subscript()
+    # TestKarrayObject().test_init()
 
+
+    TestKarrayMath().run()
+    # TestKarrayObject().run()
 
 
     

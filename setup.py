@@ -4,6 +4,8 @@ from sys import platform
 
 extra_args = {}
 
+debug = True
+
 if platform == "linux" or platform == "linux2":
     extra_args = {
       # 'extra_compile_args': ['-mavx2']
@@ -12,9 +14,12 @@ elif platform == "darwin":
     pass
 elif platform == "win32":
     extra_args = {
-      'extra_compile_args': ['/std:c++latest','/Zi', '/Od', "/arch:AVX2"],
-      'extra_link_args': ['/DEBUG']
+      'extra_compile_args': ['/std:c++latest', "/arch:AVX2"],
+      'extra_link_args': []
     }
+    if debug:
+      extra_args['extra_compile_args'] += ['/Zi', '/Od']
+      extra_args['extra_link_args'] += ['/DEBUG']
 
 native_side = setuptools.Extension(name='kipr_nat',
                                    sources=['src/natmodule.cpp'],

@@ -49,7 +49,7 @@ void DEBUG_type(PyObject * obj, char const * message = "") {
     printf("\tis slice %i \n", PySlice_Check(obj));
 }
 
-#define DEBUG_0bj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
+#define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
 
 /************************************************
                 Utility functions
@@ -469,14 +469,14 @@ Karray_copy(Karray * source, Karray * destination) {
 }
 
 static bool
-safe_cast(PyObject * obj, Karray * arr) {
+safe_cast(PyObject * obj, Karray ** arr) {
     if (is_Karray(obj)) {
         Py_INCREF(obj);
-        arr = reinterpret_cast<Karray *>(obj);
+        *arr = reinterpret_cast<Karray *>(obj);
         return false;
     } else {
-        Karray * arr = new_Karray();
-        Karray_init_from_data(arr, obj);
+        *arr = new_Karray();
+        Karray_init_from_data(*arr, obj);
         Karray_IF_ERR_GOTO_FAIL;
         return true;
     }
@@ -504,52 +504,52 @@ safe_copy(PyObject * obj) {
         return NULL;
 }
 
+static PyObject *
+execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
+    DEBUG_Obj(self);
+
+    Py_ssize_t strides[MAX_NDIMS] = {};
+    Karray * arr = reinterpret_cast<Karray *>(self);
+
+    float b = 0.0F;
+    float a = 2.0F/b;
+
+    printf("a: %i\n", a);
+
+    Py_RETURN_NONE;
+}
 
 /************************************************
                Member functions
 ************************************************/
 
-static PyObject *
-Karray_add(PyObject * self, PyObject * other) {
-    Karray *a, *b;
+
+static inline PyObject *
+Karray_binary_op(PyObject * self, PyObject * other, 
+                void (*op_kernel)(float *, float*, Py_ssize_t)) {
+    Karray *a, *b, *c;
     Py_ssize_t data_length;
 
-    if (is_Karray(self)) {
-        b = (Karray *) self;
-        a = safe_copy(other);
-        Karray_IF_ERR_GOTO_FAIL
-    } else {
-        b = (Karray *) other;
-        a = safe_copy(self);
-        Karray_IF_ERR_GOTO_FAIL
+
+    if (!is_Karray(self) || !is_Karray(other)) {
+        Py_RETURN_NOTIMPLEMENTED;
     }
-    
+
+    a = reinterpret_cast<Karray *>(self);
+    b = reinterpret_cast<Karray *>(other);
+    c = new_Karray_as(a);
+    Karray_copy(a, c);
+
     data_length = Karray_length(a);
     if (data_length == Karray_length(b)) {
-#if __AVX__
-        int k;
-        for (k=0; k < data_length-8; k += 8) {
-            __m256 v_a = _mm256_load_ps(&a->data[k]);
-            __m256 v_b = _mm256_load_ps(&b->data[k]);
-            v_a = _mm256_add_ps(v_a, v_b);
-            _mm256_store_ps(&a->data[k], v_a);
-        }
-        while (k < data_length) {
-            a->data[k] += b->data[k];
-            k++;
-        }
-#else
-        for (int k=0; k < data_length; k++) {
-            a->data[k] += b->data[k];
-        }
-#endif
+        op_kernel(c->data, b->data, data_length);
     } else {
         PyErr_SetString(PyExc_TypeError, "Data length does not match.");
         PyErr_Print();
         goto fail;
     }
 
-    return reinterpret_cast<PyObject *>(a);
+    return reinterpret_cast<PyObject *>(c);
 
     fail:
         Py_XDECREF(a);
@@ -558,6 +558,37 @@ Karray_add(PyObject * self, PyObject * other) {
         return NULL;
 }
 
+
+static PyObject *
+Karray_inplace_binary_op(PyObject * self, PyObject * other, 
+                         void (*op_kernel)(float *, float*, Py_ssize_t)) {
+    Karray *a, *b;
+    Py_ssize_t data_length;
+
+    if (!is_Karray(self) || !is_Karray(other)) {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    a = reinterpret_cast<Karray *>(self);
+    b = reinterpret_cast<Karray *>(other);
+    
+    data_length = Karray_length(a);
+    if (data_length == Karray_length(b)) {
+        op_kernel(a->data, b->data, data_length);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Data length does not match.");
+        PyErr_Print();
+        goto fail;
+    }
+    Py_INCREF(self);
+    return self;
+
+    fail:
+        Py_XDECREF(a);
+        Py_XDECREF(b);
+        PyErr_SetString(PyExc_TypeError, "Failed to add elements.");
+        return NULL;
+}
 
 static void
 Karray_dealloc(Karray *self) {
@@ -619,7 +650,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
     fail:
         Py_XDECREF(shape);
         Py_DECREF(input);
-        PyErr_SetString(PyExc_TypeError, "Failed to build array.");
+        PyErr_SetString(PyExc_TypeError, "Failed to build the array.");
         return -1;
 }
 
@@ -690,20 +721,6 @@ max_nd(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     return PyLong_FromLong(static_cast<long>(MAX_NDIMS));
 }
 
-static PyObject *
-execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
-    DEBUG_0bj(self);
-
-    Py_ssize_t strides[MAX_NDIMS] = {};
-    Karray * arr = reinterpret_cast<Karray *>(self);
-
-    get_strides(arr, strides);
-
-    DEBUG_carr(reinterpret_cast<int *>(strides), arr->nd, "strides");
-
-    Py_RETURN_NONE;
-}
-
 static PyObject * Karray_subscript(PyObject *o, PyObject *key) {
     Karray * self = reinterpret_cast<Karray *>(o);
     Karray * result = new_Karray();
@@ -739,5 +756,143 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key) {
         return NULL;
 }
 
+
+/************************************************
+                   Kernels
+************************************************/
+
+
+static void
+inline add_kernel(float * destination, float * other, Py_ssize_t length) {
+#if __AVX__
+    int k;
+    for (k=0; k < length-8; k += 8) {
+        __m256 v_a = _mm256_load_ps(&destination[k]);
+        __m256 v_b = _mm256_load_ps(&other[k]);
+        v_a = _mm256_add_ps(v_a, v_b);
+        _mm256_store_ps(&destination[k], v_a);
+    }
+    while (k < length) {
+        destination[k] += other[k];
+        k++;
+    }
+#else
+    for (int k=0; k < length; k++) {
+        destination[k] += other[k];
+    }
+#endif
+}
+
+static void
+inline sub_kernel(float * destination, float * other, Py_ssize_t length) {
+#if __AVX__
+    int k;
+    for (k=0; k < length; k += 8) {
+        __m256 v_a = _mm256_load_ps(&destination[k]);
+        __m256 v_b = _mm256_load_ps(&other[k]);
+        v_a = _mm256_sub_ps(v_a, v_b);
+        _mm256_store_ps(&destination[k], v_a);
+    }
+    while (k < length) {
+        destination[k] -= other[k];
+        k++;
+    }
+#else
+    for (int k=0; k < length; k++) {
+        destination[k] -= other[k];
+    }
+#endif
+}
+
+
+static void
+inline mul_kernel(float * destination, float * other, Py_ssize_t length) {
+#if __AVX__
+    int k;
+    for (k=0; k < length; k += 8) {
+        __m256 v_a = _mm256_load_ps(&destination[k]);
+        __m256 v_b = _mm256_load_ps(&other[k]);
+        v_a = _mm256_mul_ps(v_a, v_b);
+        _mm256_store_ps(&destination[k], v_a);
+    }
+    while (k < length) {
+        destination[k] *= other[k];
+        k++;
+    }
+#else
+    for (int k=0; k < length; k++) {
+        destination[k] *= other[k];
+    }
+#endif
+}
+
+
+static void
+inline div_kernel(float * destination, float * other, Py_ssize_t length) {
+#if __AVX__
+    int k;
+    for (k=0; k < length; k += 8) {
+        __m256 v_a = _mm256_load_ps(&destination[k]);
+        __m256 v_b = _mm256_load_ps(&other[k]);
+        v_a = _mm256_div_ps(v_a, v_b);
+        _mm256_store_ps(&destination[k], v_a);
+    }
+    while (k < length) {
+        destination[k] /= other[k];
+        k++;
+    }
+#else
+    for (int k=0; k < length; k++) {
+        destination[k] /= other[k];
+    }
+#endif
+}
+
+
+/************************************************
+                   Math ops
+************************************************/
+
+
+
+static PyObject *
+Karray_add(PyObject * self, PyObject * other) {
+    return Karray_binary_op(self, other, add_kernel);
+}
+
+static PyObject *
+Karray_inplace_add(PyObject * self, PyObject * other) {
+    return Karray_inplace_binary_op(self, other, add_kernel);
+}
+
+static PyObject *
+Karray_sub(PyObject * self, PyObject * other) {
+    return Karray_binary_op(self, other, sub_kernel);
+}
+
+static PyObject *
+Karray_inplace_sub(PyObject * self, PyObject * other) {
+    return Karray_inplace_binary_op(self, other, sub_kernel);
+}
+
+static PyObject *
+Karray_mul(PyObject * self, PyObject * other) {
+    return Karray_binary_op(self, other, mul_kernel);
+}
+
+static PyObject *
+Karray_inplace_mul(PyObject * self, PyObject * other) {
+    return Karray_inplace_binary_op(self, other, mul_kernel);
+}
+
+static PyObject *
+Karray_div(PyObject * self, PyObject * other) {
+    return Karray_binary_op(self, other, div_kernel);
+}
+
+static PyObject *
+Karray_inplace_div(PyObject * self, PyObject * other) {
+    return Karray_inplace_binary_op(self, other, div_kernel);
+}
 
 
