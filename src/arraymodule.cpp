@@ -787,7 +787,7 @@ static void
 inline sub_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length; k += 8) {
+    for (k=0; k < length-8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_sub_ps(v_a, v_b);
@@ -809,7 +809,7 @@ static void
 inline mul_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length; k += 8) {
+    for (k=0; k < length-8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_mul_ps(v_a, v_b);
@@ -831,7 +831,7 @@ static void
 inline div_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length; k += 8) {
+    for (k=0; k < length-8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_div_ps(v_a, v_b);
