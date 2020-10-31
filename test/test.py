@@ -5,6 +5,10 @@ import numpy as np
 max_nd = kp.max_nd()
 nb_random_checks = 5
 
+
+
+
+
 class TestKarray(unittest.TestCase):
 
     def test_init(self):
@@ -133,6 +137,8 @@ class TestKarray(unittest.TestCase):
             a = np.random.rand(*shape)
             b = np.random.rand(*shape)
 
+            print(a.shape)
+
             print(kp.arr(a) + kp.arr(b))
             
             np.testing.assert_almost_equal(
@@ -166,8 +172,10 @@ class TestKarray(unittest.TestCase):
             a[5]
 
         with self.assertRaises(IndexError):
-            print(a[-7])
+            a[1.3]
 
+        with self.assertRaises(IndexError):
+            print(a[-7])
 
         with self.assertRaises(IndexError):
             a[..., 5]
@@ -177,10 +185,13 @@ class TestKarray(unittest.TestCase):
 
         a[1:1]
 
+        c = kp.arr([1, 2])
+        c[[1, 0]]
+
         subscripts = [(1),
                       (-1),
                       (-3),
-                      (-3),
+                      (-3, -3, slice(-1, 0, -1)),
                       (0, ...),
                       (..., 0),
                       (..., 4),
@@ -196,7 +207,7 @@ class TestKarray(unittest.TestCase):
             print(f"{subscript = }")
             np.testing.assert_almost_equal(
                 a[subscript].numpy(), 
-                 b[subscript]
+                b[subscript]
             )
 
 

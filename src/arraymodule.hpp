@@ -4,6 +4,8 @@
 #include <numpy/arrayobject.h>
 #include <new>
 #include <string>
+// #include <algorithm>
+// #include <iterator>
 
 #if __AVX__ 
 #include <immintrin.h>
