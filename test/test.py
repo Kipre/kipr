@@ -290,24 +290,24 @@ class TestKarrayMath(unittest.TestCase):
         self.test_add()
         self.test_inplace_add()
         self.test_sub()
-        # self.test_inplace_sub()
-        # self.test_mul()
-        # self.test_inplace_mul()
-        # self.test_div()
-        # self.test_inplace_div()
+        self.test_inplace_sub()
+        self.test_mul()
+        self.test_inplace_mul()
+        self.test_div()
+        self.test_inplace_div()
 
 
 
 
 
 if __name__ == '__main__':
-    # unittest.main()
+    unittest.main()
     # TestKarray().test_init()
     # TestKarray().test_subscript()
     # TestKarrayObject().test_init()
 
 
-    TestKarrayMath().run()
+    # TestKarrayMath().run()
     # TestKarrayObject().run()
 
 
