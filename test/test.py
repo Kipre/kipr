@@ -139,6 +139,8 @@ class TestKarrayObject(unittest.TestCase):
 
         a[1:1]
 
+        print(kp.arr(1)[:])
+
         c = kp.arr([1, 2])
         c[[1, 0]]
 

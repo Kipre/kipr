@@ -371,7 +371,7 @@ make_filter(PyObject * tuple, Karray * from,
             Py_ssize_t start, stop, step, slicelength;
             PySlice_GetIndicesEx(current_indices, from->shape[current_dim],
                                  &start, &stop, &step, &slicelength);
-            
+            // printf("start, stop, step, slicelength: %i %i %i %i \n", start, stop, step, slicelength);
             if (start == stop) {
                 filter[position] = start;
                 position += from->shape[current_dim++];
@@ -423,7 +423,9 @@ make_filter(PyObject * tuple, Karray * from,
         to->shape[shape_count++] = from->shape[current_dim];
         ++current_dim;
     }
-    to->nd = shape_count + (current_dim == 1);
+    // DEBUG_Obj(tuple);
+    // printf("shape_count + (current_dim == 1):  %i, Py_MAX(shape_count, 1): %i\n", shape_count + (current_dim == 1), Py_MAX(shape_count, 1));
+    to->nd = Py_MAX(1, shape_count);
     return;
 
     fail:
@@ -614,14 +616,43 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
     static char *kwlist[] = {"data", "shape", NULL};
     PyObject *input = NULL, *shape = NULL;
     Py_ssize_t proposed_shape[MAX_NDIMS] = {0};
-
+    bool random = false, range = false, value = false;
+    float init_value;
+    Py_ssize_t data_length = 0;
+    unsigned int val;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|$O", kwlist,
                                      &input, &shape))
         return -1;
 
-    Py_ssize_t data_length = Karray_init_from_data(self, input);
-    Karray_IF_ERR_GOTO_FAIL;
+    if (PyUnicode_Check(input)) {
+        if (PyUnicode_Compare(input, PyUnicode_FromString("random")) == 0) {
+            random = true;
+            if (_rdrand32_step(&val) == 0) {
+                PyErr_SetString(PyExc_SystemError, 
+                    "Could not generate a random value.");
+                PyErr_Print();
+                goto fail;
+            }
+            self->data[0] = (float)((double) val / (double) 4294967295);
+        } else if (PyUnicode_Compare(input, PyUnicode_FromString("range")) == 0) {
+            range = true;
+        }
+    } else if (PySequence_Check(input)) {
+        data_length = Karray_init_from_data(self, input);
+        Karray_IF_ERR_GOTO_FAIL;
+    } else if (PyNumber_Check(input)) {
+        PyObject *float_obj = PyNumber_Float(input);
+        init_value = static_cast<float>(PyFloat_AsDouble(float_obj));
+        Karray_IF_ERR_GOTO_FAIL;
+        Py_DECREF(float_obj);
+        self->data[0] = init_value;
+        value = true;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Unsupported input data.");
+        PyErr_Print();
+        goto fail;
+    }
 
     if (shape) {
         int proposed_nd = parse_shape(shape, proposed_shape);
@@ -630,20 +661,44 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
         Py_ssize_t proposed_length = product(proposed_shape, proposed_nd);
 
         // Check if the propsed makes sense with repect to data
-        if (data_length != proposed_length && is_scalar(self)) {
-            float current_value = self->data[0];
+        if (data_length != 0) {
+            if (data_length == proposed_length) {
+                self->nd = proposed_nd;
+                set_shape(self, proposed_shape);
+            } else {
+                PyErr_SetString(PyExc_TypeError, 
+                    "Proosed shape did not align with data.");
+                PyErr_Print();
+                goto fail;
+            }
+        } else {
             delete[] self->data;
             self->data = new float[proposed_length];
-            for (int k=0; k < proposed_length; k++) {
-                self->data[k] = current_value;
+            if (value) {
+                for (int k=0; k < proposed_length; ++k)
+                    self->data[k] = init_value;
+            } else if (range) {
+                for (int k=0; k < proposed_length; ++k)
+                    self->data[k] = (float) k;
+            } else if (random) {
+                for (int k=0; k < proposed_length; ++k) {
+                    if (_rdrand32_step(&val) == 0) {
+                        PyErr_SetString(PyExc_SystemError, 
+                            "Could not generate a random value.");
+                        PyErr_Print();
+                        goto fail;
+                    }
+                    self->data[k] = (float)((double) val / (double) 4294967295);
+                }
             }
             self->nd = proposed_nd;
             set_shape(self, proposed_shape);
-
-        } else {
-            self->nd = proposed_nd;
-            set_shape(self, proposed_shape);
         }
+    } else if (range){
+        PyErr_SetString(PyExc_TypeError, 
+            "A shape must be provided when using \"range\" magic.");
+        PyErr_Print();
+        goto fail;
     }
     return 0;
 
@@ -721,7 +776,8 @@ max_nd(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     return PyLong_FromLong(static_cast<long>(MAX_NDIMS));
 }
 
-static PyObject * Karray_subscript(PyObject *o, PyObject *key) {
+static PyObject * 
+Karray_subscript(PyObject *o, PyObject *key) {
     Karray * self = reinterpret_cast<Karray *>(o);
     Karray * result = new_Karray();
     Py_ssize_t offsets[MAX_NDIMS] = {};
@@ -739,6 +795,9 @@ static PyObject * Karray_subscript(PyObject *o, PyObject *key) {
 
     make_filter(key, self, result, filters);
     Karray_IF_ERR_GOTO_FAIL;
+
+    // DEBUG_carr(filters, nb_indices, "filter");
+    // DEBUG_Karr(result, "result");
 
     delete[] result->data;
     result_length = Karray_length(result);
