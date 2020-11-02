@@ -8,7 +8,7 @@ debug = True
 
 if platform == "linux" or platform == "linux2":
     extra_args = {
-      # 'extra_compile_args': ['-mavx2']
+      # 'extra_compile_args': ['-mavx2', '-g']
     }
 elif platform == "darwin":
     pass
