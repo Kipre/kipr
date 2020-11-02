@@ -18,8 +18,27 @@ elif platform == "win32":
       'extra_link_args': []
     }
     if debug:
-      extra_args['extra_compile_args'] += ['/Zi', '/Od']
-      extra_args['extra_link_args'] += ['/DEBUG']
+        extra_args['extra_compile_args'] += ['/Zi', '/Od']
+        extra_args['extra_link_args'] += ['/DEBUG']
+
+
+# amalgamation 
+with open('src/arraymodule.cpp', 'w') as amalgamation:
+    # include real header
+    amalgamation.write('#include "arraymodule.hpp" \n')
+
+    # include allcode 
+    for src_file in ['src/python_boilerplate.cpp',
+                     'src/debug.cpp', 'src/utils.cpp',
+                     'src/members.cpp', 'src/module_functions.cpp',
+                     'src/kernels.cpp', 'src/math_ops.cpp']:
+        with open(src_file, 'r') as src:
+            amalgamation.write(src.read())
+
+    # include test suite
+    amalgamation.write('#include "test.hpp" \n')
+
+
 
 native_side = setuptools.Extension(name='kipr_nat',
                                    sources=['src/natmodule.cpp'],

@@ -1,10 +1,107 @@
-#include "arraymodule.hpp"
+#include "arraymodule.hpp" 
 
 
-/************************************************
-                Debug functions
-************************************************/
-    // DEBUG
+static PyMemberDef Karray_members[] = {
+    {"attr", T_INT, offsetof(Karray, attr), 0,
+     "Arbitrary attribute."},
+    {NULL}  /* Sentinel */
+};
+
+static PyGetSetDef Karray_getsetters[] = {
+    {"shape", (getter) Karray_getshape, NULL,
+     "Shape of the array.", NULL},
+    {NULL}  /* Sentinel */
+};
+
+static PyMethodDef Karray_methods[] = {
+    {"reshape", (PyCFunction) Karray_reshape, METH_O,
+     "Return the kipr.arr with the new shape."},
+    {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
+     "Return a numpy representtion of the Karray."},    
+    {"execute", (PyCFunction)  execute_func, METH_NOARGS,
+     "Testing function to execute C code."},
+    {NULL}  /* Sentinel */
+};
+
+
+static PyMethodDef arraymodule_methods[] = {
+    {"max_nd", max_nd, METH_NOARGS,
+     "Get maximum number of dimensions for a kipr.arr() array."},
+    {"execute", execute_func, METH_NOARGS,
+     "Testing function to execute C code."},
+    {"internal", internal_test, METH_NOARGS,
+     "Execute C code tests."},
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
+
+static PyModuleDef arraymodule = {
+    PyModuleDef_HEAD_INIT,
+    "kipr_array",
+    "Array backend.",
+    -1,
+    arraymodule_methods
+};
+
+
+
+static PyNumberMethods Karray_as_number = {
+    .nb_add = Karray_add,
+    .nb_subtract = Karray_sub,
+    .nb_multiply = Karray_mul,
+
+    .nb_inplace_add = Karray_inplace_add,
+    .nb_inplace_subtract = Karray_inplace_sub,
+    .nb_inplace_multiply = Karray_inplace_mul,
+
+    .nb_true_divide = Karray_div,
+    .nb_inplace_true_divide = Karray_inplace_div
+};
+
+static PyMappingMethods Karray_as_mapping = {
+    .mp_subscript = Karray_subscript
+};
+
+static PyTypeObject KarrayType = {
+    Karray_HEAD_INIT
+    .tp_name = "kipr.arr",
+    .tp_basicsize = sizeof(Karray) - sizeof(float),
+    .tp_itemsize = sizeof(float),
+    .tp_dealloc = (destructor) Karray_dealloc,
+    .tp_repr = (reprfunc) Karray_str, // Not ideal
+    .tp_as_number = &Karray_as_number,
+    .tp_as_mapping = &Karray_as_mapping,
+    .tp_str = (reprfunc) Karray_str,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc = "Array object from kipr.",
+    .tp_methods = Karray_methods,
+    .tp_members = Karray_members,
+    .tp_getset = Karray_getsetters,
+    .tp_init = (initproc) Karray_init,
+    .tp_new = Karray_new,
+};
+
+PyMODINIT_FUNC
+PyInit_kipr_array(void)
+{
+    import_array();
+    PyObject *m;
+    if (PyType_Ready(&KarrayType) < 0)
+        return NULL;
+
+    m = PyModule_Create(&arraymodule);
+    if (m == NULL)
+        return NULL;
+
+    Py_INCREF(&KarrayType);
+    if (PyModule_AddObject(m, "arr", (PyObject *) &KarrayType) < 0) {
+        Py_DECREF(&KarrayType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    return m;
+}
+
 
 template <typename T>
 void DEBUG_carr(T * carr, int len, char const * message = "") {
@@ -31,7 +128,7 @@ void DEBUG_Karr(Karray * self, char const * message = "") {
     printf("\tnumber of dimensions: %i\n", self->nd);
     printf("\tshape: ");
     for (int k=0; k < self->nd + 1; k++) {
-        printf(" %i,", self->shape[k]);
+        printf(" %I64i,", self->shape[k]);
     }
     printf("\n");
     Py_ssize_t length = Karray_length(self);
@@ -45,20 +142,9 @@ void DEBUG_Karr(Karray * self, char const * message = "") {
     }
 }
 
-void DEBUG_type(PyObject * obj, char const * message = "") {
-    printf("type check in %s\n", message);
-    printf("\tis sequence %i \n", PySequence_Check(obj));
-    printf("\tis array %i \n", PyArray_Check(obj));
-    printf("\tis buffer %i \n", PyObject_CheckBuffer(obj));
-    printf("\tis iter %i \n", PyIter_Check(obj));
-    printf("\tis number %i \n", PyNumber_Check(obj));
-    printf("\tis Karray %i \n", is_Karray(obj));
-    printf("\tis mapping %i \n", PyMapping_Check(obj));
-    printf("\tis index %i \n", PyIndex_Check(obj));
-    printf("\tis slice %i \n", PySlice_Check(obj));
-}
-
 #define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
+
+int MAX_PRINT_SIZE = 30;
 
 
 /************************************************
@@ -73,7 +159,7 @@ inline T product(T * arr, int len, int increment = 0, int depth = 0) {
 }
 
 template <typename T>
-inline T sum(T * arr, int len, int depth = 0) {
+T sum(T * arr, int len, int depth = 0) {
     T result = 0;
     while (len >  depth) result += arr[--len];
     return result;
@@ -123,7 +209,7 @@ void reset_shape(Karray *self) {
     set_shape(self, shape);
 }
 
-static bool is_scalar(Karray * self) {
+bool is_scalar(Karray * self) {
     return (self->nd == 1) && (self->shape[0] == 1);
 }
 
@@ -138,7 +224,7 @@ Py_ssize_t offset(Karray * self, Py_ssize_t * index) {
     return result;
 }
 
-static int infer_shape(PyObject * input, Py_ssize_t * shape, int depth = 0) {
+int infer_shape(PyObject * input, Py_ssize_t * shape, int depth = 0) {
     Py_ssize_t length;
 
     if (depth > MAX_NDIMS) {
@@ -162,7 +248,7 @@ static int infer_shape(PyObject * input, Py_ssize_t * shape, int depth = 0) {
     }
 }
 
-static int copy_data(PyObject * input, Py_ssize_t * shape,
+int copy_data(PyObject * input, Py_ssize_t * shape,
                      float * result, int depth = 0, int position = 0) {
     if (PySequence_Check(input)) {
         for (int k=0; k < shape[depth]; k++) {
@@ -188,7 +274,7 @@ static int copy_data(PyObject * input, Py_ssize_t * shape,
     return position;
 }
 
-static int parse_shape(PyObject * sequence, Py_ssize_t * shape) {
+int parse_shape(PyObject * sequence, Py_ssize_t * shape) {
     // returns the nb of dimensions
     Py_INCREF(sequence);  // real
     if (PySequence_Check(sequence)) {
@@ -215,7 +301,7 @@ static int parse_shape(PyObject * sequence, Py_ssize_t * shape) {
     }
 }
 
-static Py_ssize_t
+Py_ssize_t
 Karray_init_from_data(Karray * self, PyObject * sequence) {
     Py_ssize_t inferred_shape[MAX_NDIMS] = {1};
     Py_ssize_t data_length;
@@ -314,7 +400,7 @@ char char_type(PyObject * obj) {
 
 
 
-static void
+void
 inline transfer(Karray * from, Karray * to,
                 Py_ssize_t * filter, Py_ssize_t * strides,
                 Py_ssize_t * positions, Py_ssize_t * offsets,
@@ -344,7 +430,7 @@ inline transfer(Karray * from, Karray * to,
     }
 }
 
-static Py_ssize_t
+Py_ssize_t
 transfer_data(Karray * from, Karray * to,
               Py_ssize_t * filter, Py_ssize_t * offsets) {
     Py_ssize_t strides[MAX_NDIMS] = {};
@@ -356,7 +442,7 @@ transfer_data(Karray * from, Karray * to,
     return positions[0];
 }
 
-static Py_ssize_t align_index(Karray * self, int axis, Py_ssize_t index) {
+Py_ssize_t align_index(Karray * self, int axis, Py_ssize_t index) {
     Py_ssize_t length = self->shape[axis];
     if (axis > MAX_NDIMS) {
         PyErr_Format(PyExc_IndexError,
@@ -452,7 +538,7 @@ make_filter(PyObject * tuple, Karray * from,
         return;
 }
 
-static Karray *
+Karray *
 new_Karray(Py_ssize_t size = 1) {
     PyTypeObject * type = &KarrayType;
     Karray *self;
@@ -465,7 +551,7 @@ new_Karray(Py_ssize_t size = 1) {
     return self;
 }
 
-static Karray *
+Karray *
 new_Karray_as(Karray * other) {
     PyTypeObject * type = &KarrayType;
     Karray *self;
@@ -476,7 +562,7 @@ new_Karray_as(Karray * other) {
     return self;
 }
 
-static Karray *
+Karray *
 new_Karray_from_shape(Py_ssize_t * shape) {
     PyTypeObject * type = &KarrayType;
     int nd = num_dims(shape);
@@ -488,54 +574,7 @@ new_Karray_from_shape(Py_ssize_t * shape) {
     return self;
 }
 
-
-Karray *
-new_Karray_by_hand(int nd...) {
-    va_list args;
-    va_start(args, nd);
-    Karray * result = new_Karray();
-    Py_ssize_t data_length;
-    int nb_init_values = 0;
-
-    if (nd > MAX_NDIMS) {
-        return NULL;
-    }
- 
-    for (int i=0; i < nd; ++i) {
-        result->shape[i] = (Py_ssize_t) va_arg(args, int);
-    }
-    va_end(args);
-
-    result->nd = nd;
-    data_length = Karray_length(result);
-    delete[] result->data;
-    result->data = new float[data_length];
-
-
-    for (int i=0; i < data_length; ++i) {
-        result->data[i] = (float) i + 1;
-    }
-    return result;
-}
-
-Py_ssize_t *
-shape_by_hand(int nd...) {
-    Py_ssize_t * shape = new Py_ssize_t[MAX_NDIMS];
-    va_list args;
-    va_start(args, nd);
- 
-    for (int i=0; i < MAX_NDIMS; ++i) {
-        if (i < nd) {
-            shape[i] = (Py_ssize_t) va_arg(args, int);
-        } else {
-            shape[i] = 0;
-        }
-    }
-    va_end(args);
-    return shape;
-}
-
-static void
+void
 Karray_copy(Karray * source, Karray * destination) {    
     destination->nd = source->nd;
     memcpy(destination->shape, source->shape, sizeof(Py_ssize_t)*MAX_NDIMS);
@@ -548,7 +587,7 @@ Karray_copy(Karray * source, Karray * destination) {
 }
 
 
-static bool
+bool
 safe_cast(PyObject * obj, Karray ** arr) {
     if (is_Karray(obj)) {
         Py_INCREF(obj);
@@ -567,7 +606,7 @@ safe_cast(PyObject * obj, Karray ** arr) {
         return NULL;
 }
 
-static Karray *
+Karray *
 safe_copy(PyObject * obj) {
     Karray * target = new_Karray();
     if (is_Karray(obj)) {
@@ -584,24 +623,7 @@ safe_copy(PyObject * obj) {
         return NULL;
 }
 
-static PyObject *
-execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
-    DEBUG_Obj(self);
-
-    Py_ssize_t strides[MAX_NDIMS] = {};
-    Karray * arr = reinterpret_cast<Karray *>(self);
-
-    DEBUG_shape(arr->shape);
-
-    float b = 0.0F;
-    float a = 2.0F/b;
-
-    printf("a: %i\n", a);
-
-    Py_RETURN_NONE;
-}
-
-static Py_ssize_t *
+Py_ssize_t *
 common_shape(Karray * a, Karray * b) {
     Py_ssize_t dim_a, dim_b;
     Py_ssize_t * result = new Py_ssize_t[MAX_NDIMS];
@@ -612,18 +634,24 @@ common_shape(Karray * a, Karray * b) {
 
     int i_a = a->nd-1, i_b = b->nd-1;
     while (i_a >= 0) {
-        if(i_b >= 0) {
+        if (i_b >= 0) {
             dim_a = a->shape[i_a];
             dim_b = b->shape[i_b];
             if (!(dim_a == dim_b || (dim_a == 1 || dim_b == 1))) {
-                return NULL;
+                goto fail;
             }
             result[i_a] = Py_MAX(dim_a, dim_b);
+            // printf("result[i_a], dim_a, dim_b: %I64i %I64i %I64i\n", result[i_a], dim_a, dim_b);
             --i_b;
+        } else {
+            result[i_a] = a->shape[i_a];
         }
-        result[i_a] = a->shape[i_a];
         --i_a;
     }
+    for (int i=a->nd; i < MAX_NDIMS; ++i) {
+        result[i] = 0;
+    }
+    // DEBUG_shape(result);
     return result;
 
     fail:
@@ -632,97 +660,22 @@ common_shape(Karray * a, Karray * b) {
         return NULL;
 }
 
-// static void 
-// broadcast(Karray * self, Py_ssize_t * shape) {
-//     Karray * result = new_Karray_from_shape(shape);
-
-//     fail:
-//         PyErr_SetString(PyExc_TypeError, 
-//             "Failed to broadcast arrays.");
-//         return NULL;
-// }
-
-
-/************************************************
-               Member functions
-************************************************/
-
-
-static inline PyObject *
-Karray_binary_op(PyObject * self, PyObject * other, 
-                void (*op_kernel)(float *, float*, Py_ssize_t)) {
-    Karray *a, *b, *c;
-    Py_ssize_t data_length;
-
-
-    if (!is_Karray(self) || !is_Karray(other)) {
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-
-    a = reinterpret_cast<Karray *>(self);
-    b = reinterpret_cast<Karray *>(other);
-    c = new_Karray_as(a);
-    Karray_copy(a, c);
-
-    data_length = Karray_length(a);
-    if (data_length == Karray_length(b)) {
-        op_kernel(c->data, b->data, data_length);
-    } else if (true) {
-
-    } else {
-        PyErr_SetString(PyExc_TypeError, "Data length does not match.");
-        PyErr_Print();
-        goto fail;
-    }
-
-    return reinterpret_cast<PyObject *>(c);
+Karray *
+broadcast(Karray * self, Py_ssize_t * shape) {
+    Karray * result = new_Karray_from_shape(shape);
 
     fail:
-        Py_XDECREF(a);
-        Py_XDECREF(b);
-        PyErr_SetString(PyExc_TypeError, "Failed to add elements.");
+        PyErr_SetString(PyExc_TypeError, 
+            "Failed to broadcast arrays.");
         return NULL;
 }
-
-
-static PyObject *
-Karray_inplace_binary_op(PyObject * self, PyObject * other, 
-                         void (*op_kernel)(float *, float*, Py_ssize_t)) {
-    Karray *a, *b;
-    Py_ssize_t data_length;
-
-    if (!is_Karray(self) || !is_Karray(other)) {
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-
-    a = reinterpret_cast<Karray *>(self);
-    b = reinterpret_cast<Karray *>(other);
-    
-    data_length = Karray_length(a);
-    if (data_length == Karray_length(b)) {
-        op_kernel(a->data, b->data, data_length);
-    } else {
-        PyErr_SetString(PyExc_TypeError, "Data length does not match.");
-        PyErr_Print();
-        goto fail;
-    }
-    Py_INCREF(self);
-    return self;
-
-    fail:
-        Py_XDECREF(a);
-        Py_XDECREF(b);
-        PyErr_SetString(PyExc_TypeError, "Failed to add elements.");
-        return NULL;
-}
-
-static void
+void
 Karray_dealloc(Karray *self) {
     delete[] self->data;
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
 }
 
-static PyObject *
+PyObject *
 Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     Karray *self;
     self = reinterpret_cast<Karray *>(type->tp_alloc(type, 0));
@@ -735,9 +688,9 @@ Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     return reinterpret_cast<PyObject *>(self);
 }
 
-static int
+int
 Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
-    static char *kwlist[] = {"data", "shape", NULL};
+    char *kwlist[] = {"data", "shape", NULL};
     PyObject *input = NULL, *shape = NULL;
     Py_ssize_t proposed_shape[MAX_NDIMS] = {0};
     bool random = false, range = false, value = false;
@@ -834,7 +787,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
 }
 
 
-static PyObject *
+PyObject *
 Karray_str(Karray * self) {
     Py_ssize_t index[MAX_NDIMS] = {0};
     std::string result = "kipr.arr(" + str(self, index);
@@ -845,7 +798,7 @@ Karray_str(Karray * self) {
     return PyUnicode_FromString(result.c_str());
 }
 
-static PyObject *
+PyObject *
 Karray_getshape(Karray *self, void *closure) {
     PyObject * result = PyTuple_New(self->nd);
     for (int k=0; k < self->nd; k++) {
@@ -854,7 +807,7 @@ Karray_getshape(Karray *self, void *closure) {
     return result;
 }
 
-// static int
+// int
 // Karray_setshape(Karray *self, PyObject *value, void *closure)
 // {
 //     PyErr_SetString(PyExc_TypeError,
@@ -863,7 +816,7 @@ Karray_getshape(Karray *self, void *closure) {
 // }
 
 
-static PyObject *
+PyObject *
 Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored)) {
     npy_intp * dims = new npy_intp[self->nd];
     for (int k=0; k < self->nd; k++) {
@@ -873,7 +826,7 @@ Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored)) {
     return PyArray_SimpleNewFromData(self->nd, dims, NPY_FLOAT, self->data);
 }
 
-static PyObject *
+PyObject *
 Karray_reshape(Karray *self, PyObject *shape) {
     Py_ssize_t proposed_shape[MAX_NDIMS] = {1};
 
@@ -895,12 +848,7 @@ Karray_reshape(Karray *self, PyObject *shape) {
     }
 }
 
-static PyObject *
-max_nd(PyObject *self, PyObject *Py_UNUSED(ignored)) {
-    return PyLong_FromLong(static_cast<long>(MAX_NDIMS));
-}
-
-static PyObject * 
+PyObject * 
 Karray_subscript(PyObject *o, PyObject *key) {
     Karray * self = reinterpret_cast<Karray *>(o);
     Karray * result = new_Karray();
@@ -937,16 +885,30 @@ Karray_subscript(PyObject *o, PyObject *key) {
     fail:
         PyErr_SetString(PyExc_IndexError, "Failed to apply subscript.");
         return NULL;
+}PyObject *
+execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
+    DEBUG_Obj(self);
+
+    Py_ssize_t strides[MAX_NDIMS] = {};
+    Karray * arr = reinterpret_cast<Karray *>(self);
+
+    DEBUG_shape(arr->shape);
+
+    float b = 0.0F;
+    float a = 2.0F/b;
+
+    printf("a: %i\n", a);
+
+    Py_RETURN_NONE;
 }
 
 
-/************************************************
-                   Kernels
-************************************************/
 
-
-static void
-inline add_kernel(float * destination, float * other, Py_ssize_t length) {
+PyObject *
+max_nd(PyObject *self, PyObject *Py_UNUSED(ignored)) {
+    return PyLong_FromLong(static_cast<long>(MAX_NDIMS));
+}void
+add_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -966,8 +928,8 @@ inline add_kernel(float * destination, float * other, Py_ssize_t length) {
 #endif
 }
 
-static void
-inline sub_kernel(float * destination, float * other, Py_ssize_t length) {
+void
+sub_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -988,8 +950,8 @@ inline sub_kernel(float * destination, float * other, Py_ssize_t length) {
 }
 
 
-static void
-inline mul_kernel(float * destination, float * other, Py_ssize_t length) {
+void
+mul_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -1010,8 +972,8 @@ inline mul_kernel(float * destination, float * other, Py_ssize_t length) {
 }
 
 
-static void
-inline div_kernel(float * destination, float * other, Py_ssize_t length) {
+void
+div_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -1039,55 +1001,113 @@ inline div_kernel(float * destination, float * other, Py_ssize_t length) {
         destination[k] /= other[k];
     }
 #endif
+}PyObject *
+Karray_binary_op(PyObject * self, PyObject * other, 
+                void (*op_kernel)(float *, float*, Py_ssize_t)) {
+    Karray *a, *b, *c;
+    Py_ssize_t data_length;
+
+
+    if (!is_Karray(self) || !is_Karray(other)) {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    a = reinterpret_cast<Karray *>(self);
+    b = reinterpret_cast<Karray *>(other);
+    c = new_Karray_as(a);
+    Karray_copy(a, c);
+
+    data_length = Karray_length(a);
+    if (data_length == Karray_length(b)) {
+        op_kernel(c->data, b->data, data_length);
+    } else if (true) {
+
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Data length does not match.");
+        PyErr_Print();
+        goto fail;
+    }
+
+    return reinterpret_cast<PyObject *>(c);
+
+    fail:
+        Py_XDECREF(a);
+        Py_XDECREF(b);
+        PyErr_SetString(PyExc_TypeError, "Failed to add elements.");
+        return NULL;
 }
 
 
-/************************************************
-                   Math ops
-************************************************/
+PyObject *
+Karray_inplace_binary_op(PyObject * self, PyObject * other, 
+                         void (*op_kernel)(float *, float*, Py_ssize_t)) {
+    Karray *a, *b;
+    Py_ssize_t data_length;
+
+    if (!is_Karray(self) || !is_Karray(other)) {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    a = reinterpret_cast<Karray *>(self);
+    b = reinterpret_cast<Karray *>(other);
+    
+    data_length = Karray_length(a);
+    if (data_length == Karray_length(b)) {
+        op_kernel(a->data, b->data, data_length);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Data length does not match.");
+        PyErr_Print();
+        goto fail;
+    }
+    Py_INCREF(self);
+    return self;
+
+    fail:
+        Py_XDECREF(a);
+        Py_XDECREF(b);
+        PyErr_SetString(PyExc_TypeError, "Failed to add elements.");
+        return NULL;
+}
 
 
 
-static PyObject *
+PyObject *
 Karray_add(PyObject * self, PyObject * other) {
     return Karray_binary_op(self, other, add_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_inplace_add(PyObject * self, PyObject * other) {
     return Karray_inplace_binary_op(self, other, add_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_sub(PyObject * self, PyObject * other) {
     return Karray_binary_op(self, other, sub_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_inplace_sub(PyObject * self, PyObject * other) {
     return Karray_inplace_binary_op(self, other, sub_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_mul(PyObject * self, PyObject * other) {
     return Karray_binary_op(self, other, mul_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_inplace_mul(PyObject * self, PyObject * other) {
     return Karray_inplace_binary_op(self, other, mul_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_div(PyObject * self, PyObject * other) {
     return Karray_binary_op(self, other, div_kernel);
 }
 
-static PyObject *
+PyObject *
 Karray_inplace_div(PyObject * self, PyObject * other) {
     return Karray_inplace_binary_op(self, other, div_kernel);
 }
-
-// ok
-
-#include "test.hpp"
+#include "test.hpp" 
