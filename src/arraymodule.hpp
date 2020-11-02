@@ -9,9 +9,9 @@
 // #include <algorithm>
 // #include <iterator>
 
-#if __AVX__ 
+//#if __AVX__ 
     #include <immintrin.h>
-#endif
+//#endif
 
 #ifdef _WIN32 
 	#include <windows.h> 

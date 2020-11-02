@@ -616,7 +616,7 @@ common_shape(Karray * a, Karray * b) {
             dim_a = a->shape[i_a];
             dim_b = b->shape[i_b];
             if (!(dim_a == dim_b || (dim_a == 1 || dim_b == 1))) {
-                return false;
+                return NULL;
             }
             result[i_a] = Py_MAX(dim_a, dim_b);
             --i_b;
