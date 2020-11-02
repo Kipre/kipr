@@ -12,7 +12,7 @@
     "build_systems":
     [
         {
-            "name": "Buils install to Python",
+            "name": "Build install to Python",
             "cmd": "python setup.py install --user",
             "file_regex": "src\\/([^(]*)\\(([0-9]+)\\):(\\s)([^\n]*)",
             "working_dir": "$folder"

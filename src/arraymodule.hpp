@@ -4,16 +4,18 @@
 #include <numpy/arrayobject.h>
 #include <new>
 #include <string>
+#include <iostream>
+#include <cstdarg>  // for varargs
 // #include <algorithm>
 // #include <iterator>
 
 #if __AVX__ 
-  #include <immintrin.h>
+    #include <immintrin.h>
 #endif
 
 #ifdef _WIN32 
-#include <windows.h> 
-#include <debugapi.h> 
+	#include <windows.h> 
+	#include <debugapi.h> 
 #endif
 
 // To avoid c++ mixed designated initializers error
@@ -21,6 +23,7 @@
     .ob_base={.ob_base={1, NULL }, .ob_size=0},
 
 #define MAX_NDIMS 8
+#define STR_OFFSET 10
 
 #define Karray_IF_ERR_GOTO_FAIL \
     if (PyErr_Occurred()) { \
@@ -30,7 +33,6 @@
 
 
 int MAX_PRINT_SIZE = 30;
-int STR_OFFSET = 10;
 
 
 typedef struct {
@@ -74,6 +76,7 @@ static PyObject * Karray_reshape(Karray *self, PyObject *shape);
 // independent methods
 static PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
 static PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
+static PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
 
 // python overhead
 static PyMemberDef Karray_members[] = {
@@ -135,10 +138,12 @@ static PyTypeObject KarrayType = {
 };
 
 static PyMethodDef arraymodule_methods[] = {
-    {"max_nd",  max_nd, METH_NOARGS,
+    {"max_nd", max_nd, METH_NOARGS,
      "Get maximum number of dimensions for a kipr.arr() array."},
-    {"execute",  execute_func, METH_NOARGS,
+    {"execute", execute_func, METH_NOARGS,
      "Testing function to execute C code."},
+    {"internal", internal_test, METH_NOARGS,
+     "Execute C code tests."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

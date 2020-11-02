@@ -7,6 +7,12 @@ nb_random_checks = 5
 
 
 
+class TestKarrayInternals(unittest.TestCase):
+
+    def test_internals(self):
+        self.assertTrue(kp.internal())
+
+
 
 
 class TestKarrayObject(unittest.TestCase):
@@ -307,6 +313,7 @@ if __name__ == '__main__':
     # TestKarray().test_init()
     # TestKarray().test_subscript()
     # TestKarrayObject().test_init()
+    # TestKarrayInternals().test_internals()
 
 
     # TestKarrayMath().run()
