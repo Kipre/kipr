@@ -116,7 +116,7 @@ for (int i = 0; i < Karray_length(a); ++i) {\
 
 #define TEST(name) \
   std::function<void (void)> name;\
-  bool __##name = mt::TestsManager::AddTest(&name, #name);\
+  mt::TestsManager::AddTest(&name, #name);\
   name = [&]()
 
 

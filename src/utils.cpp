@@ -571,6 +571,7 @@ broadcast(Karray * self, Py_ssize_t * shape) {
     Py_ssize_t strides[MAX_NDIMS] = {};
     Py_ssize_t positions[2] = {0, 0};
     Py_ssize_t stride_shape[MAX_NDIMS] = {};
+    Py_ssize_t offsets[MAX_NDIMS] = {};
 
     const int target_nd = num_dims(shape);
     const int nb_ones_to_pad = target_nd - self->nd;
@@ -593,7 +594,6 @@ broadcast(Karray * self, Py_ssize_t * shape) {
         }
     }
     
-    Py_ssize_t offsets[MAX_NDIMS] = {};
     filter_offsets(shape, offsets);
 
     broadcast_filter(self, shape, filter, offsets);
