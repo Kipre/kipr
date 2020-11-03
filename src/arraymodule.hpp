@@ -49,9 +49,12 @@ int Karray_init(Karray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Karray_str(Karray * self);
 PyObject * Karray_getshape(Karray *self, void *closure);
+PyObject * Karray_subscript(PyObject *o, PyObject *key);
+
+// member functions
 PyObject * Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored));
 PyObject * Karray_reshape(Karray *self, PyObject *shape);
-PyObject * Karray_subscript(PyObject *o, PyObject *key);
+PyObject * Karray_broadcast(Karray *self, PyObject *o);
 
 // math
 PyObject * Karray_add(PyObject * self, PyObject * other);

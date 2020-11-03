@@ -105,7 +105,14 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 
     Karray * c23 = full_by_hand(2, 2, 3, 1., 1., 1., 2., 2., 2.);
 
-    TEST(TestCommonShape) {
+    Karray * c325 = full_by_hand(3, 3, 2, 5, 1., 2., 3., 4., 5.,
+                                             1., 2., 3., 4., 5.,
+                                             6., 7., 8., 9., 10.,
+                                             6., 7., 8., 9., 10.,
+                                             11., 12., 13., 14., 15.,
+                                             11., 12., 13., 14., 15.);
+
+    TEST(CommonShape) {
 
         ASSERT_CARR_EQ(common_shape(a1, a2), shape_by_hand(1, 2), 8);
 
@@ -117,7 +124,7 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 
     };
 
-    TEST(TestNumDims) {
+    TEST(NumDims) {
 
         ASSERT_EQ(num_dims(shape_by_hand(3, 2, 1, 4)), 3);
         ASSERT_EQ(num_dims(shape_by_hand(2, 2, 4)), 2);
@@ -126,7 +133,7 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 
 
 
-    TEST(TestNewFromShape) {
+    TEST(NewFromShape) {
 
         ASSERT_SHAPE_EQ(new_Karray_from_shape(shape_by_hand(1, 1)), KA(1, 1));
         ASSERT_SHAPE_EQ(new_Karray_from_shape(shape_by_hand(2, 1, 2)), KA(2, 1, 2));
@@ -159,11 +166,34 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 
 
 
+    TEST(Broadcastable) {
+        ASSERT(broadcastable(a1->shape, a2->shape));
+        ASSERT(broadcastable(a12->shape, a2->shape));
+        ASSERT(broadcastable(a1->shape, a2->shape));
+        ASSERT(broadcastable(a12->shape, a21->shape));
+        ASSERT(broadcastable(a141->shape, a12->shape));
+        ASSERT(broadcastable(a142->shape, a12->shape));
+        ASSERT(broadcastable(a141->shape, a315->shape));
+
+        ASSERT_FALSE(broadcastable(a12->shape, a13->shape));
+        ASSERT_FALSE(broadcastable(a2->shape, a3->shape));
+        ASSERT_FALSE(broadcastable(a13->shape, a2->shape));
+        ASSERT_FALSE(broadcastable(a142->shape, a21->shape));
+        ASSERT_FALSE(broadcastable(a142->shape, a315->shape));
+    };
+
+
+
     TEST(Broadcast) {
         Karray * res;
         ASSERT_NO_ERROR(res = broadcast(a21, shape_by_hand(2, 2, 3)));
-        
+
         ASSERT_KARR_EQ(res, c23);
+        Karray_dealloc(res);
+
+        ASSERT_NO_ERROR(res = broadcast(a315, shape_by_hand(3, 3, 2, 5)));
+
+        ASSERT_KARR_EQ(res, c325);
         Karray_dealloc(res);
 
         ASSERT_ERROR(broadcast(a315, shape_by_hand(3, 3, 5, 4)));

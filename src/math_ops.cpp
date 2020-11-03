@@ -3,7 +3,7 @@ PyObject *
 Karray_binary_op(PyObject * self, PyObject * other, 
                 void (*op_kernel)(float *, float*, Py_ssize_t)) {
     Karray *a, *b, *c;
-    Py_ssize_t data_length;
+    Py_ssize_t data_length, *cmn_shape;
 
 
     if (!is_Karray(self) || !is_Karray(other)) {
@@ -12,21 +12,26 @@ Karray_binary_op(PyObject * self, PyObject * other,
 
     a = reinterpret_cast<Karray *>(self);
     b = reinterpret_cast<Karray *>(other);
-    c = new_Karray_as(a);
-    Karray_copy(a, c);
-
+    
     data_length = Karray_length(a);
-    if (data_length == Karray_length(b)) {
-        op_kernel(c->data, b->data, data_length);
-    } else if (true) {
-
+    if (Karray_length(b) != data_length) {
+        cmn_shape = common_shape(a, b);
+        Karray_IF_ERR_GOTO_FAIL;
+        a = broadcast(a, cmn_shape);
+        Karray_IF_ERR_GOTO_FAIL;
+        b = broadcast(b, cmn_shape);
+        Karray_IF_ERR_GOTO_FAIL;
+        data_length = Karray_length(a);
     } else {
-        PyErr_SetString(PyExc_TypeError, "Data length does not match.");
-        PyErr_Print();
-        goto fail;
+        c = new_Karray_as(a);
+        Karray_copy(a, c);
+        a = c;
     }
+    
+    op_kernel(a->data, b->data, data_length);
+    
 
-    return reinterpret_cast<PyObject *>(c);
+    return reinterpret_cast<PyObject *>(a);
 
     fail:
         Py_XDECREF(a);

@@ -22,13 +22,13 @@ T sum(T * arr, int len, int depth = 0) {
             Member utility functions
 ************************************************/
 
-void get_strides(Karray * self, Py_ssize_t * holder) {
+void get_strides(int nd, Py_ssize_t * shape, Py_ssize_t * holder) {
     Py_ssize_t current_value = 1;
-    int dim = self->nd - 1;
+    int dim = nd - 1;
 
     while (dim >= 0) {
         holder[dim] = current_value;
-        current_value *= self->shape[dim--];
+        current_value *= shape[dim--];
     }
 }
 
@@ -254,43 +254,46 @@ char char_type(PyObject * obj) {
 
 
 void
-inline transfer(Karray * from, Karray * to,
+inline transfer(int from_nd, Py_ssize_t * from_shape,
+                float * from_data, Karray * to,
                 Py_ssize_t * filter, Py_ssize_t * strides,
                 Py_ssize_t * positions, Py_ssize_t * offsets,
                 int depth) {
-    if (depth < from->nd) {
+    if (depth < from_nd) {
         if (filter[offsets[depth]] == -1) {
-            for (int k=0; k < from->shape[depth]; ++k) {
+            for (int k=0; k < from_shape[depth]; ++k) {
                 positions[1] += strides[depth]*(k != 0);
-                transfer(from, to, filter, strides,
+                transfer(from_nd, from_shape, from_data, to, filter, strides,
                          positions, offsets, depth + 1);
             }
-            positions[1] -= strides[depth]*(from->shape[depth] - 1);
+            positions[1] -= strides[depth]*(from_shape[depth] - 1);
         } else {
             Py_ssize_t last_index = 0, current_index = 0, k = 0;
-            for (; k < from->shape[depth]; ++k) {
+            for (; k < from_shape[depth]; ++k) {
                 current_index = filter[offsets[depth] + k];
                 if (current_index < 0) break;
                 positions[1] += strides[depth] * (current_index - last_index);
-                transfer(from, to, filter, strides,
+                transfer(from_nd, from_shape, from_data, to, filter, strides,
                          positions, offsets, depth + 1);
                 last_index = current_index;
             }
             positions[1] -= strides[depth]*last_index;
         }
     } else {
-        to->data[positions[0]++] = from->data[positions[1]];
+        to->data[positions[0]++] = from_data[positions[1]];
     }
 }
 
 Py_ssize_t
-transfer_data(Karray * from, Karray * to,
+transfer_data(int from_nd, Py_ssize_t * from_shape,
+              float * from_data, Karray * to,
               Py_ssize_t * filter, Py_ssize_t * offsets) {
     Py_ssize_t strides[MAX_NDIMS] = {};
-    get_strides(from, strides);
+    get_strides(from_nd, from_shape, strides);
     Py_ssize_t positions[2] = {0, 0};
 
-    transfer(from, to, filter, strides, positions, offsets, 0);
+    transfer(from_nd, from_shape, from_data, to, 
+             filter, strides, positions, offsets, 0);
 
     return positions[0];
 }
@@ -530,20 +533,77 @@ broadcast_filter(Karray * from, Py_ssize_t * to_shape,
     }
 }
 
+bool
+broadcastable(Py_ssize_t * shape_a, Py_ssize_t * shape_b, 
+              int dim_a = 0, int dim_b = 0) {
+    // compute dimensions if not available
+    if (dim_a == 0) {
+        dim_a = num_dims(shape_a);
+    }
+    if (dim_b == 0) {
+        dim_b = num_dims(shape_b);
+    }
+    // swap so that a is bigger
+    if (dim_b > dim_a) {
+        std::swap(shape_a, shape_b);
+        std::swap(dim_a, dim_b);
+    }
+    // decrement dims so they become indexes
+    --dim_a; --dim_b;
+
+    while (dim_b >= 0) {
+        if ((shape_a[dim_a] != shape_b[dim_b]) &&
+            (shape_a[dim_a] != 1 &&
+             shape_b[dim_b] != 1)) {
+            return false;
+        }
+        --dim_a; --dim_b;
+    }
+    return true;
+}
+
 Karray *
 broadcast(Karray * self, Py_ssize_t * shape) {
+
     Karray * result = new_Karray_from_shape(shape);
     Py_ssize_t filter_size = sum(shape, MAX_NDIMS);
     Py_ssize_t * filter = new Py_ssize_t[filter_size];
+    Py_ssize_t strides[MAX_NDIMS] = {};
+    Py_ssize_t positions[2] = {0, 0};
+    Py_ssize_t stride_shape[MAX_NDIMS] = {};
+
+    const int target_nd = num_dims(shape);
+    const int nb_ones_to_pad = target_nd - self->nd;
+    int nb_ones_left = nb_ones_to_pad;
+    if (nb_ones_to_pad < 0) goto fail;
+
+    // sanity check
+    if (!broadcastable(self->shape, shape)) {
+        PyErr_SetString(PyExc_TypeError, "Shapes are not broadcastable.");
+        PyErr_Print();
+        goto fail;
+    }
+
+    for (int i=0; i < MAX_NDIMS; ++i) {
+        if (nb_ones_left > 0) {
+            stride_shape[i] = 1;
+            --nb_ones_left;
+        } else {
+            stride_shape[i] = self->shape[i-nb_ones_to_pad];
+        }
+    }
     
     Py_ssize_t offsets[MAX_NDIMS] = {};
     filter_offsets(shape, offsets);
 
     broadcast_filter(self, shape, filter, offsets);
-    
-    
-    Py_ssize_t result_position = transfer_data(self, result, filter, offsets);
-    if (result_position != Karray_length(result)) {
+
+    get_strides(target_nd, stride_shape, strides);
+
+    transfer(target_nd, shape, self->data, result,
+             filter, strides, positions, offsets, 0);
+
+    if (positions[0] != product(shape, target_nd)) {
         goto fail;
     }
 
@@ -553,7 +613,7 @@ broadcast(Karray * self, Py_ssize_t * shape) {
 
     fail:
         delete[] filter;
-        Py_DECREF(result);
+        Py_XDECREF(result);
         PyErr_SetString(PyExc_TypeError, 
             "Failed to broadcast arrays.");
         return NULL;

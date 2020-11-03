@@ -47,6 +47,9 @@ class TestKarrayObject(unittest.TestCase):
         # shape must be a sequence
         with self.assertRaises(TypeError):
             kp.arr(1, shape=np.array([]))
+
+        # BUG
+        # self.assertTrue(kp.arr(1, shape=(1)))
         
         self.assertTrue(kp.arr(1))
         
@@ -172,6 +175,16 @@ class TestKarrayObject(unittest.TestCase):
                 b[subscript]
             )
 
+    def test_broadcast(self):
+        a = kp.arr('range', shape=[1, 4])
+        np.testing.assert_almost_equal(
+            a.broadcast([3, 4]).numpy(), 
+            np.array([[0, 1, 2, 3],
+                      [0, 1, 2, 3],
+                      [0, 1, 2, 3]])
+        )
+
+
     def runTest(self):
         self.test_init()
         self.test_subscript()
@@ -180,6 +193,17 @@ class TestKarrayObject(unittest.TestCase):
         self.test_print()
 
 class TestKarrayMath(unittest.TestCase):
+
+    pair_shapes = [((1,), (2,)),
+                   ((1,), (4, 2)),
+                   ((1,), (4, 2, 8)),
+                   ((4, 2, 8), (1,)),
+                   ((4, 1), (4, 4, 8)),
+                   ((5, 4), (4, 5, 4)),
+                   ((1, 1), (4, 2, 8)),
+                   ((1, 5), (4, 3, 5)),
+                   ((1, 5), (4, 1, 5)),
+                   ((4, 3, 1, 5, 6, 1), (7, 1, 1, 6)),]
 
 
     def test_add(self):
@@ -209,12 +233,29 @@ class TestKarrayMath(unittest.TestCase):
             b = np.random.rand(*shape)
 
             print(a.shape)
-
-            print(kp.arr(a) + kp.arr(b))
             
             np.testing.assert_almost_equal(
                 (kp.arr(a) + kp.arr(b)).numpy(), 
                 a + b
+            )
+
+        for sa, sb in self.pair_shapes:
+            na = np.random.rand(*sa)
+            nb = np.random.rand(*sb)
+
+            a = kp.arr(na)
+            b = kp.arr(nb)
+
+            print(sa, sb)
+
+            np.testing.assert_almost_equal(
+                (a + b).numpy(), 
+                na + nb
+            )
+
+            np.testing.assert_almost_equal(
+                (b + a).numpy(), 
+                na + nb
             )
 
     def test_inplace_add(self):

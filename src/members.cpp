@@ -208,11 +208,30 @@ Karray_subscript(PyObject *o, PyObject *key) {
 
     filter_offsets(self->shape, offsets);
 
-    transfer_data(self, result, filters, offsets);
+    transfer_data(self->nd, self->shape, self->data, 
+                  result, filters, offsets);
 
     return reinterpret_cast<PyObject *>(result);
 
     fail:
         PyErr_SetString(PyExc_IndexError, "Failed to apply subscript.");
+        return NULL;
+}
+
+PyObject * 
+Karray_broadcast(Karray *self, PyObject *o) {
+    Py_ssize_t shape[MAX_NDIMS] = {};
+    Karray *result;
+    parse_shape(o, shape);
+    Karray_IF_ERR_GOTO_FAIL;
+
+    result = broadcast(self, shape);
+    Karray_IF_ERR_GOTO_FAIL;
+
+    return reinterpret_cast<PyObject *>(result);
+
+    fail:
+        PyErr_SetString(PyExc_TypeError, 
+            "Failed to apply broadcast, input shape is probably not coherent.");
         return NULL;
 }

@@ -15,6 +15,8 @@ static PyGetSetDef Karray_getsetters[] = {
 static PyMethodDef Karray_methods[] = {
     {"reshape", (PyCFunction) Karray_reshape, METH_O,
      "Return the kipr.arr with the new shape."},
+    {"broadcast", (PyCFunction) Karray_broadcast, METH_O,
+     "Return the kipr.arr with the new shape."},
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
      "Return a numpy representtion of the Karray."},    
     {"execute", (PyCFunction)  execute_func, METH_NOARGS,
