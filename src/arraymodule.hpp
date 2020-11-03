@@ -28,6 +28,10 @@
         goto fail; \
     }
 
+
+int MAX_PRINT_SIZE = 30;
+
+
 typedef struct {
     PyObject_HEAD
     int nd;

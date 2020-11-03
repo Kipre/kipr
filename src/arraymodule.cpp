@@ -144,8 +144,6 @@ void DEBUG_Karr(Karray * self, char const * message = "") {
 
 #define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
 
-int MAX_PRINT_SIZE = 30;
-
 
 /************************************************
                 Utility functions
@@ -187,10 +185,10 @@ inline num_dims(Py_ssize_t * shape) {
     return dim;
 }
 
-void filter_offsets(Karray * origin, Py_ssize_t * offsets) {
+void filter_offsets(Py_ssize_t * shape, Py_ssize_t * offsets) {
     offsets[0] = 0;
-    for (int k=1; k < origin->nd; ++k) {
-        offsets[k] = offsets[k-1] + origin->shape[k-1];
+    for (int k=1; k < MAX_NDIMS; ++k) {
+        offsets[k] = offsets[k-1] + shape[k-1];
     }
 }
 
@@ -660,15 +658,51 @@ common_shape(Karray * a, Karray * b) {
         return NULL;
 }
 
+void
+broadcast_filter(Karray * from, Py_ssize_t * to_shape, 
+                 Py_ssize_t * filter, Py_ssize_t * offsets)  {
+    int from_i = from->nd - 1;
+    for (int i=MAX_NDIMS-1; i >= 0; --i) {
+        for (int k=0; k < to_shape[i]; ++k) {
+            if (from_i >= 0) {
+                filter[offsets[i] + k] = k * (from->shape[from_i] != 1);
+            } else {
+                filter[offsets[i] + k] = 0;
+            }
+        }
+        if (to_shape[i] > 0)
+            --from_i;
+    }
+}
+
 Karray *
 broadcast(Karray * self, Py_ssize_t * shape) {
     Karray * result = new_Karray_from_shape(shape);
+    Py_ssize_t filter_size = sum(shape, MAX_NDIMS);
+    Py_ssize_t * filter = new Py_ssize_t[filter_size];
+    
+    Py_ssize_t offsets[MAX_NDIMS] = {};
+    filter_offsets(shape, offsets);
+
+    broadcast_filter(self, shape, filter, offsets);
+    Py_ssize_t result_position = transfer_data(self, result, filter, offsets);
+    DebugBreak();
+    if (result_position != Karray_length(result)) {
+        goto fail;
+    }
+
+
+    delete[] filter;
+    return result;
 
     fail:
+        delete[] filter;
+        Py_DECREF(result);
         PyErr_SetString(PyExc_TypeError, 
             "Failed to broadcast arrays.");
         return NULL;
 }
+
 void
 Karray_dealloc(Karray *self) {
     delete[] self->data;
@@ -876,7 +910,7 @@ Karray_subscript(PyObject *o, PyObject *key) {
     result->data = new float[result_length];
 
 
-    filter_offsets(self, offsets);
+    filter_offsets(self->shape, offsets);
 
     transfer_data(self, result, filters, offsets);
 
@@ -885,7 +919,9 @@ Karray_subscript(PyObject *o, PyObject *key) {
     fail:
         PyErr_SetString(PyExc_IndexError, "Failed to apply subscript.");
         return NULL;
-}PyObject *
+}
+
+PyObject *
 execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     DEBUG_Obj(self);
 
@@ -907,7 +943,9 @@ execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 PyObject *
 max_nd(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     return PyLong_FromLong(static_cast<long>(MAX_NDIMS));
-}void
+}
+
+void
 add_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
     int k;
@@ -1001,7 +1039,9 @@ div_kernel(float * destination, float * other, Py_ssize_t length) {
         destination[k] /= other[k];
     }
 #endif
-}PyObject *
+}
+
+PyObject *
 Karray_binary_op(PyObject * self, PyObject * other, 
                 void (*op_kernel)(float *, float*, Py_ssize_t)) {
     Karray *a, *b, *c;

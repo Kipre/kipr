@@ -1,3 +1,4 @@
+
 PyObject *
 execute_func(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     DEBUG_Obj(self);

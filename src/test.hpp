@@ -1,3 +1,4 @@
+
 #include "internal_test.h"
 
 Karray *
@@ -97,9 +98,12 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     Karray * a141 = KA(3, 1, 4, 1);
     Karray * a142 = KA(3, 1, 4, 2);
     Karray * a315 = KA(3, 3, 1, 5);
+    Karray * a343 = KA(3, 3, 4, 3);
 
     Karray * b1 = full_by_hand(1, 1, 1.);
     Karray * b12 = full_by_hand(2, 1, 2, 1., 2.);
+
+    Karray * c23 = full_by_hand(2, 2, 3, 1., 1., 1., 2., 2., 2.);
 
     TEST(TestCommonShape) {
 
@@ -132,6 +136,37 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     TEST(FullByHand) {
         ASSERT_KARR_EQ(a1, b1);
         ASSERT_KARR_EQ(a12, b12);
+    };
+
+    TEST(BroadcastFilter) {
+        Py_ssize_t * shape = shape_by_hand(3, 3, 4, 3);
+        Py_ssize_t filter_size = sum(shape, MAX_NDIMS);
+        Py_ssize_t * filter = new Py_ssize_t[filter_size];
+
+        Py_ssize_t offsets[MAX_NDIMS] = {};
+        filter_offsets(shape, offsets);
+        
+        broadcast_filter(a13, shape, filter, offsets);
+
+        Py_ssize_t expected[10] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 2};
+
+        ASSERT_EQ(10, filter_size);
+
+        ASSERT_CARR_EQ(filter, expected, 10);
+
+        delete[] filter;
+    };
+
+
+
+    TEST(Broadcast) {
+        Karray * res;
+        ASSERT_NO_ERROR(res = broadcast(a21, shape_by_hand(2, 2, 3)));
+        
+        ASSERT_KARR_EQ(res, c23);
+        Karray_dealloc(res);
+
+        ASSERT_ERROR(broadcast(a315, shape_by_hand(3, 3, 5, 4)));
     };
 
 

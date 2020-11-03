@@ -30,6 +30,21 @@
   }\
   PyErr_Clear();\
 
+#define ASSERT_ERROR(value)\
+  value;\
+  if (!(PyErr_Occurred())) {\
+    K_TEST_FAILED("Error not raised by " #value, __FILE__, __LINE__);\
+  }\
+  PyErr_Clear();\
+
+#define ASSERT_NO_ERROR(value) \
+value ;\
+if (PyErr_Occurred()) {\
+  PyErr_Print();PyErr_Format(PyExc_AssertionError, \
+"Error occured for %s at line %i.", #value, __LINE__);\
+  return;\
+}
+
 // #define ASSERT_NOTNULL(value)\
 //   ASSERT_TRUE(value != NULL);
 

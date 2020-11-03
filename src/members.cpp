@@ -1,3 +1,4 @@
+
 void
 Karray_dealloc(Karray *self) {
     delete[] self->data;
@@ -205,7 +206,7 @@ Karray_subscript(PyObject *o, PyObject *key) {
     result->data = new float[result_length];
 
 
-    filter_offsets(self, offsets);
+    filter_offsets(self->shape, offsets);
 
     transfer_data(self, result, filters, offsets);
 
