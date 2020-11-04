@@ -30,7 +30,7 @@ Karray_binary_op(PyObject * self, PyObject * other,
 
     op_kernel(a->data, b->data, data_length);
     
-    Py_INCREF(a);
+    // Py_INCREF(a);
     return reinterpret_cast<PyObject *>(a);
 
     fail:
