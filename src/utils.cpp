@@ -562,6 +562,33 @@ broadcastable(Py_ssize_t * shape_a, Py_ssize_t * shape_b,
     return true;
 }
 
+bool
+broadcastable_to(Py_ssize_t * shape, Py_ssize_t * cast_shape, 
+              int dim = 0, int cast_dim = 0) {
+    // compute dimensions if not available
+    if (dim == 0) {
+        dim = num_dims(shape);
+    }
+    if (cast_dim == 0) {
+        cast_dim = num_dims(cast_shape);
+    }
+    // cannot cast into a smaller array
+    if (dim > cast_dim) {
+        return false;
+    }
+    // decrement dims so they become indexes
+    --dim; --cast_dim;
+
+    while (dim >= 0) {
+        if (shape[dim] != cast_shape[cast_dim] &&
+            shape[dim] != 1) {
+            return false;
+        }
+        --dim; --cast_dim;
+    }
+    return true;
+}
+
 Karray *
 broadcast(Karray * self, Py_ssize_t * shape) {
 
@@ -579,8 +606,8 @@ broadcast(Karray * self, Py_ssize_t * shape) {
     if (nb_ones_to_pad < 0) goto fail;
 
     // sanity check
-    if (!broadcastable(self->shape, shape)) {
-        PyErr_SetString(PyExc_TypeError, "Shapes are not broadcastable.");
+    if (!broadcastable_to(self->shape, shape, self->nd, target_nd)) {
+        PyErr_SetString(PyExc_TypeError, "Cannot perform one-sided broadcast.");
         PyErr_Print();
         goto fail;
     }

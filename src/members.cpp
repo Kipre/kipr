@@ -35,13 +35,7 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
     if (PyUnicode_Check(input)) {
         if (PyUnicode_Compare(input, PyUnicode_FromString("random")) == 0) {
             random = true;
-            if (_rdrand32_step(&val) == 0) {
-                PyErr_SetString(PyExc_SystemError, 
-                    "Could not generate a random value.");
-                PyErr_Print();
-                goto fail;
-            }
-            self->data[0] = (float)((double) val / (double) 4294967295);
+            self->data[0] = (float) rand() / (float) 32767;
         } else if (PyUnicode_Compare(input, PyUnicode_FromString("range")) == 0) {
             range = true;
         }

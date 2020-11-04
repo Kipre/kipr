@@ -169,7 +169,6 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     TEST(Broadcastable) {
         ASSERT(broadcastable(a1->shape, a2->shape));
         ASSERT(broadcastable(a12->shape, a2->shape));
-        ASSERT(broadcastable(a1->shape, a2->shape));
         ASSERT(broadcastable(a12->shape, a21->shape));
         ASSERT(broadcastable(a141->shape, a12->shape));
         ASSERT(broadcastable(a142->shape, a12->shape));
@@ -180,6 +179,16 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
         ASSERT_FALSE(broadcastable(a13->shape, a2->shape));
         ASSERT_FALSE(broadcastable(a142->shape, a21->shape));
         ASSERT_FALSE(broadcastable(a142->shape, a315->shape));
+    };
+
+
+
+    TEST(BroadcastableTo) {
+        ASSERT(broadcastable_to(a1->shape, a2->shape));
+        ASSERT(broadcastable_to(a141->shape, a142->shape));
+
+        ASSERT_FALSE(broadcastable_to(a12->shape, a21->shape));
+        ASSERT_FALSE(broadcastable_to(a141->shape, a315->shape));
     };
 
 

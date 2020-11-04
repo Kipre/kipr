@@ -204,6 +204,14 @@ class TestKarrayMath(unittest.TestCase):
                    ((1, 5), (4, 3, 5)),
                    ((1, 5), (4, 1, 5)),
                    ((4, 3, 1, 5, 6, 1), (7, 1, 1, 6)),]
+    pair_shapes_one_side = [((1,), (2,)),
+                           ((1,), (4, 2)),
+                           ((1,), (4, 2, 8)),
+                           ((4, 1), (4, 4, 8)),
+                           ((5, 4), (4, 5, 4)),
+                           ((1, 1), (4, 2, 8)),
+                           ((1, 5), (4, 3, 5)),
+                           ((1, 5), (4, 1, 5)),]
 
 
     def test_add(self):
@@ -246,8 +254,6 @@ class TestKarrayMath(unittest.TestCase):
             a = kp.arr(na)
             b = kp.arr(nb)
 
-            print(sa, sb)
-
             np.testing.assert_almost_equal(
                 (a + b).numpy(), 
                 na + nb
@@ -282,6 +288,21 @@ class TestKarrayMath(unittest.TestCase):
             np.testing.assert_almost_equal(
                 ka.numpy(), 
                 a + b
+            )
+
+        for sa, sb in self.pair_shapes_one_side:
+            na = np.random.rand(*sa)
+            nb = np.random.rand(*sb)
+
+            a = kp.arr(na)
+            b = kp.arr(nb)
+
+            print(a, b)
+
+            b += a
+            np.testing.assert_almost_equal(
+                b.numpy(), 
+                na + nb
             )
 
     def test_sub(self):
@@ -335,6 +356,20 @@ class TestKarrayMath(unittest.TestCase):
             [1.33333333]
         )
 
+    def test_matmul(self):
+        a = kp.arr('range', shape=[3, 3]).reshape([1, 3, 3]).broadcast([2, 3, 3])
+        b = kp.arr('range', shape=[3, 2])
+
+        np.testing.assert_almost_equal(
+            (a @ b).numpy(), 
+            np.array([[[10., 13.],
+                       [28., 40.],
+                       [46., 67.]],
+                      [[10., 13.],
+                       [28., 40.],
+                       [46., 67.]]])
+        )
+
     def runTest(self):
         self.test_add()
         self.test_inplace_add()
@@ -356,7 +391,7 @@ if __name__ == '__main__':
     # TestKarrayObject().test_init()
     # TestKarrayInternals().test_internals()
 
-
+    # TestKarrayMath().test_inplace_add()
     # TestKarrayMath().run()
     # TestKarrayObject().run()
 

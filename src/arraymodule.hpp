@@ -65,6 +65,7 @@ PyObject * Karray_mul(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
 PyObject * Karray_div(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
+PyObject * Karray_matmul(PyObject * self, PyObject * other);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));

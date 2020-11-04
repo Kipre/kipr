@@ -55,7 +55,9 @@ static PyNumberMethods Karray_as_number = {
     .nb_inplace_multiply = Karray_inplace_mul,
 
     .nb_true_divide = Karray_div,
-    .nb_inplace_true_divide = Karray_inplace_div
+    .nb_inplace_true_divide = Karray_inplace_div,
+
+    .nb_matrix_multiply = Karray_matmul
 };
 
 static PyMappingMethods Karray_as_mapping = {
