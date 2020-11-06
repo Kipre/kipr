@@ -27,12 +27,33 @@ Karray_init(Karray *self, PyObject *args, PyObject *kwds) {
     float init_value;
     Py_ssize_t data_length = 0;
     unsigned int val;
+    PyArrayObject* arr;
+    float * arr_data;
+    int nd;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|$O", kwlist,
                                      &input, &shape))
         return -1;
 
-    if (PyUnicode_Check(input)) {
+
+    if (PyArray_Check(input) &&
+        (nd = PyArray_NDIM((PyArrayObject *) input)) < MAX_NDIMS &&
+        PyArray_TYPE((PyArrayObject *) input) == NPY_FLOAT) {
+        arr = (PyArrayObject *) input;
+        self->nd = nd;
+        npy_intp * input_shape = PyArray_SHAPE(arr);
+        for (int i=0; i<nd; ++i) {
+            self->shape[i] = (Py_ssize_t) input_shape[i];
+        }
+        npy_intp length = PyArray_SIZE(arr);
+        arr_data = (float *) PyArray_DATA(arr);
+        delete[] self->data;
+        self->data = new float[length];
+        for (int k=0; k < length; ++k) {
+            self->data[k] = arr_data[k];
+        }
+        data_length = (Py_ssize_t) length;
+    } else if (PyUnicode_Check(input)) {
         if (PyUnicode_Compare(input, PyUnicode_FromString("random")) == 0) {
             random = true;
             self->data[0] = (float) rand() / (float) 32767;
@@ -227,5 +248,104 @@ Karray_broadcast(Karray *self, PyObject *o) {
     fail:
         PyErr_SetString(PyExc_TypeError, 
             "Failed to apply broadcast, input shape is probably not coherent.");
+        return NULL;
+}
+
+
+void
+inline sum(float * self_data, float * result_data, float * weights_data,
+           Py_ssize_t * self_shape, Py_ssize_t * strides,
+           int axis, int depth = 0) {
+    if (axis != depth) {
+        for (int k=0; k < self_shape[depth]; ++k) {
+            sum(self_data + strides[depth]*k, result_data + strides[depth]*k/self_shape[axis], 
+                weights_data, self_shape, strides, axis, depth + 1);
+        }
+    } else {
+        for (int i=0; i < self_shape[axis]; ++i) {
+            for (int k=0; k < strides[axis]; ++k) {
+                // printf("val and result: %f %f %i %i\n", self_data[strides[axis] * i + k], result_data[k], strides[axis] * i + k, i);
+                result_data[k] += self_data[strides[axis] * i + k] * weights_data[i];
+            }
+        }
+    }
+}
+
+
+
+PyObject *
+Karray_mean(Karray *self, PyObject *args, PyObject *kwds) {
+    char *kwlist[] = {"axis", "weights", NULL};
+
+    PyObject *axis = NULL, *weights_obj = NULL;
+    Py_ssize_t output_shape[MAX_NDIMS] = {};
+    Py_ssize_t strides[MAX_NDIMS] = {};
+    Py_ssize_t fake_shape[MAX_NDIMS] = {};
+    Karray * result, * weights;
+    Py_ssize_t reduction, ax, stride = 1;
+    bool weights_passed;
+
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$O", kwlist,
+                                     &axis, &weights_obj))
+        return NULL;
+
+    Karray * karr = reinterpret_cast<Karray *>(self);
+
+    ax = Axis(karr->nd, axis).value;
+    PYERR_PRINT_GOTO_FAIL;
+
+    if (ax == -1) {
+        output_shape[0] = 1;
+        reduction = Karray_length(karr);
+        strides[0] = 1;
+        fake_shape[0] = reduction;
+        ax = 0;
+    } else {
+        copy_shape(karr->shape, output_shape);
+        reduction = shape_pop(output_shape, ax);
+        get_strides(karr->nd, karr->shape, strides);
+        copy_shape(karr->shape, fake_shape);
+    }
+
+    result = new_Karray_from_shape(output_shape, 0);
+
+    if (weights_obj) {
+        weights_passed = true;
+        if (!is_Karray(weights_obj)) {
+            PyErr_SetString(PyExc_TypeError, 
+                "Weights should be a <kipr.arr>.");
+            goto fail;
+        } else {
+            weights = reinterpret_cast<Karray *>(weights_obj);
+            if (Karray_length(weights) != reduction) {
+                PyErr_SetString(PyExc_TypeError, 
+                    "Weights not compatible with reduction.");
+                goto fail;
+            }
+
+        } 
+    } else {
+        Py_ssize_t weights_shape[MAX_NDIMS] = {reduction};
+        weights = new_Karray_from_shape(weights_shape, 1);
+    }
+
+    sum(karr->data, result->data, weights->data,
+        fake_shape, strides, ax);
+
+
+    for (int k=0; k < Karray_length(result); ++k) {
+        result->data[k] /= (float) reduction;
+    }
+
+
+    if (!weights_passed)
+        Py_XDECREF(weights);
+    return reinterpret_cast<PyObject *>(result);
+
+    fail:
+        if (!weights_passed)
+            Py_XDECREF(weights);
+        Py_XDECREF(result);
         return NULL;
 }

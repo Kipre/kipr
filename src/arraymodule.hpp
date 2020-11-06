@@ -3,6 +3,7 @@
 #include "structmember.h"
 #include <numpy/arrayobject.h>
 
+
 // #include <new>
 #include <string>
 // #include <iostream>
@@ -26,6 +27,23 @@
     if (PyErr_Occurred()) { \
         PyErr_Print(); \
         goto fail; \
+    }
+
+#define PYERR_PRINT_GOTO_FAIL \
+    if (PyErr_Occurred()) { \
+        PyErr_Print(); \
+        goto fail; \
+    }
+
+#define PYERR_CLEAR_GOTO_FAIL \
+    if (PyErr_Occurred()) { \
+        PyErr_Clear(); \
+        goto fail; \
+    }
+
+#define PYERR_CLEAR_CONTINUE \
+    if (PyErr_Occurred()) { \
+        PyErr_Clear(); \
     }
 
 
@@ -55,6 +73,7 @@ PyObject * Karray_subscript(PyObject *o, PyObject *key);
 PyObject * Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored));
 PyObject * Karray_reshape(Karray *self, PyObject *shape);
 PyObject * Karray_broadcast(Karray *self, PyObject *o);
+PyObject * Karray_mean(Karray *self, PyObject *args, PyObject *kwds);
 
 // math
 PyObject * Karray_add(PyObject * self, PyObject * other);
@@ -71,3 +90,10 @@ PyObject * Karray_matmul(PyObject * self, PyObject * other);
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
+PyObject * Karray_relu(PyObject *self, PyObject * o);
+PyObject * Karray_exp(PyObject *self, PyObject * o);
+
+
+#define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
+
+#include "include/py_types.hpp"

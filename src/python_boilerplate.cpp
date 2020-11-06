@@ -16,10 +16,12 @@ static PyMethodDef Karray_methods[] = {
     {"reshape", (PyCFunction) Karray_reshape, METH_O,
      "Return the kipr.arr with the new shape."},
     {"broadcast", (PyCFunction) Karray_broadcast, METH_O,
-     "Return the kipr.arr with the new shape."},
+     "Return the kipr.arr with the breadcasted shape."},
+    {"mean", (PyCFunction) Karray_mean, METH_VARARGS | METH_KEYWORDS,
+     "Return the averaged array."},
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
      "Return a numpy representtion of the Karray."},    
-    {"execute", (PyCFunction)  execute_func, METH_NOARGS,
+    {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
     {NULL}  /* Sentinel */
 };
@@ -28,10 +30,14 @@ static PyMethodDef Karray_methods[] = {
 static PyMethodDef arraymodule_methods[] = {
     {"max_nd", max_nd, METH_NOARGS,
      "Get maximum number of dimensions for a kipr.arr() array."},
-    {"execute", execute_func, METH_NOARGS,
+    {"execute", execute_func, METH_O,
      "Testing function to execute C code."},
     {"internal", internal_test, METH_NOARGS,
      "Execute C code tests."},
+    {"relu", Karray_relu, METH_O,
+     "ReLU function for <kipr.arr> arrays."},
+    {"exp", Karray_exp, METH_O,
+     "Exponential function for <kipr.arr> arrays."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

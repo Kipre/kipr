@@ -12,6 +12,25 @@ class TestKarrayInternals(unittest.TestCase):
     def test_internals(self):
         self.assertTrue(kp.internal())
 
+class TestModuleFunctions(unittest.TestCase):
+
+    def test_relu(self):
+
+
+        for k in range(nb_random_checks):
+            nd = np.random.randint(1, max_nd + 1)
+            shape = np.random.randint(2,5, size=(nd))
+            print(f'reshape to {shape}')
+
+            ka = kp.arr('random', shape=shape)
+            na = ka.numpy()
+
+            
+            np.testing.assert_almost_equal(
+                kp.relu(ka).numpy(), 
+                na * (na > 0)
+            )
+
 
 
 
@@ -368,6 +387,36 @@ class TestKarrayMath(unittest.TestCase):
                       [[10., 13.],
                        [28., 40.],
                        [46., 67.]]])
+        )
+
+    def test_mean(self):
+
+        a = np.random.rand(2, 3, 4).astype(np.float32)
+        ka = kp.arr(a)
+
+        np.testing.assert_almost_equal(
+            ka.mean().numpy(), 
+            a.mean()
+        )
+
+        np.testing.assert_almost_equal(
+            ka.mean(0).numpy(), 
+            a.mean(0)
+        )
+
+        np.testing.assert_almost_equal(
+            ka.mean(1).numpy(), 
+            a.mean(1)
+        )
+
+        np.testing.assert_almost_equal(
+            ka.mean(2).numpy(), 
+            a.mean(2)
+        )
+
+        np.testing.assert_almost_equal(
+            ka.mean(-1).numpy(), 
+            a.mean(-1)
         )
 
     def runTest(self):

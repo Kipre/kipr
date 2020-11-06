@@ -75,11 +75,6 @@ div_kernel(float * destination, float * other, Py_ssize_t length) {
         _mm256_store_ps(&destination[k], v_a);
     }
     while (k < length) {
-        if (other[k] == 0) {
-            PyErr_SetString(PyExc_ZeroDivisionError, "");
-            PyErr_Print();
-            PyErr_Clear();
-        }
         destination[k] /= other[k];
         k++;
     }
@@ -91,6 +86,27 @@ div_kernel(float * destination, float * other, Py_ssize_t length) {
             PyErr_Clear();
         }
         destination[k] /= other[k];
+    }
+#endif
+}
+
+
+void
+exp_kernel(float * destination, float * other, Py_ssize_t length) {
+#if __AVX__
+    int k;
+    for (k=0; k < length-8; k += 8) {
+        __m256 v_a = _mm256_load_ps(&other[k]);
+        v_a = _mm256_exp_ps(v_a);
+        _mm256_store_ps(&destination[k], v_a);
+    }
+    while (k < length) {
+        destination[k] = exp(other[k]);
+        k++;
+    }
+#else
+    for (int k=0; k < length; k++) {
+        destination[k] = exp(other[k]);
     }
 #endif
 }

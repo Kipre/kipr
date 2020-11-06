@@ -32,6 +32,15 @@ void get_strides(int nd, Py_ssize_t * shape, Py_ssize_t * holder) {
     }
 }
 
+Py_ssize_t get_stride(Karray * self, int axis) {
+    Py_ssize_t result = 1;
+    int dim = self->nd - 1;
+    while (dim > axis) {
+        result *= self->shape[dim--];
+    }
+    return result;
+}
+
 int
 inline num_dims(Py_ssize_t * shape) {
     int dim = 0;
@@ -55,6 +64,29 @@ void set_shape(Karray *self, Py_ssize_t * shape) {
     for (int k=0; k < MAX_NDIMS; k++) {
         self->shape[k] = shape[k];
     }
+}
+
+void copy_shape(Py_ssize_t * source, Py_ssize_t * destination) {
+    for (int k=0; k < MAX_NDIMS; k++) {
+        destination[k] = source[k];
+    }
+}
+
+Py_ssize_t shape_pop(Py_ssize_t * shape, int i = -1) {
+    int nd = num_dims(shape);
+    if (Py_ABS(i) > nd-1) throw std::runtime_error("Dim is out of range.");
+    i = (i % nd + nd) % nd;
+    Py_ssize_t result = shape[i];
+    if (nd == 1) {
+        result = shape[0];
+        shape[0] = 1;
+    } else {
+        while (i < nd) {
+            shape[i] = shape[i+1];
+            ++i;
+        }
+    }
+    return result;
 }
 
 void reset_shape(Karray *self) {
@@ -419,14 +451,18 @@ new_Karray_as(Karray * other) {
 }
 
 Karray *
-new_Karray_from_shape(Py_ssize_t * shape) {
+new_Karray_from_shape(Py_ssize_t * shape, float fill_value = -1.01) {
     PyTypeObject * type = &KarrayType;
     int nd = num_dims(shape);
     Karray *self;
     self = reinterpret_cast<Karray *>(type->tp_alloc(type, 0));
     self->nd = nd;
     set_shape(self, shape);
-    self->data = new float[Karray_length(self)];
+    Py_ssize_t length = Karray_length(self);
+    self->data = new float[length];
+    if (fill_value != -1.01) {
+        std::fill(self->data, self->data + length, fill_value);
+    }
     return self;
 }
 

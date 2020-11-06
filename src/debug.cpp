@@ -37,5 +37,3 @@ void DEBUG_Karr(Karray * self, char const * message = "") {
         printf("\n");
     }
 }
-
-#define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")

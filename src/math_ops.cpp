@@ -120,7 +120,6 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 PyObject *
 Karray_matmul(PyObject * self, PyObject * other) {
     Karray *a, *b, *c;
-    Py_ssize_t data_length, *cmn_shape;
     Py_ssize_t left_dim, mid_dim, right_dim, 
                nb_mat_a, nb_mat_b,
                pos_a = 0, pos_b = 0, pos_c = 0;
@@ -191,19 +190,19 @@ Karray_matmul(PyObject * self, PyObject * other) {
         c->nd = a->nd;
         set_shape(c, a->shape);
         c->shape[c->nd-1] = right_dim;
+        c->shape[c->nd-2] = left_dim;
     } else {
         c->nd = b->nd;
         set_shape(c, b->shape);
         c->shape[c->nd-1] = right_dim;
+        c->shape[c->nd-2] = left_dim;
     }
 
     
-    Py_INCREF(c);
+    // Py_INCREF(c);
     return reinterpret_cast<PyObject *>(c);
 
     fail:
-        if (c)
-            Py_XDECREF(c);
         PyErr_SetString(PyExc_TypeError, 
             "Failed to mat-mutiply arrays.");
         return NULL;
