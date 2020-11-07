@@ -1,6 +1,4 @@
-#include <vector>
-#include <iostream>
-#include <string>
+
 
 
 template<class T>
@@ -9,13 +7,11 @@ class FastSequence
 public:
 	std::vector<T> elements;
 	FastSequence(PyObject * o, bool accept_singleton = false);
-	// FastSequence(PyObject * o);
 	~FastSequence() = default;
 };
 
 template<class T>
 FastSequence<T>::FastSequence(PyObject * o, bool accept_singleton) {
-	// DEBUG_Obj(o);
 	if (accept_singleton) {
 		T value = T(o);
 		if (!PyErr_Occurred()) {
@@ -62,6 +58,28 @@ public:
 	
 };
 
+class Float
+{
+public:
+	float value;
+	Float(PyObject * o) {
+		if (!PyNumber_Check(o))
+			goto fail;
+
+		value = (float) PyFloat_AsDouble(o);
+		return;
+		fail:
+			PyErr_SetString(PyExc_ValueError, "Failed to read a Float");
+			return;
+	};
+	~Float() = default;
+
+	void print() {
+		std::cout << value << ", ";
+	}
+	
+};
+
 class Axis
 {
 public:
@@ -80,3 +98,67 @@ public:
 	};
 	~Axis() = default;
 };
+
+template<class T>
+class NestedSequence {
+public:
+	std::vector<T> data;
+	Shape shape;
+
+	// NestedSequence();
+	NestedSequence(PyObject * o);
+	~NestedSequence() = default;
+
+	bool parse_data(PyObject * o, int depth = 0);
+	
+	Karray to_Karray() {
+		return Karray(shape, data);
+	};
+
+	void print() {
+		std::cout << "Printing NestedSequence\n\t";
+		shape.print();
+		std::cout << '\n';
+		for ( auto &i : data ) {
+		    std::cout << i << ", ";
+		}
+		std::cout << '\n';
+	};
+};
+
+template<class T>
+bool NestedSequence<T>::parse_data(PyObject * o, int depth) {
+	if (PySequence_Check(o) && depth < MAX_ND) {
+		Py_ssize_t length = PySequence_Length(o);
+		for (int i=0; i < length; ++i) {
+			PyObject * item = PySequence_GetItem(o, i);
+			if (!NestedSequence<T>::parse_data(item, depth + 1))
+				goto fail;
+			Py_DECREF(item);
+		}
+		return shape.assert_or_set((size_t) length, depth);
+	} else if (PyNumber_Check(o)) {
+		data.push_back((T) PyFloat_AsDouble(o));
+		return true;
+	}
+	fail:
+		PyErr_SetString(PyExc_TypeError, "Failed to parse input value.");
+		return false;
+	
+}
+
+
+template<class T>
+NestedSequence<T>::NestedSequence(PyObject * o) {
+	NestedSequence<T>::parse_data(o, 0);
+	PYERR_PRINT_GOTO_FAIL;
+	size_t length = shape.cohere();
+	PYERR_PRINT_GOTO_FAIL;
+	if (data.size() !=  length)
+		goto fail;
+	return;
+	fail:
+		PyErr_SetString(PyExc_TypeError, "Failed to build a NestedSequence.");
+		return;
+}
+

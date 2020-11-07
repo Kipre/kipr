@@ -121,60 +121,6 @@ PyInit_kipr_array(void)
     return m;
 }
 
-
-class Shape
-{
-public:
-    int nd;
-    size_t length;
-    size_t values[MAX_ND];
-    Shape();
-    Shape(size_t * input) {
-        nd = 0;
-        length = 1;
-        while(input[nd] != 0 && nd < MAX_ND) {
-            length *= input[nd];
-            values[nd] = input[nd];
-            ++nd;
-        }
-        int i = nd;
-        while(i < MAX_ND) {
-            values[i++] = 0;
-        }
-    };
-    ~Shape() = default;
-    void print(const char * message = "") {
-        std::cout << "Shape " << message << 
-        " nd=" << nd << ", length=" << length << "\n\t";
-        for (int k=0; k < MAX_ND; ++k) {
-            std::cout << values[k] << ", ";
-        }
-        std::cout << '\n';
-    }
-    
-};
-
-class Karray
-{
-public:
-    bool owned;
-    Shape shape;
-    float * data;
-    Karray();
-    Karray(PyObject * self) {
-        PyKarray * karr = reinterpret_cast<PyKarray *>(self);
-        shape = Shape(karr->shape);
-        data = karr->data;
-        owned = false;
-    };
-    ~Karray() {
-        if (owned)
-            delete[] data;
-    };
-    
-};
-
-
 void
 Karray_dealloc(PyKarray *self) {
     delete[] self->data;
@@ -205,20 +151,32 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
                                      &input, &shape))
         return -1;
 
-    self->data[0] = 0.1f;
+    Karray result = NestedSequence<float>(input).to_Karray();
+    PYERR_PRINT_GOTO_FAIL;
+
+    result.print();
+
 
     return 0;
-}
 
+    fail:
+        Py_DECREF(input);
+        Py_XDECREF(shape);
+        PyErr_SetString(PyExc_TypeError, "Failed to initialize kipr.arr.");
+        return -1;
+}
 
 PyObject *
 execute_func(PyObject *self, PyObject * input) {
     DEBUG_Obj(input);
 
-    size_t shape[MAX_ND] = {3, 4, 5, 2, 0, 0, 0, 0};
+    NestedSequence<float> a(input);
+    PYERR_PRINT_GOTO_FAIL;
 
-    Shape trry(shape);
+    a.print();
 
-    trry.print();
     Py_RETURN_NONE;
+
+    fail:
+        return NULL;
 }
