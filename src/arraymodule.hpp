@@ -3,12 +3,8 @@
 #include "structmember.h"
 #include <numpy/arrayobject.h>
 
-
-// #include <new>
-#include <string>
-// #include <iostream>
-// #include <cstdarg>  // for varargs
 #include <immintrin.h>
+#include <iostream>
 
 // debugging bullshit
 #ifdef _WIN32 
@@ -20,8 +16,11 @@
 #define Karray_HEAD_INIT \
     .ob_base={.ob_base={1, NULL }, .ob_size=0},
 
-#define MAX_NDIMS 8
-#define STR_OFFSET 10
+const int MAX_ND = 8;
+const char * KARRAY_NAME = "kipr.arr";
+
+const int MAX_PRINT_SIZE = 30;
+const int STR_OFFSET = 10;
 
 #define Karray_IF_ERR_GOTO_FAIL \
     if (PyErr_Occurred()) { \
@@ -46,59 +45,50 @@
         PyErr_Clear(); \
     }
 
-
-int MAX_PRINT_SIZE = 30;
-
-
 typedef struct {
     PyObject_HEAD
-    int nd;
-    Py_ssize_t shape [MAX_NDIMS];
+    size_t shape [MAX_ND];
     float * data;
-    int attr;
-} Karray;
-
-// utils
-Py_ssize_t Karray_length(Karray *self);
+} PyKarray;
 
 // members
-void Karray_dealloc(Karray *self);
-int Karray_init(Karray *self, PyObject *args, PyObject *kwds);
+void Karray_dealloc(PyKarray *self);
+int Karray_init(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-PyObject * Karray_str(Karray * self);
-PyObject * Karray_getshape(Karray *self, void *closure);
-PyObject * Karray_subscript(PyObject *o, PyObject *key);
+// PyObject * Karray_str(PyKarray * self);
+// PyObject * Karray_getshape(PyKarray *self, void *closure);
+// PyObject * Karray_subscript(PyObject *o, PyObject *key);
 
 // member functions
-PyObject * Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored));
-PyObject * Karray_val(Karray *self, PyObject *Py_UNUSED(ignored));
-PyObject * Karray_reshape(Karray *self, PyObject *shape);
-PyObject * Karray_broadcast(Karray *self, PyObject *o);
-PyObject * Karray_mean(Karray *self, PyObject *args, PyObject *kwds);
-PyObject * Karray_sum(Karray *self, PyObject *args, PyObject *kwds);
+PyObject * Karray_numpy(PyKarray *self, PyObject *Py_UNUSED(ignored));
+// PyObject * Karray_val(PyKarray *self, PyObject *Py_UNUSED(ignored));
+PyObject * Karray_reshape(PyKarray *self, PyObject *shape);
+PyObject * Karray_broadcast(PyKarray *self, PyObject *o);
+PyObject * Karray_mean(PyKarray *self, PyObject *args, PyObject *kwds);
+PyObject * Karray_sum(PyKarray *self, PyObject *args, PyObject *kwds);
 
 // math
-PyObject * Karray_add(PyObject * self, PyObject * other);
-PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
-PyObject * Karray_sub(PyObject * self, PyObject * other);
-PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
-PyObject * Karray_mul(PyObject * self, PyObject * other);
-PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
-PyObject * Karray_div(PyObject * self, PyObject * other);
-PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
-PyObject * Karray_matmul(PyObject * self, PyObject * other);
-PyObject * Karray_negative(PyObject * self);
+// PyObject * Karray_add(PyObject * self, PyObject * other);
+// PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
+// PyObject * Karray_sub(PyObject * self, PyObject * other);
+// PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
+// PyObject * Karray_mul(PyObject * self, PyObject * other);
+// PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
+// PyObject * Karray_div(PyObject * self, PyObject * other);
+// PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
+// PyObject * Karray_matmul(PyObject * self, PyObject * other);
+// PyObject * Karray_negative(PyObject * self);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
-PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
-PyObject * Karray_relu(PyObject *self, PyObject * o);
-PyObject * Karray_exp(PyObject *self, PyObject * o);
-PyObject * Karray_softmax(PyObject *self, PyObject * o);
-PyObject * Karray_log(PyObject *self, PyObject * o);
+// PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
+// PyObject * Karray_relu(PyObject *self, PyObject * o);
+// PyObject * Karray_exp(PyObject *self, PyObject * o);
+// PyObject * Karray_softmax(PyObject *self, PyObject * o);
+// PyObject * Karray_log(PyObject *self, PyObject * o);
 
 
-#define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")
+#define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
 
-#include "include/py_types.hpp"
+// #include "include/py_types.hpp"

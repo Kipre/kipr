@@ -1,4 +1,3 @@
-from kipr_nat import *
 from kipr_array import *
 
 def sys_bgcolor(pyplot):

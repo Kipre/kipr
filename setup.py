@@ -7,9 +7,7 @@ extra_args = {}
 debug = True
 
 if platform == "linux" or platform == "linux2":
-    extra_args = {
-      'extra_compile_args': ['-mrdrnd']
-    }
+    extra_args = {}
 elif platform == "darwin":
     pass
 elif platform == "win32":
@@ -22,27 +20,6 @@ elif platform == "win32":
         extra_args['extra_link_args'] += ['/DEBUG']
 
 
-# amalgamation 
-with open('src/arraymodule.cpp', 'w') as amalgamation:
-    # include real header
-    amalgamation.write('#include "arraymodule.hpp" \n')
-
-    # include allcode 
-    for src_file in ['src/python_boilerplate.cpp',
-                     'src/debug.cpp', 'src/utils.cpp',
-                     'src/kernels.cpp', 'src/members.cpp',
-                     'src/math_ops.cpp', 'src/module_functions.cpp']:
-        with open(src_file, 'r') as src:
-            amalgamation.write(src.read())
-
-    # include test suite
-    amalgamation.write('#include "test.hpp" \n')
-
-
-
-native_side = setuptools.Extension(name='kipr_nat',
-                                   sources=['src/natmodule.cpp'],
-                                   library_dirs=['C:\\Program Files\\Python39\\libs'])
 
 arrays = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],
@@ -55,4 +32,4 @@ setuptools.setup(name='kipr',
                  author='Cyprien', 
                  description='Personal toolbox',
                  packages=['kipr'],
-                 ext_modules=[native_side, arrays])
+                 ext_modules=[arrays])
