@@ -19,8 +19,12 @@ static PyMethodDef Karray_methods[] = {
      "Return the kipr.arr with the breadcasted shape."},
     {"mean", (PyCFunction) Karray_mean, METH_VARARGS | METH_KEYWORDS,
      "Return the averaged array."},
+    {"sum", (PyCFunction) Karray_sum, METH_VARARGS | METH_KEYWORDS,
+     "Return the sum of the array along all or a particular dim."},
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
-     "Return a numpy representtion of the Karray."},    
+     "Return a numpy representtion of the Karray."},
+    {"val", (PyCFunction) Karray_val, METH_NOARGS,
+     "Return the float value of a scalar <kipr.arr>."},    
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
     {NULL}  /* Sentinel */
@@ -38,6 +42,10 @@ static PyMethodDef arraymodule_methods[] = {
      "ReLU function for <kipr.arr> arrays."},
     {"exp", Karray_exp, METH_O,
      "Exponential function for <kipr.arr> arrays."},
+    {"softmax", Karray_softmax, METH_O,
+     "Softmax function for <kipr.arr> arrays, computes along the last axis."},
+    {"ln", Karray_log, METH_O,
+     "Log function for <kipr.arr> arrays."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -55,6 +63,8 @@ static PyNumberMethods Karray_as_number = {
     .nb_add = Karray_add,
     .nb_subtract = Karray_sub,
     .nb_multiply = Karray_mul,
+
+    .nb_negative = Karray_negative,
 
     .nb_inplace_add = Karray_inplace_add,
     .nb_inplace_subtract = Karray_inplace_sub,

@@ -71,9 +71,11 @@ PyObject * Karray_subscript(PyObject *o, PyObject *key);
 
 // member functions
 PyObject * Karray_numpy(Karray *self, PyObject *Py_UNUSED(ignored));
+PyObject * Karray_val(Karray *self, PyObject *Py_UNUSED(ignored));
 PyObject * Karray_reshape(Karray *self, PyObject *shape);
 PyObject * Karray_broadcast(Karray *self, PyObject *o);
 PyObject * Karray_mean(Karray *self, PyObject *args, PyObject *kwds);
+PyObject * Karray_sum(Karray *self, PyObject *args, PyObject *kwds);
 
 // math
 PyObject * Karray_add(PyObject * self, PyObject * other);
@@ -85,6 +87,7 @@ PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
 PyObject * Karray_div(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 PyObject * Karray_matmul(PyObject * self, PyObject * other);
+PyObject * Karray_negative(PyObject * self);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
@@ -92,6 +95,8 @@ PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * Karray_relu(PyObject *self, PyObject * o);
 PyObject * Karray_exp(PyObject *self, PyObject * o);
+PyObject * Karray_softmax(PyObject *self, PyObject * o);
+PyObject * Karray_log(PyObject *self, PyObject * o);
 
 
 #define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n")

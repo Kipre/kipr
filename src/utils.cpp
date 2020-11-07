@@ -73,14 +73,15 @@ void copy_shape(Py_ssize_t * source, Py_ssize_t * destination) {
 }
 
 Py_ssize_t shape_pop(Py_ssize_t * shape, int i = -1) {
+    Py_ssize_t result;
     int nd = num_dims(shape);
-    if (Py_ABS(i) > nd-1) throw std::runtime_error("Dim is out of range.");
-    i = (i % nd + nd) % nd;
-    Py_ssize_t result = shape[i];
     if (nd == 1) {
         result = shape[0];
         shape[0] = 1;
     } else {
+        if (Py_ABS(i) > nd-1) throw std::runtime_error("Dim is out of range.");
+        i = (i % nd + nd) % nd;
+        result = shape[i];
         while (i < nd) {
             shape[i] = shape[i+1];
             ++i;

@@ -349,3 +349,88 @@ Karray_mean(Karray *self, PyObject *args, PyObject *kwds) {
         Py_XDECREF(result);
         return NULL;
 }
+
+
+
+PyObject *
+Karray_sum(Karray *self, PyObject *args, PyObject *kwds) {
+    char *kwlist[] = {"axis", "weights", NULL};
+
+    PyObject *axis = NULL, *weights_obj = NULL;
+    Py_ssize_t output_shape[MAX_NDIMS] = {};
+    Py_ssize_t strides[MAX_NDIMS] = {};
+    Py_ssize_t fake_shape[MAX_NDIMS] = {};
+    Karray * result, * weights;
+    Py_ssize_t reduction, ax, stride = 1;
+    bool weights_passed;
+
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$O", kwlist,
+                                     &axis, &weights_obj))
+        return NULL;
+
+    Karray * karr = reinterpret_cast<Karray *>(self);
+
+    ax = Axis(karr->nd, axis).value;
+    PYERR_PRINT_GOTO_FAIL;
+
+    if (ax == -1) {
+        output_shape[0] = 1;
+        reduction = Karray_length(karr);
+        strides[0] = 1;
+        fake_shape[0] = reduction;
+        ax = 0;
+    } else {
+        copy_shape(karr->shape, output_shape);
+        reduction = shape_pop(output_shape, ax);
+        get_strides(karr->nd, karr->shape, strides);
+        copy_shape(karr->shape, fake_shape);
+    }
+
+    result = new_Karray_from_shape(output_shape, 0);
+
+    if (weights_obj) {
+        weights_passed = true;
+        if (!is_Karray(weights_obj)) {
+            PyErr_SetString(PyExc_TypeError, 
+                "Weights should be a <kipr.arr>.");
+            goto fail;
+        } else {
+            weights = reinterpret_cast<Karray *>(weights_obj);
+            if (Karray_length(weights) != reduction) {
+                PyErr_SetString(PyExc_TypeError, 
+                    "Weights not compatible with reduction.");
+                goto fail;
+            }
+
+        } 
+    } else {
+        Py_ssize_t weights_shape[MAX_NDIMS] = {reduction};
+        weights = new_Karray_from_shape(weights_shape, 1);
+    }
+
+    sum(karr->data, result->data, weights->data,
+        fake_shape, strides, ax);
+
+
+    if (!weights_passed)
+        Py_XDECREF(weights);
+    return reinterpret_cast<PyObject *>(result);
+
+    fail:
+        if (!weights_passed)
+            Py_XDECREF(weights);
+        Py_XDECREF(result);
+        return NULL;
+}
+
+
+PyObject *
+Karray_val(Karray *self, PyObject *Py_UNUSED(ignored)) {
+    if (Karray_length(self) != 1) {
+        PyErr_SetString(PyExc_TypeError, 
+            "Val method called on a non scalar array.");
+        return NULL;
+    }
+    return PyFloat_FromDouble((double) self->data[0]);
+}
