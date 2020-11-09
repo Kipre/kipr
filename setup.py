@@ -19,21 +19,21 @@ elif platform == "win32":
         extra_args['extra_compile_args'] += ['/Zi', '/Od']
         extra_args['extra_link_args'] += ['/DEBUG']
 
-# # amalgamation 
-# with open('src/arraymodule.cpp', 'w') as amalgamation:
-#     # include real header
-#     amalgamation.write('#include "arraymodule.hpp" \n')
+# amalgamation 
+with open('src/arraymodule.cpp', 'w') as amalgamation:
+    # include real header
+    amalgamation.write('#include "arraymodule.hpp" \n')
 
-#     # include allcode 
-#     for src_file in ['src/python_boilerplate.cpp',
-#                      'src/debug.cpp', 'src/utils.cpp',
-#                      'src/kernels.cpp', 'src/members.cpp',
-#                      'src/math_ops.cpp', 'src/module_functions.cpp']:
-#         with open(src_file, 'r') as src:
-#             amalgamation.write(src.read())
+    # include allcode 
+    for src_file in ['src/python_boilerplate.cpp',
+                     'src/karray.cpp', 'src/shape.cpp', 'src/filter.cpp',
+                     'src/kernels.cpp', 'src/members.cpp',
+                     'src/math_ops.cpp', 'src/module_functions.cpp']:
+        with open(src_file, 'r') as src:
+            amalgamation.write(src.read())
 
-#     # include test suite
-#     amalgamation.write('#include "test.hpp" \n')
+    # include test suite
+    amalgamation.write('#include "test.hpp" \n')
 
 arrays = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],

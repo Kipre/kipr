@@ -8,11 +8,12 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <sstream>
 
 // debugging bullshit
-#ifdef _WIN32 
- #include <windows.h> 
- #include <debugapi.h> 
+#ifdef _WIN32
+#include <windows.h>
+#include <debugapi.h>
 #endif
 
 // To avoid c++ mixed designated initializers error
@@ -42,17 +43,117 @@ const int STR_OFFSET = 10;
         PyErr_Clear(); \
     }
 
+class Filter;
+class NDVector;
+
+class Shape
+{
+public:
+    int nd;
+    size_t length;
+
+    Shape();
+    Shape(size_t * input, int size = 8);
+    Shape(PyObject * o, bool accept_singleton = false);
+    void print(const char * message = "");
+    bool assert_or_set(size_t value, int dim);
+    size_t operator[](size_t i);
+    size_t cohere();
+    void write(size_t * destination);
+    std::string str();
+    size_t sum();
+    NDVector strides(int depth_diff = 0);
+    Filter broadcast_to(Shape other);
+
+private:
+    size_t buf[MAX_ND];
+
+};
+
+
+class Karray
+{
+public:
+    bool owned;
+    int seed;
+    Shape shape;
+    float * data;
+
+    Karray();
+    Karray(Shape new_shape, std::vector<float> vec);
+    Karray(Shape new_shape, float * new_data);
+    ~Karray() noexcept;
+    void print(const char * message = "");
+    std::string str();
+    void steal(Karray& other);
+    void broadcast(Shape new_shape);
+};
+
+class Filter
+{
+public:
+    bool failed = false;
+    size_t offset[MAX_ND];
+    size_t * buf;
+
+    Filter() {};
+    Filter(Shape& shape);
+    ~Filter();
+    void set_range_along_axis(int axis);
+    void set_val_along_axis(int axis, size_t value);
+    void print(const char * message = "");
+    Filter& operator=(Filter && other) noexcept;
+    Filter(Filter&& other) noexcept;
+};
+
+class NDVector
+{
+public:
+    size_t buf[MAX_ND]={};
+
+    NDVector(size_t value) : buf{value} {};
+    NDVector() {};
+
+    size_t operator[](size_t i) {
+        return buf[i];
+    };
+
+    void print(const char * message = "") {
+        std::cout << "NDVector " << message << "\n\t";
+        for (int k = 0; k < MAX_ND; ++k) {
+            std::cout << buf[k] << ", ";
+        }
+        std::cout << '\n';
+    };
+
+    ~NDVector() {
+        printf("destroying ndvector\n");
+    };
+
+    // NDVector(NDVector&& other) noexcept : buf{0} {
+    //     *buf = *other.buf;
+    //     *other.buf = nullptr;
+    // };
+
+    // NDVector& operator=(NDVector&& other) noexcept {
+    //     if (this != &other) {
+    //         *buf = *other.buf;
+    //         *other.buf = nullptr;
+    //     }
+    //     return *this;
+    // };
+};
+
 typedef struct {
     PyObject_HEAD
-    size_t shape [MAX_ND];
-    float * data;
+    Karray arr;
 } PyKarray;
 
 // members
 void Karray_dealloc(PyKarray *self);
 int Karray_init(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-// PyObject * Karray_str(PyKarray * self);
+PyObject * Karray_str(PyKarray * self);
 // PyObject * Karray_getshape(PyKarray *self, void *closure);
 // PyObject * Karray_subscript(PyObject *o, PyObject *key);
 
@@ -86,131 +187,7 @@ PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
 // PyObject * Karray_log(PyObject *self, PyObject * o);
 
 
-#define DEBUG_Obj(o)   PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
-
-class Shape
-{
-public:
-    int nd = 1;
-    size_t length = 1;
-    size_t values[MAX_ND] = {1};
-
-    Shape() {};
-    Shape(size_t * input) {
-        nd = 0;
-        length = 1;
-        while(input[nd] != 0 && nd < MAX_ND) {
-            length *= input[nd];
-            values[nd] = input[nd];
-            ++nd;
-        }
-        int i = nd;
-        while(i < MAX_ND) {
-            values[i++] = 0;
-        }
-    };
-
-    ~Shape() = default;
-
-    void print(const char * message = "") {
-        std::cout << "Shape " << message << 
-        " nd=" << nd << ", length=" << length << "\n\t";
-        for (int k=0; k < MAX_ND; ++k) {
-            std::cout << values[k] << ", ";
-        }
-        std::cout << '\n';
-    }
-
-    bool assert_or_set(size_t value, int dim) {
-        if ((dim == 0 && values[0] == 1) ||
-            values[dim] == 0) {
-            values[dim] = value;
-            return true;
-        } else if (values[dim] == value) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    size_t cohere() {
-        nd = 0;
-        length = 1;
-        while(values[nd] != 0 && nd < MAX_ND) {
-            length *= values[nd];
-            ++nd;
-        }
-        int i = nd;
-        while(i < MAX_ND) {
-            if (values[i++]) {
-                PyErr_SetString(PyExc_ValueError, "Shape is corrupted.");
-                return 0;
-            }
-        }
-        return length;
-    }
-
-    void write(size_t * destination) {
-        for (int i=0; i < MAX_ND; ++i) {
-            destination[i] = values[i];
-        }
-    }
-    
-};
+#define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
 
 
-
-class Karray
-{
-public:
-    bool owned;
-    Shape shape;
-    float * data;
-
-    Karray() {
-        owned = true;
-        shape = Shape();
-        data = new float[1];
-        data[0] = 0;
-    };
-
-    Karray(PyObject * self) {
-        PyKarray * karr = reinterpret_cast<PyKarray *>(self);
-        shape = Shape(karr->shape);
-        data = karr->data;
-        owned = false;
-    };
-
-    Karray(Shape new_shape, std::vector<float> vec) {
-        owned = false;
-        shape = new_shape;
-        data = vec.data();
-    };
-
-    void bind(PyKarray * self) {
-        if (self->data)
-            delete[] self->data;
-        shape.write(self->shape);
-        self->data = data;
-        owned = false;
-    }
-
-    ~Karray() {
-        if (owned)
-            delete[] data;
-    };
-
-    void print(const char * message = "") {
-        std::cout << "Printing Karray " << message << "\n\t";
-        shape.print();
-        std::cout << "\t";
-        auto limit = min(shape.length, 30);
-        for (int i=0; i < limit; ++i) {
-            std::cout << data[i] << ", ";
-        }
-        std::cout << "\n";
-    }
-    
-};
-
-#include "include/py_types.hpp"
+#include "py_types.hpp"

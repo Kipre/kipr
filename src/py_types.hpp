@@ -1,19 +1,23 @@
 
 
-
-template<class T>
+template<typename T>
 class FastSequence
 {
 public:
 	std::vector<T> elements;
 	FastSequence(PyObject * o, bool accept_singleton = false);
 	~FastSequence() = default;
+	Shape to_shape() {
+		auto shape = Shape(elements.data(), elements.size());
+		shape.cohere();
+		return shape;
+	}
 };
 
-template<class T>
+template<typename T>
 FastSequence<T>::FastSequence(PyObject * o, bool accept_singleton) {
 	if (accept_singleton) {
-		T value = T(o);
+		T value = (T) PyLong_AsSsize_t(o);
 		if (!PyErr_Occurred()) {
 			elements.push_back(value);
 			return;
@@ -28,7 +32,7 @@ FastSequence<T>::FastSequence(PyObject * o, bool accept_singleton) {
 	elements.reserve(length);
 	PyObject ** items = PySequence_Fast_ITEMS(o);
 	for (int i=0; i < length; ++i) {
-		elements.push_back(T(items[i]));
+		elements.push_back((T) PyLong_AsSsize_t(items[i]));
 		PYERR_CLEAR_GOTO_FAIL;
 	}
 
@@ -43,7 +47,7 @@ FastSequence<T>::FastSequence(PyObject * o, bool accept_singleton) {
 class Int
 {
 public:
-	Py_ssize_t value;
+	int value;
 	Int(PyObject * o) {
 		if (!PyIndex_Check(o))
 			goto fail;
@@ -161,4 +165,6 @@ NestedSequence<T>::NestedSequence(PyObject * o) {
 		PyErr_SetString(PyExc_TypeError, "Failed to build a NestedSequence.");
 		return;
 }
+
+
 
