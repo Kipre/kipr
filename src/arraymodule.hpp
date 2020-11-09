@@ -9,6 +9,7 @@
 #include <string>
 #include <algorithm>
 #include <sstream>
+#include <random>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -46,6 +47,7 @@ const int STR_OFFSET = 10;
 class Filter;
 class NDVector;
 
+
 class Shape
 {
 public:
@@ -53,7 +55,9 @@ public:
     size_t length;
 
     Shape();
-    Shape(size_t * input, int size = 8);
+    template<typename T>
+    Shape(T * input, int size = 8); 
+    // Shape(size_t * input, int size = 8);
     Shape(PyObject * o, bool accept_singleton = false);
     void print(const char * message = "");
     bool assert_or_set(size_t value, int dim);
@@ -70,6 +74,16 @@ private:
 
 };
 
+const size_t ERROR_MODE = 0;
+const size_t RANDOM_UNIFORM = 1;
+const size_t RANDOM_NORMAL = 2;
+const size_t RANGE = 3;
+
+
+const size_t NUMPY_ARRAY = 3;
+const size_t STRING = 5;
+const size_t NUMBER = 7;
+const size_t SEQUENCE = 11;
 
 class Karray
 {
@@ -82,6 +96,9 @@ public:
     Karray();
     Karray(Shape new_shape, std::vector<float> vec);
     Karray(Shape new_shape, float * new_data);
+    // Karray(Shape new_shape, size_t mode) noexcept;
+    void from_mode(Shape new_shape, size_t mode) noexcept;
+    void from_numpy(PyObject * o) noexcept;
     ~Karray() noexcept;
     void print(const char * message = "");
     std::string str();
@@ -109,7 +126,7 @@ public:
 class NDVector
 {
 public:
-    size_t buf[MAX_ND]={};
+    size_t buf[MAX_ND] = {};
 
     NDVector(size_t value) : buf{value} {};
     NDVector() {};
@@ -148,6 +165,9 @@ typedef struct {
     PyObject_HEAD
     Karray arr;
 } PyKarray;
+
+//utils
+size_t read_mode(PyObject * o);
 
 // members
 void Karray_dealloc(PyKarray *self);

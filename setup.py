@@ -25,7 +25,7 @@ with open('src/arraymodule.cpp', 'w') as amalgamation:
     amalgamation.write('#include "arraymodule.hpp" \n')
 
     # include allcode 
-    for src_file in ['src/python_boilerplate.cpp',
+    for src_file in ['src/python_boilerplate.cpp', 'src/utils.cpp',
                      'src/karray.cpp', 'src/shape.cpp', 'src/filter.cpp',
                      'src/kernels.cpp', 'src/members.cpp',
                      'src/math_ops.cpp', 'src/module_functions.cpp']:

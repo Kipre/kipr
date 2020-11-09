@@ -1,12 +1,12 @@
 
-
-Shape::Shape(size_t * input, int size) {
+template<typename T>
+Shape::Shape(T * input, int size) {
 	nd = 0;
 	length = 1;
 	size = min(MAX_ND, size);
 	while (nd < size) {
-		length *= input[nd];
-		buf[nd] = input[nd];
+		length *= (size_t) input[nd];
+		buf[nd] = (size_t) input[nd];
 		++nd;
 	}
 	int i = nd;
@@ -39,7 +39,7 @@ Shape::Shape(PyObject * o, bool accept_singleton) {
 		buf[nd] = value;
 		++nd;
 	}
-	while(nd != MAX_ND) {
+	while (nd != MAX_ND) {
 		buf[nd] = 0;
 		++nd;
 	}

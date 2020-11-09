@@ -23,6 +23,34 @@ Karray::Karray(Shape new_shape, float * new_data) {
 	data = new_data;
 }
 
+void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
+	delete[] data;
+	shape = new_shape;
+	data = new float[shape.length];
+
+	if (mode == RANDOM_NORMAL || mode == RANDOM_UNIFORM) {
+		std::random_device rd{};
+		std::mt19937 gen{rd()};
+
+		if (mode == RANDOM_NORMAL) {
+			std::normal_distribution<float> d{0, 1};
+			for (int n = 0; n < shape.length; ++n) {
+				data[n] = d(gen);
+			}
+		} else if (mode == RANDOM_UNIFORM) {
+			for (int n = 0; n < shape.length; ++n) {
+				data[n] = gen() / (float) 4294967295;
+			}
+		}
+	} else if (mode == RANGE) {
+		for (int n = 0; n < shape.length; ++n) {
+			data[n] = (float) n;
+		}
+	} else {
+		throw std::exception("unknown mode");
+	}
+}
+
 void Karray::steal(Karray& other) {
 	other.owned = true;
 	seed = other.seed;
@@ -62,14 +90,12 @@ std::string Karray::str() {
 	auto limit = min(shape.length, MAX_PRINT_SIZE);
 	int match = matches(0);
 	for (int i = 0; i < limit; ++i) {
-		if (match > 0) {
-			if (i == 0) {
-				ss << std::string(match + 1, '[');
-			} else {
-				ss << std::string(match, ']') << ",\n";
-				ss << std::string(shape.nd - match + 9, ' ');
-				ss << std::string(match, '[');
-			}
+		if (i == 0)
+			ss << std::string(match + 1, '[');
+		if (match > 0 && i > 0) {
+			ss << std::string(match, ']') << ",\n";
+			ss << std::string(shape.nd - match + 9, ' ');
+			ss << std::string(match, '[');
 		}
 		ss.width(5);
 		ss << data[i];
@@ -87,22 +113,6 @@ std::string Karray::str() {
 	return ss.str();
 }
 
-void transfer(float * from, float * to, size_t * positions, size_t * strides,
-              const Filter & filter, Shape & to_shape, int depth) {
-	if (depth < to_shape.nd) {
-		size_t current_value, last_value = 0;
-		for (int k = 0; k < to_shape[depth]; ++k) {
-			current_value = filter.buf[filter.offset[depth] + k];
-			positions[1] += (current_value - last_value) * strides[depth];
-			last_value = current_value;
-			transfer(from, to, positions, strides, filter, to_shape, depth + 1);
-		}
-		positions[1] -= last_value * strides[depth];
-	} else {
-		// printf("writing from %i to %i\n", positions[1], positions[0]);
-		to[positions[0]++] = from[positions[1]];
-	}
-}
 
 void Karray::broadcast(Shape new_shape) {
 	// shortcuts
@@ -124,9 +134,6 @@ void Karray::broadcast(Shape new_shape) {
 		size_t positions[2] = {0, 0};
 
 		// strides.print();
-
-
-
 		transfer(data, buffer, positions,
 		         strides.buf,
 		         filter, new_shape, 0);
@@ -142,4 +149,28 @@ fail:
 		return;
 	}
 
+}
+
+void Karray::from_numpy(PyObject * obj) noexcept {
+	auto arr = (PyArrayObject *) obj;
+	npy_intp nd;
+	float * arr_data;
+	if ((nd = PyArray_NDIM(arr)) < MAX_ND &&
+	        PyArray_TYPE(arr) == NPY_FLOAT) {
+		shape = Shape(PyArray_SHAPE(arr), (int) nd);
+		auto length = (size_t) PyArray_SIZE(arr);
+		if (shape.length != length) goto fail;
+		// printf("length, shape_length %i %i\n", length, shape.length);
+		arr_data = (float *) PyArray_DATA(arr);
+		delete[] data;
+		data = new float[length];
+		for (int i = 0; i < length; ++i) {
+			data[i] = arr_data[i];
+		}
+	} else {
+fail:
+		PyErr_Clear();
+		PyErr_SetString(PyExc_ValueError,
+		                "Failed to copy numpy array.");
+	}
 }

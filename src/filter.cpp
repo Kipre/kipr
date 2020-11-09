@@ -70,20 +70,3 @@ Filter& Filter::operator=(Filter&& other) noexcept {
 	}
 	return *this;
 }
-
-// Filter& Filter::operator=(Filter && other) {
-// 	for (int i = 0; i < MAX_ND; ++i) {
-// 		offset[i] = other.offset[i];
-// 		other.offset[i] = 0;
-// 	}
-// 	buf = other.buf;
-// 	other.buf = nullptr;
-// }
-
-// bool Filter::test() {
-// 	TEST(FilterInitialization) {
-// 		size_t a[MAX_ND] = {3, 4, 5, 0, 0, 0, 0, 0};
-// 		Shape shape(a);
-// 		Filter f(shape);
-// 	}
-// }

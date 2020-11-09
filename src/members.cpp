@@ -23,26 +23,51 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     char *kwlist[] = {"data", "shape", NULL};
     PyObject *input = NULL, *shape = NULL;
     Karray candidate;
+    Shape proposed_shape;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|$O", kwlist,
                                      &input, &shape))
         return -1;
 
-    auto nest = NestedSequence<float>(input);
-    PYERR_PRINT_GOTO_FAIL;
-
-    candidate.steal(nest.to_Karray());
-
     if (shape) {
-        Shape proposed_shape(shape);
-        PYERR_PRINT_GOTO_FAIL;
-        proposed_shape.print();
-        candidate.broadcast(proposed_shape);
+        proposed_shape = Shape(shape);
         PYERR_PRINT_GOTO_FAIL;
     }
 
-    self->arr.steal(candidate);
+    switch (py_type(input)) {
+    case (STRING): {
+        auto mode = read_mode(input);
+        PYERR_PRINT_GOTO_FAIL;
+        candidate.from_mode(proposed_shape, mode);
+        break;
+    }
+    case (NUMPY_ARRAY):
+        Py_INCREF(input);
+        candidate.from_numpy(input);
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
+        } else {
+            break;
+        }
+    case (NUMBER):
+    case (SEQUENCE): {
+        NestedSequence<float> nest(input);
+        PYERR_PRINT_GOTO_FAIL;
+        candidate.steal(nest.to_Karray());
+        if (shape) {
+            candidate.broadcast(proposed_shape);
+        }
+    }
+    break;
+    default:
+        PyErr_SetString(PyExc_TypeError,
+                        "Input object not understood.");
+    }
+    PYERR_PRINT_GOTO_FAIL;
 
+    self->arr.steal(candidate);
+    Py_DECREF(input);
+    Py_XDECREF(shape);
     return 0;
 
 fail:

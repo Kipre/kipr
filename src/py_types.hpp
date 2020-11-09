@@ -26,22 +26,22 @@ FastSequence<T>::FastSequence(PyObject * o, bool accept_singleton) {
 		}
 	}
 	if (!PyList_Check(o) &&
-		!PyTuple_Check(o))
+	        !PyTuple_Check(o))
 		goto fail;
 	Py_ssize_t length = PySequence_Length(o);
 	elements.reserve(length);
 	PyObject ** items = PySequence_Fast_ITEMS(o);
-	for (int i=0; i < length; ++i) {
+	for (int i = 0; i < length; ++i) {
 		elements.push_back((T) PyLong_AsSsize_t(items[i]));
 		PYERR_CLEAR_GOTO_FAIL;
 	}
 
 	return;
-	fail:
-		PyErr_Format(PyExc_TypeError, 
-			"Input must be a list or a tuple of %s.",
-		    typeid(T).name());
-		return;
+fail:
+	PyErr_Format(PyExc_TypeError,
+	             "Input must be a list or a tuple of %s.",
+	             typeid(T).name());
+	return;
 }
 
 class Int
@@ -54,12 +54,11 @@ public:
 
 		value = PyLong_AsSsize_t(o);
 		return;
-		fail:
-			PyErr_SetString(PyExc_ValueError, "");
-			return;
+fail:
+		PyErr_SetString(PyExc_ValueError, "");
+		return;
 	};
-	~Int() = default;
-	
+
 };
 
 class Float
@@ -72,16 +71,15 @@ public:
 
 		value = (float) PyFloat_AsDouble(o);
 		return;
-		fail:
-			PyErr_SetString(PyExc_ValueError, "Failed to read a Float");
-			return;
+fail:
+		PyErr_SetString(PyExc_ValueError, "Failed to read a Float");
+		return;
 	};
-	~Float() = default;
 
 	void print() {
 		std::cout << value << ", ";
 	}
-	
+
 };
 
 class Axis
@@ -91,7 +89,7 @@ public:
 	Axis(int nd, PyObject * o, Py_ssize_t default_value = -1) {
 		if (o) {
 			value = Int(o).value;
-			if (Py_ABS(value) > nd-1) {
+			if (Py_ABS(value) > nd - 1) {
 				PyErr_SetString(PyExc_ValueError, "Axis out of range.");
 				return;
 			}
@@ -114,7 +112,7 @@ public:
 	~NestedSequence() = default;
 
 	bool parse_data(PyObject * o, int depth = 0);
-	
+
 	Karray to_Karray() {
 		return Karray(shape, data);
 	};
@@ -124,7 +122,7 @@ public:
 		shape.print();
 		std::cout << '\n';
 		for ( auto &i : data ) {
-		    std::cout << i << ", ";
+			std::cout << i << ", ";
 		}
 		std::cout << '\n';
 	};
@@ -134,7 +132,7 @@ template<class T>
 bool NestedSequence<T>::parse_data(PyObject * o, int depth) {
 	if (PySequence_Check(o) && depth < MAX_ND) {
 		Py_ssize_t length = PySequence_Length(o);
-		for (int i=0; i < length; ++i) {
+		for (int i = 0; i < length; ++i) {
 			PyObject * item = PySequence_GetItem(o, i);
 			if (!NestedSequence<T>::parse_data(item, depth + 1))
 				goto fail;
@@ -145,10 +143,10 @@ bool NestedSequence<T>::parse_data(PyObject * o, int depth) {
 		data.push_back((T) PyFloat_AsDouble(o));
 		return true;
 	}
-	fail:
-		PyErr_SetString(PyExc_TypeError, "Failed to parse input value.");
-		return false;
-	
+fail:
+	PyErr_SetString(PyExc_TypeError, "Failed to parse input value.");
+	return false;
+
 }
 
 
@@ -161,9 +159,9 @@ NestedSequence<T>::NestedSequence(PyObject * o) {
 	if (data.size() !=  length)
 		goto fail;
 	return;
-	fail:
-		PyErr_SetString(PyExc_TypeError, "Failed to build a NestedSequence.");
-		return;
+fail:
+	PyErr_SetString(PyExc_TypeError, "Failed to build a NestedSequence.");
+	return;
 }
 
 

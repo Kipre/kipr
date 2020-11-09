@@ -119,6 +119,52 @@ PyInit_kipr_array(void)
 
     return m;
 }
+void transfer(float * from, float * to, size_t * positions, size_t * strides,
+              const Filter & filter, Shape & to_shape, int depth) {
+	if (depth < to_shape.nd) {
+		size_t current_value, last_value = 0;
+		for (int k = 0; k < to_shape[depth]; ++k) {
+			current_value = filter.buf[filter.offset[depth] + k];
+			positions[1] += (current_value - last_value) * strides[depth];
+			last_value = current_value;
+			transfer(from, to, positions, strides, filter, to_shape, depth + 1);
+		}
+		positions[1] -= last_value * strides[depth];
+	} else {
+		// printf("writing from %i to %i\n", positions[1], positions[0]);
+		to[positions[0]++] = from[positions[1]];
+	}
+}
+
+
+size_t read_mode(PyObject * o) {
+	if (!PyUnicode_Check(o))
+		return ERROR_MODE;
+	if (PyUnicode_Compare(o, PyUnicode_FromString("rand")) == 0 ||
+	        PyUnicode_Compare(o, PyUnicode_FromString("random")) == 0) {
+		return RANDOM_UNIFORM;
+	}
+	if (PyUnicode_Compare(o, PyUnicode_FromString("randn")) == 0) {
+		return RANDOM_NORMAL;
+	}
+	if (PyUnicode_Compare(o, PyUnicode_FromString("range")) == 0) {
+		return RANGE;
+	}
+	PyErr_Format(PyExc_ValueError,
+	             "String magic %s not understood.", PyUnicode_AsUTF8(o));
+}
+
+size_t py_type(PyObject * o) {
+	if (PyArray_Check(o))
+		return NUMPY_ARRAY;
+	if (PyUnicode_Check(o))
+		return STRING;
+	if (PyNumber_Check(o))
+		return NUMBER;
+	if (PySequence_Check(o))
+		return SEQUENCE;
+	return 0;
+}
 Karray::Karray() {
 	owned = false;
 	seed = rand();
@@ -141,6 +187,34 @@ Karray::Karray(Shape new_shape, float * new_data) {
 	seed = rand();
 	shape = new_shape;
 	data = new_data;
+}
+
+void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
+	delete[] data;
+	shape = new_shape;
+	data = new float[shape.length];
+
+	if (mode == RANDOM_NORMAL || mode == RANDOM_UNIFORM) {
+		std::random_device rd{};
+		std::mt19937 gen{rd()};
+
+		if (mode == RANDOM_NORMAL) {
+			std::normal_distribution<float> d{0, 1};
+			for (int n = 0; n < shape.length; ++n) {
+				data[n] = d(gen);
+			}
+		} else if (mode == RANDOM_UNIFORM) {
+			for (int n = 0; n < shape.length; ++n) {
+				data[n] = gen() / (float) 4294967295;
+			}
+		}
+	} else if (mode == RANGE) {
+		for (int n = 0; n < shape.length; ++n) {
+			data[n] = (float) n;
+		}
+	} else {
+		throw std::exception("unknown mode");
+	}
 }
 
 void Karray::steal(Karray& other) {
@@ -182,14 +256,12 @@ std::string Karray::str() {
 	auto limit = min(shape.length, MAX_PRINT_SIZE);
 	int match = matches(0);
 	for (int i = 0; i < limit; ++i) {
-		if (match > 0) {
-			if (i == 0) {
-				ss << std::string(match + 1, '[');
-			} else {
-				ss << std::string(match, ']') << ",\n";
-				ss << std::string(shape.nd - match + 9, ' ');
-				ss << std::string(match, '[');
-			}
+		if (i == 0)
+			ss << std::string(match + 1, '[');
+		if (match > 0 && i > 0) {
+			ss << std::string(match, ']') << ",\n";
+			ss << std::string(shape.nd - match + 9, ' ');
+			ss << std::string(match, '[');
 		}
 		ss.width(5);
 		ss << data[i];
@@ -207,22 +279,6 @@ std::string Karray::str() {
 	return ss.str();
 }
 
-void transfer(float * from, float * to, size_t * positions, size_t * strides,
-              const Filter & filter, Shape & to_shape, int depth) {
-	if (depth < to_shape.nd) {
-		size_t current_value, last_value = 0;
-		for (int k = 0; k < to_shape[depth]; ++k) {
-			current_value = filter.buf[filter.offset[depth] + k];
-			positions[1] += (current_value - last_value) * strides[depth];
-			last_value = current_value;
-			transfer(from, to, positions, strides, filter, to_shape, depth + 1);
-		}
-		positions[1] -= last_value * strides[depth];
-	} else {
-		// printf("writing from %i to %i\n", positions[1], positions[0]);
-		to[positions[0]++] = from[positions[1]];
-	}
-}
 
 void Karray::broadcast(Shape new_shape) {
 	// shortcuts
@@ -244,9 +300,6 @@ void Karray::broadcast(Shape new_shape) {
 		size_t positions[2] = {0, 0};
 
 		// strides.print();
-
-
-
 		transfer(data, buffer, positions,
 		         strides.buf,
 		         filter, new_shape, 0);
@@ -264,14 +317,37 @@ fail:
 
 }
 
-
-Shape::Shape(size_t * input, int size) {
+void Karray::from_numpy(PyObject * obj) noexcept {
+	auto arr = (PyArrayObject *) obj;
+	npy_intp nd;
+	float * arr_data;
+	if ((nd = PyArray_NDIM(arr)) < MAX_ND &&
+	        PyArray_TYPE(arr) == NPY_FLOAT) {
+		shape = Shape(PyArray_SHAPE(arr), (int) nd);
+		auto length = (size_t) PyArray_SIZE(arr);
+		if (shape.length != length) goto fail;
+		// printf("length, shape_length %i %i\n", length, shape.length);
+		arr_data = (float *) PyArray_DATA(arr);
+		delete[] data;
+		data = new float[length];
+		for (int i = 0; i < length; ++i) {
+			data[i] = arr_data[i];
+		}
+	} else {
+fail:
+		PyErr_Clear();
+		PyErr_SetString(PyExc_ValueError,
+		                "Failed to copy numpy array.");
+	}
+}
+template<typename T>
+Shape::Shape(T * input, int size) {
 	nd = 0;
 	length = 1;
 	size = min(MAX_ND, size);
 	while (nd < size) {
-		length *= input[nd];
-		buf[nd] = input[nd];
+		length *= (size_t) input[nd];
+		buf[nd] = (size_t) input[nd];
 		++nd;
 	}
 	int i = nd;
@@ -304,7 +380,7 @@ Shape::Shape(PyObject * o, bool accept_singleton) {
 		buf[nd] = value;
 		++nd;
 	}
-	while(nd != MAX_ND) {
+	while (nd != MAX_ND) {
 		buf[nd] = 0;
 		++nd;
 	}
@@ -508,23 +584,6 @@ Filter& Filter::operator=(Filter&& other) noexcept {
 	}
 	return *this;
 }
-
-// Filter& Filter::operator=(Filter && other) {
-// 	for (int i = 0; i < MAX_ND; ++i) {
-// 		offset[i] = other.offset[i];
-// 		other.offset[i] = 0;
-// 	}
-// 	buf = other.buf;
-// 	other.buf = nullptr;
-// }
-
-// bool Filter::test() {
-// 	TEST(FilterInitialization) {
-// 		size_t a[MAX_ND] = {3, 4, 5, 0, 0, 0, 0, 0};
-// 		Shape shape(a);
-// 		Filter f(shape);
-// 	}
-// }
 void
 add_kernel(float * destination, float * other, Py_ssize_t length) {
 #if __AVX__
@@ -725,26 +784,51 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     char *kwlist[] = {"data", "shape", NULL};
     PyObject *input = NULL, *shape = NULL;
     Karray candidate;
+    Shape proposed_shape;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|$O", kwlist,
                                      &input, &shape))
         return -1;
 
-    auto nest = NestedSequence<float>(input);
-    PYERR_PRINT_GOTO_FAIL;
-
-    candidate.steal(nest.to_Karray());
-
     if (shape) {
-        Shape proposed_shape(shape);
-        PYERR_PRINT_GOTO_FAIL;
-        proposed_shape.print();
-        candidate.broadcast(proposed_shape);
+        proposed_shape = Shape(shape);
         PYERR_PRINT_GOTO_FAIL;
     }
 
-    self->arr.steal(candidate);
+    switch (py_type(input)) {
+    case (STRING): {
+        auto mode = read_mode(input);
+        PYERR_PRINT_GOTO_FAIL;
+        candidate.from_mode(proposed_shape, mode);
+        break;
+    }
+    case (NUMPY_ARRAY):
+        Py_INCREF(input);
+        candidate.from_numpy(input);
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
+        } else {
+            break;
+        }
+    case (NUMBER):
+    case (SEQUENCE): {
+        NestedSequence<float> nest(input);
+        PYERR_PRINT_GOTO_FAIL;
+        candidate.steal(nest.to_Karray());
+        if (shape) {
+            candidate.broadcast(proposed_shape);
+        }
+    }
+    break;
+    default:
+        PyErr_SetString(PyExc_TypeError,
+                        "Input object not understood.");
+    }
+    PYERR_PRINT_GOTO_FAIL;
 
+    self->arr.steal(candidate);
+    Py_DECREF(input);
+    Py_XDECREF(shape);
     return 0;
 
 fail:
