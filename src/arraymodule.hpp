@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <sstream>
 #include <random>
+#include <numeric>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -44,6 +45,11 @@ const int STR_OFFSET = 10;
         PyErr_Clear(); \
     }
 
+#define VALERR_PRINT_GOTO_FAIL(msg) \
+    PyErr_SetString(PyExc_ValueError, msg);\
+    PyErr_Print();\
+    goto fail;\
+
 class Filter;
 class NDVector;
 
@@ -51,6 +57,7 @@ class NDVector;
 class Shape
 {
 public:
+    bool def = true;
     int nd;
     size_t length;
 
@@ -68,6 +75,7 @@ public:
     size_t sum();
     NDVector strides(int depth_diff = 0);
     Filter broadcast_to(Shape other);
+    void push_back(size_t dim);
 
 private:
     size_t buf[MAX_ND];
@@ -84,11 +92,11 @@ const size_t NUMPY_ARRAY = 3;
 const size_t STRING = 5;
 const size_t NUMBER = 7;
 const size_t SEQUENCE = 11;
+const size_t SLICE = 13;
 
 class Karray
 {
 public:
-    bool owned;
     int seed;
     Shape shape;
     float * data;
@@ -96,31 +104,40 @@ public:
     Karray();
     Karray(Shape new_shape, std::vector<float> vec);
     Karray(Shape new_shape, float * new_data);
-    // Karray(Shape new_shape, size_t mode) noexcept;
+    ~Karray() noexcept;
+
+    // copy and move
+    Karray(const Karray& other);
+    Karray& operator=(const Karray&);
+    Karray(Karray&& other);
+    Karray& operator=(Karray&&);
+    void Karray::swap(Karray& other);
+
     void from_mode(Shape new_shape, size_t mode) noexcept;
     void from_numpy(PyObject * o) noexcept;
-    ~Karray() noexcept;
     void print(const char * message = "");
     std::string str();
-    void steal(Karray& other);
     void broadcast(Shape new_shape);
+    Karray subscript(PyObject * key);
 };
 
 class Filter
 {
 public:
-    bool failed = false;
-    size_t offset[MAX_ND];
-    size_t * buf;
+    size_t offset[MAX_ND + 1];
+    std::vector<size_t> vec;
 
-    Filter() {};
+    Filter() {
+        offset[0] = 0;
+    };
     Filter(Shape& shape);
-    ~Filter();
     void set_range_along_axis(int axis);
     void set_val_along_axis(int axis, size_t value);
     void print(const char * message = "");
     Filter& operator=(Filter && other) noexcept;
     Filter(Filter&& other) noexcept;
+    Shape from_subscript(PyObject * subscript, Shape &current_shape);
+    void push_back(size_t number, int index);
 };
 
 class NDVector
@@ -146,19 +163,6 @@ public:
     ~NDVector() {
         printf("destroying ndvector\n");
     };
-
-    // NDVector(NDVector&& other) noexcept : buf{0} {
-    //     *buf = *other.buf;
-    //     *other.buf = nullptr;
-    // };
-
-    // NDVector& operator=(NDVector&& other) noexcept {
-    //     if (this != &other) {
-    //         *buf = *other.buf;
-    //         *other.buf = nullptr;
-    //     }
-    //     return *this;
-    // };
 };
 
 typedef struct {
@@ -168,6 +172,7 @@ typedef struct {
 
 //utils
 size_t read_mode(PyObject * o);
+std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape);
 
 // members
 void Karray_dealloc(PyKarray *self);
@@ -175,7 +180,7 @@ int Karray_init(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Karray_str(PyKarray * self);
 // PyObject * Karray_getshape(PyKarray *self, void *closure);
-// PyObject * Karray_subscript(PyObject *o, PyObject *key);
+PyObject * Karray_subscript(PyObject *o, PyObject *key);
 
 // member functions
 PyObject * Karray_numpy(PyKarray *self, PyObject *Py_UNUSED(ignored));

@@ -2,20 +2,18 @@
 
 void
 Karray_dealloc(PyKarray *self) {
-    DEBUG_Obj((PyObject *) self, "deallocating from python")
-    // self->arr.print("deallocating from python");
     self->arr.~Karray();
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
 }
 
 PyObject *
 Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
-    PyKarray *self;
-    self = reinterpret_cast<PyKarray *>(type->tp_alloc(type, 0));
-    // if (self != NULL) {
-    //     self->arr = Karray();
-    // }
-    return reinterpret_cast<PyObject *>(self);
+    return type->tp_alloc(type, 0);
+}
+
+PyKarray *
+new_PyKarray() {
+    return reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
 }
 
 int
@@ -53,7 +51,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     case (SEQUENCE): {
         NestedSequence<float> nest(input);
         PYERR_PRINT_GOTO_FAIL;
-        candidate.steal(nest.to_Karray());
+        candidate = nest.to_Karray();
         if (shape) {
             candidate.broadcast(proposed_shape);
         }
@@ -65,7 +63,8 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     }
     PYERR_PRINT_GOTO_FAIL;
 
-    self->arr.steal(candidate);
+    self->arr.swap(candidate);
+
     Py_DECREF(input);
     Py_XDECREF(shape);
     return 0;
@@ -91,4 +90,24 @@ execute_func(PyObject *self, PyObject * input) {
 PyObject *
 Karray_str(PyKarray * self) {
     return PyUnicode_FromString(self->arr.str().c_str());
+}
+
+PyObject *
+Karray_subscript(PyObject *here, PyObject * key) {
+    auto self = reinterpret_cast<PyKarray *>(here);
+
+    Py_INCREF(key);
+    if (!PyTuple_Check(key))
+        key = Py_BuildValue("(O)", key);
+
+    auto result = new_PyKarray();
+    result->arr = self->arr.subscript(key);
+    PYERR_PRINT_GOTO_FAIL;
+    Py_DECREF(key);
+    return reinterpret_cast<PyObject *>(result);
+
+fail:
+    Py_DECREF(key);
+    PyErr_SetString(PyExc_ValueError, "Failed to apply subscript.");
+    return reinterpret_cast<PyObject *>(result);
 }

@@ -1,14 +1,60 @@
 
 Karray::Karray() {
-	owned = false;
+	printf("creating generic new karr\n");
 	seed = rand();
 	shape = Shape();
 	data = new float[1];
 	data[0] = 0;
 }
 
+Karray::Karray(const Karray& other)
+	: seed{other.seed + 1},
+	  shape{other.shape} {
+	printf("copying array %i into %i\n", other.seed, seed);
+	delete[] data;
+	data = new float[shape.length];
+	std::copy(other.data, other.data + shape.length, data);
+}
+
+Karray& Karray::operator=(const Karray& other) {
+	printf("copying array %i into %i\n", other.seed, seed);
+	shape = other.shape;
+	delete[] data;
+	data = new float[shape.length];
+	std::copy(other.data, other.data + shape.length, data);
+	return *this;
+}
+
+Karray::Karray(Karray&& other)
+	: seed{other.seed + 1},
+	  shape{other.shape} {
+	seed = other.seed + 1;
+	printf("moving array %i into %i\n", other.seed, seed);
+	data = other.data;
+	other.shape = Shape();
+	other.data = new float[1];
+	other.data[0] = 0;
+}
+
+Karray& Karray::operator=(Karray&& other) {
+	seed = other.seed + 1;
+	printf("moving array %i into %i\n", other.seed, seed);
+	shape = other.shape;
+	delete[] data;
+	data = other.data;
+	other.shape = Shape();
+	other.data = new float[1];
+	other.data[0] = 0;
+	return *this;
+}
+
+void Karray::swap(Karray& other) {
+	printf("swapping %i and %i\n", seed, other.seed);
+	std::swap(shape, other.shape);
+	std::swap(data, other.data);
+}
+
 Karray::Karray(Shape new_shape, std::vector<float> vec) {
-	owned = false;
 	seed = rand();
 	shape = new_shape;
 	// printf("shape.length, vec.size(): %i %i\n", shape.length, vec.size());
@@ -17,7 +63,6 @@ Karray::Karray(Shape new_shape, std::vector<float> vec) {
 }
 
 Karray::Karray(Shape new_shape, float * new_data) {
-	owned = false;
 	seed = rand();
 	shape = new_shape;
 	data = new_data;
@@ -51,17 +96,40 @@ void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
 	}
 }
 
-void Karray::steal(Karray& other) {
-	other.owned = true;
-	seed = other.seed;
-	shape = other.shape;
-	data = other.data;
+Karray Karray::subscript(PyObject * key) {
+
+	Karray result;
+	Filter filter;
+	NDVector strides(shape.strides());
+	Shape new_shape(filter.from_subscript(key, shape));
+	PYERR_PRINT_GOTO_FAIL;
+
+	strides.print();
+	new_shape.print();
+	filter.print();
+
+	result.shape = new_shape;
+	delete[] result.data;
+	result.data = new float[new_shape.length];
+
+	size_t positions[2] = {0, 0};
+
+	// strides.print();
+	transfer(data, result.data, positions,
+	         strides.buf, filter, shape.nd, 0);
+	printf("positions[0], positions[1]: %i %i\n", positions[0], positions[1]);
+	if (positions[0] != new_shape.length)
+		goto fail;
+
+	return result;
+fail:
+	PyErr_SetString(PyExc_ValueError, "Failed to subscript array.");
+	return result;
 }
 
 Karray::~Karray() {
-	if (!owned) {
-		delete[] data;
-	}
+	printf("deallocating karr with shape %s and seed %i\n", shape.str(), seed);
+	delete[] data;
 	shape.~Shape();
 }
 
@@ -136,7 +204,7 @@ void Karray::broadcast(Shape new_shape) {
 		// strides.print();
 		transfer(data, buffer, positions,
 		         strides.buf,
-		         filter, new_shape, 0);
+		         filter, new_shape.nd, 0);
 
 
 		shape = new_shape;

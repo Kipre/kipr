@@ -74,9 +74,9 @@ static PyModuleDef arraymodule = {
 //     .nb_matrix_multiply = Karray_matmul
 // };
 
-// static PyMappingMethods Karray_as_mapping = {
-//     .mp_subscript = Karray_subscript
-// };
+static PyMappingMethods Karray_as_mapping = {
+    .mp_subscript = Karray_subscript
+};
 
 static PyTypeObject KarrayType = {
     Karray_HEAD_INIT
@@ -86,7 +86,7 @@ static PyTypeObject KarrayType = {
     .tp_dealloc = (destructor) Karray_dealloc,
     .tp_repr = (reprfunc) Karray_str, 
     // .tp_as_number = &Karray_as_number,
-    // .tp_as_mapping = &Karray_as_mapping,
+    .tp_as_mapping = &Karray_as_mapping,
     .tp_str = (reprfunc) Karray_str,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_doc = "Array object from kipr",

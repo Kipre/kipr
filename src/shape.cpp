@@ -171,3 +171,13 @@ NDVector Shape::strides(int depth_diff) {
 	return result;
 }
 
+void Shape::push_back(size_t dim) {
+	if (def) {
+		nd = 0;
+		def = false;
+	}
+	buf[nd] = dim;
+	++nd;
+	length *= dim;
+}
+

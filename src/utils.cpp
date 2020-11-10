@@ -1,13 +1,13 @@
 
 void transfer(float * from, float * to, size_t * positions, size_t * strides,
-              const Filter & filter, Shape & to_shape, int depth) {
-	if (depth < to_shape.nd) {
+              const Filter & filter, int nd, int depth) {
+	if (depth < nd) {
 		size_t current_value, last_value = 0;
-		for (int k = 0; k < to_shape[depth]; ++k) {
-			current_value = filter.buf[filter.offset[depth] + k];
+		for (int k = filter.offset[depth]; k < filter.offset[depth + 1]; ++k) {
+			current_value = filter.vec[k];
 			positions[1] += (current_value - last_value) * strides[depth];
 			last_value = current_value;
-			transfer(from, to, positions, strides, filter, to_shape, depth + 1);
+			transfer(from, to, positions, strides, filter, nd, depth + 1);
 		}
 		positions[1] -= last_value * strides[depth];
 	} else {
@@ -15,7 +15,6 @@ void transfer(float * from, float * to, size_t * positions, size_t * strides,
 		to[positions[0]++] = from[positions[1]];
 	}
 }
-
 
 size_t read_mode(PyObject * o) {
 	if (!PyUnicode_Check(o))
@@ -43,5 +42,29 @@ size_t py_type(PyObject * o) {
 		return NUMBER;
 	if (PySequence_Check(o))
 		return SEQUENCE;
+	if (PySlice_Check(o))
+		return SLICE;
 	return 0;
 }
+
+size_t subscript_type(PyObject * o) {
+	if (PyNumber_Check(o))
+		return NUMBER;
+	if (PySlice_Check(o))
+		return SLICE;
+	if (PySequence_Check(o))
+		return SEQUENCE;
+	return 0;
+}
+
+size_t align_index(Py_ssize_t i, size_t dim_length) {
+	if (abs(i) >= dim_length) {
+		PyErr_Format(PyExc_ValueError,
+		             "Index %i out of range on axis with length %i.",
+		             i, dim_length);
+		return 0;
+	} else {
+		return (size_t) (i % dim_length + dim_length) % dim_length;
+	}
+}
+

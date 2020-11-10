@@ -75,9 +75,9 @@ static PyModuleDef arraymodule = {
 //     .nb_matrix_multiply = Karray_matmul
 // };
 
-// static PyMappingMethods Karray_as_mapping = {
-//     .mp_subscript = Karray_subscript
-// };
+static PyMappingMethods Karray_as_mapping = {
+    .mp_subscript = Karray_subscript
+};
 
 static PyTypeObject KarrayType = {
     Karray_HEAD_INIT
@@ -87,7 +87,7 @@ static PyTypeObject KarrayType = {
     .tp_dealloc = (destructor) Karray_dealloc,
     .tp_repr = (reprfunc) Karray_str, 
     // .tp_as_number = &Karray_as_number,
-    // .tp_as_mapping = &Karray_as_mapping,
+    .tp_as_mapping = &Karray_as_mapping,
     .tp_str = (reprfunc) Karray_str,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_doc = "Array object from kipr",
@@ -120,14 +120,14 @@ PyInit_kipr_array(void)
     return m;
 }
 void transfer(float * from, float * to, size_t * positions, size_t * strides,
-              const Filter & filter, Shape & to_shape, int depth) {
-	if (depth < to_shape.nd) {
+              const Filter & filter, int nd, int depth) {
+	if (depth < nd) {
 		size_t current_value, last_value = 0;
-		for (int k = 0; k < to_shape[depth]; ++k) {
-			current_value = filter.buf[filter.offset[depth] + k];
+		for (int k = filter.offset[depth]; k < filter.offset[depth + 1]; ++k) {
+			current_value = filter.vec[k];
 			positions[1] += (current_value - last_value) * strides[depth];
 			last_value = current_value;
-			transfer(from, to, positions, strides, filter, to_shape, depth + 1);
+			transfer(from, to, positions, strides, filter, nd, depth + 1);
 		}
 		positions[1] -= last_value * strides[depth];
 	} else {
@@ -135,7 +135,6 @@ void transfer(float * from, float * to, size_t * positions, size_t * strides,
 		to[positions[0]++] = from[positions[1]];
 	}
 }
-
 
 size_t read_mode(PyObject * o) {
 	if (!PyUnicode_Check(o))
@@ -163,18 +162,89 @@ size_t py_type(PyObject * o) {
 		return NUMBER;
 	if (PySequence_Check(o))
 		return SEQUENCE;
+	if (PySlice_Check(o))
+		return SLICE;
 	return 0;
 }
+
+size_t subscript_type(PyObject * o) {
+	if (PyNumber_Check(o))
+		return NUMBER;
+	if (PySlice_Check(o))
+		return SLICE;
+	if (PySequence_Check(o))
+		return SEQUENCE;
+	return 0;
+}
+
+size_t align_index(Py_ssize_t i, size_t dim_length) {
+	if (abs(i) >= dim_length) {
+		PyErr_Format(PyExc_ValueError,
+		             "Index %i out of range on axis with length %i.",
+		             i, dim_length);
+		return 0;
+	} else {
+		return (size_t) (i % dim_length + dim_length) % dim_length;
+	}
+}
+
+
 Karray::Karray() {
-	owned = false;
+	printf("creating generic new karr\n");
 	seed = rand();
 	shape = Shape();
 	data = new float[1];
 	data[0] = 0;
 }
 
+Karray::Karray(const Karray& other)
+	: seed{other.seed + 1},
+	  shape{other.shape} {
+	printf("copying array %i into %i\n", other.seed, seed);
+	delete[] data;
+	data = new float[shape.length];
+	std::copy(other.data, other.data + shape.length, data);
+}
+
+Karray& Karray::operator=(const Karray& other) {
+	printf("copying array %i into %i\n", other.seed, seed);
+	shape = other.shape;
+	delete[] data;
+	data = new float[shape.length];
+	std::copy(other.data, other.data + shape.length, data);
+	return *this;
+}
+
+Karray::Karray(Karray&& other)
+	: seed{other.seed + 1},
+	  shape{other.shape} {
+	seed = other.seed + 1;
+	printf("moving array %i into %i\n", other.seed, seed);
+	data = other.data;
+	other.shape = Shape();
+	other.data = new float[1];
+	other.data[0] = 0;
+}
+
+Karray& Karray::operator=(Karray&& other) {
+	seed = other.seed + 1;
+	printf("moving array %i into %i\n", other.seed, seed);
+	shape = other.shape;
+	delete[] data;
+	data = other.data;
+	other.shape = Shape();
+	other.data = new float[1];
+	other.data[0] = 0;
+	return *this;
+}
+
+void Karray::swap(Karray& other) {
+	printf("swapping %i and %i\n", seed, other.seed);
+	std::swap(shape, other.shape);
+	std::swap(data, other.data);
+}
+
 Karray::Karray(Shape new_shape, std::vector<float> vec) {
-	owned = false;
 	seed = rand();
 	shape = new_shape;
 	// printf("shape.length, vec.size(): %i %i\n", shape.length, vec.size());
@@ -183,7 +253,6 @@ Karray::Karray(Shape new_shape, std::vector<float> vec) {
 }
 
 Karray::Karray(Shape new_shape, float * new_data) {
-	owned = false;
 	seed = rand();
 	shape = new_shape;
 	data = new_data;
@@ -217,17 +286,40 @@ void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
 	}
 }
 
-void Karray::steal(Karray& other) {
-	other.owned = true;
-	seed = other.seed;
-	shape = other.shape;
-	data = other.data;
+Karray Karray::subscript(PyObject * key) {
+
+	Karray result;
+	Filter filter;
+	NDVector strides(shape.strides());
+	Shape new_shape(filter.from_subscript(key, shape));
+	PYERR_PRINT_GOTO_FAIL;
+
+	strides.print();
+	new_shape.print();
+	filter.print();
+
+	result.shape = new_shape;
+	delete[] result.data;
+	result.data = new float[new_shape.length];
+
+	size_t positions[2] = {0, 0};
+
+	// strides.print();
+	transfer(data, result.data, positions,
+	         strides.buf, filter, shape.nd, 0);
+	printf("positions[0], positions[1]: %i %i\n", positions[0], positions[1]);
+	if (positions[0] != new_shape.length)
+		goto fail;
+
+	return result;
+fail:
+	PyErr_SetString(PyExc_ValueError, "Failed to subscript array.");
+	return result;
 }
 
 Karray::~Karray() {
-	if (!owned) {
-		delete[] data;
-	}
+	printf("deallocating karr with shape %s and seed %i\n", shape.str(), seed);
+	delete[] data;
 	shape.~Shape();
 }
 
@@ -302,7 +394,7 @@ void Karray::broadcast(Shape new_shape) {
 		// strides.print();
 		transfer(data, buffer, positions,
 		         strides.buf,
-		         filter, new_shape, 0);
+		         filter, new_shape.nd, 0);
 
 
 		shape = new_shape;
@@ -512,6 +604,15 @@ NDVector Shape::strides(int depth_diff) {
 	return result;
 }
 
+void Shape::push_back(size_t dim) {
+	if (def) {
+		nd = 0;
+		def = false;
+	}
+	buf[nd] = dim;
+	++nd;
+	length *= dim;
+}
 
 Filter::Filter(Shape& shape) {
 	size_t total = 0;
@@ -524,13 +625,12 @@ Filter::Filter(Shape& shape) {
 	while (i != MAX_ND) {
 		offset[i++] = total;
 	}
-	buf = new size_t[total];
-	// std::fill(buf, buf + total, -1);
+	vec.reserve(total);
+	// std::fill(vec, vec + total, -1);
 }
 
-Filter::Filter(Filter&& other) noexcept : buf(nullptr), offset{0} {
-	buf = other.buf;
-	other.buf = nullptr;
+Filter::Filter(Filter&& other) noexcept : vec{}, offset{0} {
+	vec = std::move(other.vec);
 	for (int i = 0; i < MAX_ND; ++i) {
 		offset[i] = other.offset[i];
 		other.offset[i] = 0;
@@ -539,50 +639,136 @@ Filter::Filter(Filter&& other) noexcept : buf(nullptr), offset{0} {
 
 void Filter::set_val_along_axis(int axis , size_t value) {
 	// printf("writing val from %i to %i on axis %i\n", offset[axis], offset[axis + 1], axis);
-	std::fill(buf + offset[axis], buf + offset[axis + 1], value);
+	std::fill(vec.begin() + offset[axis], vec.begin() + offset[axis + 1], value);
 }
 
 void Filter::set_range_along_axis(int axis) {
 	// printf("writing range from %i to %i on axis %i\n", offset[axis], offset[axis + 1], axis);
-	for (int k = offset[axis]; k < offset[axis + 1]; ++k) {
-		buf[k] = k - offset[axis];
-	}
+	std::iota (vec.begin() + offset[axis], vec.begin() + offset[axis + 1], 0);
 }
 
 void Filter::print(const char * message) {
 	std::cout << "Filter " << message << "\n\t";
 	int o = 1;
-	for (int k = 0; k < offset[MAX_ND - 1]; ++k) {
+	for (int k = 0; k < vec.size(); ++k) {
 		if (k == offset[o]) {
 			std::cout << "| ";
 			++o;
 		}
-		std::cout << buf[k] << ", ";
+		std::cout << vec[k] << ", ";
 	}
 	std::cout << "\n\toffsets:";
-	for (int k = 0; k < MAX_ND; ++k) {
+	for (int k = 0; k < MAX_ND + 1; ++k) {
 		std::cout << offset[k] << ", ";
 	}
 	std::cout << '\n';
 }
 
-Filter::~Filter() {
-	// printf("freeing filter\n");
-	delete[] buf;
-}
-
 Filter& Filter::operator=(Filter&& other) noexcept {
 	if (this != &other) {
-		delete[] buf;
-
-		buf = other.buf;
-		other.buf = nullptr;
+		vec = std::move(other.vec);
 		for (int i = 0; i < MAX_ND; ++i) {
 			offset[i] = other.offset[i];
 			other.offset[i] = 0;
 		}
 	}
 	return *this;
+}
+
+void Filter::push_back(size_t number, int index) {
+	vec.push_back(number);
+	offset[index + 1] = vec.size();
+}
+
+Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
+
+	Shape new_shape;
+	size_t ind;
+
+	std::vector<PyObject *> subs = full_subscript(key, current_shape);
+	PYERR_PRINT_GOTO_FAIL;
+	for (int i = 0; i < subs.size(); ++i) {
+		switch (subscript_type(subs[i])) {
+		case (NUMBER):
+			ind = align_index(PyLong_AsSsize_t(subs[i]), current_shape[i]);
+			push_back(ind, i);
+			break;
+		case (SLICE): {
+			Py_ssize_t start, stop, step, slicelength;
+			PySlice_GetIndicesEx(subs[i], current_shape[i],
+			                     &start, &stop, &step, &slicelength);
+			if (start == stop) {
+				push_back((size_t) start, i);
+			} else {
+				for (int k = 0; k < slicelength; ++k) {
+					push_back(k * step + start, i);
+				}
+				new_shape.push_back(slicelength);
+			}
+		}
+		break;
+		case (SEQUENCE): {
+			Py_ssize_t length = PySequence_Length(subs[i]);
+			PyObject ** items = PySequence_Fast_ITEMS(subs[i]);
+			printf("seq length: %i\n", length);
+			for (int k = 0; k < length; ++k) {
+				ind = align_index(PyLong_AsSsize_t(items[k]), current_shape[i]);
+				PYERR_PRINT_GOTO_FAIL;
+				push_back(ind, i);
+			}
+			new_shape.push_back(length);
+		}
+		}
+	}
+	int rest = subs.size();
+	offset[rest] = vec.size();
+	while (rest < MAX_ND) {
+		++rest;
+		offset[rest] = offset[rest - 1];
+	}
+	return new_shape;
+
+
+fail:
+	PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
+	return new_shape;
+}
+
+std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
+	std::vector<PyObject *> elements;
+	elements.reserve(current_shape.nd);
+	Py_ssize_t tup_length = PySequence_Length(tuple);
+	bool found_ellipsis = false;
+
+	if (tup_length > current_shape.nd) {
+		VALERR_PRINT_GOTO_FAIL("Subscript has too much elements.");
+	}
+
+	PyObject * full_slice = PySlice_New(NULL, NULL, NULL);
+	// Py_INCREF(full_slice);
+	PyObject ** items = PySequence_Fast_ITEMS(tuple);
+
+	for (int i = 0; i < tup_length; ++i) {
+		if (items[i] == Py_Ellipsis && !found_ellipsis) {
+			for (int k = 0; k < current_shape.nd - (tup_length - 1); ++k)
+				elements.push_back(full_slice);
+			found_ellipsis = true;
+		} else if (items[i] == Py_Ellipsis && found_ellipsis) {
+			VALERR_PRINT_GOTO_FAIL("Ellipsis cannot appear twice in subscript.");
+		} else {
+			// Py_INCREF(items[i]);
+			elements.push_back(items[i]);
+		}
+	}
+	auto missing_dims = current_shape.nd - elements.size();
+	for (int i = 0; i < missing_dims; ++i)
+		elements.push_back(full_slice);
+
+	return elements;
+
+fail:
+	PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
+	return elements;
 }
 void
 add_kernel(float * destination, float * other, Py_ssize_t length) {
@@ -763,20 +949,18 @@ max_val_kernel(float * destination, float value, Py_ssize_t length) {
 
 void
 Karray_dealloc(PyKarray *self) {
-    DEBUG_Obj((PyObject *) self, "deallocating from python")
-    // self->arr.print("deallocating from python");
     self->arr.~Karray();
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
 }
 
 PyObject *
 Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
-    PyKarray *self;
-    self = reinterpret_cast<PyKarray *>(type->tp_alloc(type, 0));
-    // if (self != NULL) {
-    //     self->arr = Karray();
-    // }
-    return reinterpret_cast<PyObject *>(self);
+    return type->tp_alloc(type, 0);
+}
+
+PyKarray *
+new_PyKarray() {
+    return reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
 }
 
 int
@@ -814,7 +998,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     case (SEQUENCE): {
         NestedSequence<float> nest(input);
         PYERR_PRINT_GOTO_FAIL;
-        candidate.steal(nest.to_Karray());
+        candidate = nest.to_Karray();
         if (shape) {
             candidate.broadcast(proposed_shape);
         }
@@ -826,7 +1010,8 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     }
     PYERR_PRINT_GOTO_FAIL;
 
-    self->arr.steal(candidate);
+    self->arr.swap(candidate);
+
     Py_DECREF(input);
     Py_XDECREF(shape);
     return 0;
@@ -852,6 +1037,26 @@ execute_func(PyObject *self, PyObject * input) {
 PyObject *
 Karray_str(PyKarray * self) {
     return PyUnicode_FromString(self->arr.str().c_str());
+}
+
+PyObject *
+Karray_subscript(PyObject *here, PyObject * key) {
+    auto self = reinterpret_cast<PyKarray *>(here);
+
+    Py_INCREF(key);
+    if (!PyTuple_Check(key))
+        key = Py_BuildValue("(O)", key);
+
+    auto result = new_PyKarray();
+    result->arr = self->arr.subscript(key);
+    PYERR_PRINT_GOTO_FAIL;
+    Py_DECREF(key);
+    return reinterpret_cast<PyObject *>(result);
+
+fail:
+    Py_DECREF(key);
+    PyErr_SetString(PyExc_ValueError, "Failed to apply subscript.");
+    return reinterpret_cast<PyObject *>(result);
 }
 
 // PyObject *
