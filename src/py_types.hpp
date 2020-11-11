@@ -9,7 +9,7 @@ public:
 	~FastSequence() = default;
 	Shape to_shape() {
 		auto shape = Shape(elements.data(), elements.size());
-		shape.cohere();
+		shape.validate();
 		return shape;
 	}
 };
@@ -154,7 +154,7 @@ template<class T>
 NestedSequence<T>::NestedSequence(PyObject * o) {
 	NestedSequence<T>::parse_data(o, 0);
 	PYERR_PRINT_GOTO_FAIL;
-	size_t length = shape.cohere();
+	size_t length = shape.validate();
 	PYERR_PRINT_GOTO_FAIL;
 	if (data.size() !=  length)
 		goto fail;

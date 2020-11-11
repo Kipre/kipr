@@ -1,6 +1,6 @@
 
 void
-add_kernel(float * destination, float * other, Py_ssize_t length) {
+add_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -21,7 +21,7 @@ add_kernel(float * destination, float * other, Py_ssize_t length) {
 }
 
 void
-sub_kernel(float * destination, float * other, Py_ssize_t length) {
+sub_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -43,7 +43,7 @@ sub_kernel(float * destination, float * other, Py_ssize_t length) {
 
 
 void
-mul_kernel(float * destination, float * other, Py_ssize_t length) {
+mul_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -65,7 +65,7 @@ mul_kernel(float * destination, float * other, Py_ssize_t length) {
 
 
 void
-div_kernel(float * destination, float * other, Py_ssize_t length) {
+div_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -92,7 +92,7 @@ div_kernel(float * destination, float * other, Py_ssize_t length) {
 
 
 void
-exp_kernel(float * destination, float * other, Py_ssize_t length) {
+exp_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -113,7 +113,7 @@ exp_kernel(float * destination, float * other, Py_ssize_t length) {
 
 
 void
-log_kernel(float * destination, float * other, Py_ssize_t length) {
+log_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
     for (k=0; k < length-8; k += 8) {
@@ -134,7 +134,7 @@ log_kernel(float * destination, float * other, Py_ssize_t length) {
 
 
 void
-val_mul_kernel(float * destination, float value, Py_ssize_t length) {
+val_mul_kernel(float * destination, float value, ssize_t length) {
 #if __AVX__
     int k;
     __m256 values, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
@@ -155,7 +155,7 @@ val_mul_kernel(float * destination, float value, Py_ssize_t length) {
 }
 
 void
-max_val_kernel(float * destination, float value, Py_ssize_t length) {
+max_val_kernel(float * destination, float value, ssize_t length) {
     #if __AVX__
     int k;
     __m256 values, val = _mm256_set_ps (value, value, value, value, value, value, value, value);

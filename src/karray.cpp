@@ -10,8 +10,6 @@ Karray::Karray() {
 Karray::Karray(const Karray& other)
 	: seed{other.seed + 1},
 	  shape{other.shape} {
-	printf("copying array %i into %i\n", other.seed, seed);
-	delete[] data;
 	data = new float[shape.length];
 	std::copy(other.data, other.data + shape.length, data);
 }
@@ -37,7 +35,6 @@ Karray::Karray(Karray&& other)
 }
 
 Karray& Karray::operator=(Karray&& other) {
-	seed = other.seed + 1;
 	printf("moving array %i into %i\n", other.seed, seed);
 	shape = other.shape;
 	delete[] data;
@@ -45,6 +42,43 @@ Karray& Karray::operator=(Karray&& other) {
 	other.shape = Shape();
 	other.data = new float[1];
 	other.data[0] = 0;
+	return *this;
+}
+
+Karray& Karray::operator+=(const Karray& other) {
+	if (shape.length == other.shape.length) {
+		shape.print();
+		add_kernel(data, other.data, shape.length);
+	} else {
+		Karray tmp(other);
+		tmp.broadcast(shape);
+		PYERR_PRINT_GOTO_FAIL;
+		add_kernel(data, tmp.data, shape.length);
+	}
+	return *this; // return the result by reference
+fail:
+	PyErr_SetString(PyExc_ValueError,
+	                "Failed to execute addition.");
+	return *this;
+}
+
+Karray Karray::operator+(const Karray& rhs) {
+	if (shape.length != rhs.shape.length) {
+		Shape common(shape, rhs.shape);
+		Karray self(*this);
+		self.broadcast(common);
+		Karray other(rhs);
+		other.broadcast(common);
+		add_kernel(self.data, other.data, common.length);
+		return self;
+	} else {
+		Karray self(*this);
+		add_kernel(self.data, rhs.data, shape.length);
+		return self;
+	}
+	fail:
+	PyErr_SetString(PyExc_ValueError,
+	                "Failed to execute addition.");
 	return *this;
 }
 

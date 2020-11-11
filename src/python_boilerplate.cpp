@@ -57,22 +57,22 @@ static PyModuleDef arraymodule = {
 
 
 
-// static PyNumberMethods Karray_as_number = {
-//     .nb_add = Karray_add,
-//     .nb_subtract = Karray_sub,
-//     .nb_multiply = Karray_mul,
+static PyNumberMethods Karray_as_number = {
+    .nb_add = Karray_add,
+    // .nb_subtract = Karray_sub,
+    // .nb_multiply = Karray_mul,
 
-//     .nb_negative = Karray_negative,
+    // .nb_negative = Karray_negative,
 
-//     .nb_inplace_add = Karray_inplace_add,
-//     .nb_inplace_subtract = Karray_inplace_sub,
-//     .nb_inplace_multiply = Karray_inplace_mul,
+    .nb_inplace_add = Karray_inplace_add,
+    // .nb_inplace_subtract = Karray_inplace_sub,
+    // .nb_inplace_multiply = Karray_inplace_mul,
 
-//     .nb_true_divide = Karray_div,
-//     .nb_inplace_true_divide = Karray_inplace_div,
+    // .nb_true_divide = Karray_div,
+    // .nb_inplace_true_divide = Karray_inplace_div,
 
-//     .nb_matrix_multiply = Karray_matmul
-// };
+    // .nb_matrix_multiply = Karray_matmul
+};
 
 static PyMappingMethods Karray_as_mapping = {
     .mp_subscript = Karray_subscript
@@ -85,7 +85,7 @@ static PyTypeObject KarrayType = {
     .tp_itemsize = sizeof(float),
     .tp_dealloc = (destructor) Karray_dealloc,
     .tp_repr = (reprfunc) Karray_str, 
-    // .tp_as_number = &Karray_as_number,
+    .tp_as_number = &Karray_as_number,
     .tp_as_mapping = &Karray_as_mapping,
     .tp_str = (reprfunc) Karray_str,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,

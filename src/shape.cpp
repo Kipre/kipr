@@ -43,7 +43,7 @@ Shape::Shape(PyObject * o, bool accept_singleton) {
 		buf[nd] = 0;
 		++nd;
 	}
-	cohere();
+	validate();
 	PYERR_PRINT_GOTO_FAIL;
 	return;
 
@@ -58,6 +58,45 @@ Shape::Shape() {
 	length = 1;
 	buf[0] = 1;
 	std::fill(buf + 1, buf + MAX_ND, 0);
+}
+
+Shape::Shape(Shape a, Shape b) noexcept { // [3, 4, 5] & [3, 1]
+	if (a.nd < b.nd)
+		std::swap(a, b);
+	
+	nd = a.nd;
+	length = 1;
+	int curr_dim = MAX_ND-1;
+	int dim_diff = a.nd - b.nd;
+	while (curr_dim >= 0) {
+		printf("curr_dim: %i\n", curr_dim);
+		if (curr_dim >= dim_diff &&
+		        a[curr_dim] != b[curr_dim - dim_diff]) {
+			if (a[curr_dim] == 1) {
+				buf[curr_dim] = b[curr_dim - dim_diff];
+			} else if (b[curr_dim - dim_diff] == 1) {
+				buf[curr_dim] = a[curr_dim];
+			} else goto fail;
+		} else {
+			buf[curr_dim] = a[curr_dim];
+		}
+		length *= max(1, buf[curr_dim]);
+		--curr_dim;
+	}
+	return;
+
+fail:
+	PyErr_Format(PyExc_ValueError,
+	             "Shapes %s and %s are not compatible.", a.str(), b.str());
+}
+
+
+void Shape::swap(Shape &other) {
+	std::swap(nd, other.nd);
+	std::swap(length, other.length);
+	size_t * tmp = buf;
+	*buf = *other.buf;
+	*other.buf = *tmp;
 }
 
 
@@ -83,7 +122,7 @@ bool Shape::assert_or_set(size_t value, int dim) {
 	}
 }
 
-size_t Shape::cohere() {
+size_t Shape::validate() {
 	int new_nd = 0;
 	length = 1;
 	if (buf[0] == 0) goto fail;
@@ -119,7 +158,7 @@ std::string Shape::str() {
 	return result + "]";
 }
 
-Filter Shape::broadcast_to(Shape other) {
+Filter Shape::broadcast_to(Shape& other) {
 	Filter filter(other);
 	int dim_diff = other.nd - nd;
 	// printf("dim_diff: %i\n", dim_diff);

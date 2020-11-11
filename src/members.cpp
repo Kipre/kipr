@@ -33,6 +33,13 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     }
 
     switch (py_type(input)) {
+    case (KARRAY): {
+        // printf("initializin from karray\n");
+        Py_INCREF(input);
+        PyKarray * karr = reinterpret_cast<PyKarray *>(input);
+        candidate = karr->arr;
+        break;
+    }
     case (STRING): {
         auto mode = read_mode(input);
         PYERR_PRINT_GOTO_FAIL;

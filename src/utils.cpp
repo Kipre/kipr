@@ -34,6 +34,8 @@ size_t read_mode(PyObject * o) {
 }
 
 size_t py_type(PyObject * o) {
+	if ((PyTypeObject *) PyObject_Type(o) == &KarrayType)
+		return KARRAY;
 	if (PyArray_Check(o))
 		return NUMPY_ARRAY;
 	if (PyUnicode_Check(o))

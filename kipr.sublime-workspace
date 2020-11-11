@@ -4,6 +4,30 @@
 		"selected_items":
 		[
 			[
+				"max",
+				"max_nd"
+			],
+			[
+				"pi",
+				"print"
+			],
+			[
+				"Py",
+				"PyKarray"
+			],
+			[
+				"add",
+				"add_kernel"
+			],
+			[
+				"PYERR",
+				"PYERR_PRINT_GOTO_FAIL"
+			],
+			[
+				"in",
+				"input"
+			],
+			[
 				"arr",
 				"arr_data"
 			],
@@ -42,10 +66,6 @@
 			[
 				"Ka",
 				"Karray_new"
-			],
-			[
-				"Py",
-				"PyObject"
 			],
 			[
 				"PyExc",
@@ -190,10 +210,6 @@
 			[
 				"Asser",
 				"ASSERT_KARR_EQ"
-			],
-			[
-				"in",
-				"internal_test"
 			],
 			[
 				"ASS",
@@ -498,22 +514,6 @@
 			[
 				"asser",
 				"assertRaises"
-			],
-			[
-				"ass",
-				"assertTrue"
-			],
-			[
-				"MAX",
-				"MAX_NDIMS"
-			],
-			[
-				"max",
-				"MAX_PRINT_SIZE"
-			],
-			[
-				"prop",
-				"proposed_shape"
 			]
 		]
 	},
@@ -523,7 +523,7 @@
 			"file": "src/arraymodule.hpp",
 			"settings":
 			{
-				"buffer_size": 5556,
+				"buffer_size": 5967,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -532,26 +532,35 @@
 			"file": "src/utils.cpp",
 			"settings":
 			{
-				"buffer_size": 1406,
+				"buffer_size": 1976,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "utils.cpp"
 			}
 		},
 		{
-			"file": "src/members.cpp",
+			"file": "src/math_ops.cpp",
 			"settings":
 			{
-				"buffer_size": 2242,
+				"buffer_size": 6851,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"contents": "py\nimport kipr as kp\nimport numpy as np\nkp.arr(np.random.randn(10).astype(np.float32))\nexit()\n",
+			"file": "src/members.cpp",
 			"settings":
 			{
-				"buffer_size": 94,
+				"buffer_size": 2831,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"contents": "py\nimport kipr as kp\na = kp.arr(0.2, shape=[4, 5, 6])\nb = kp.arr('range', shape=[5, 6])\na + b\nexit()\n",
+			"settings":
+			{
+				"buffer_size": 101,
 				"line_ending": "Windows",
 				"name": "py"
 			}
@@ -560,7 +569,7 @@
 			"file": "src/python_boilerplate.cpp",
 			"settings":
 			{
-				"buffer_size": 3732,
+				"buffer_size": 3705,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -578,7 +587,7 @@
 			"file": "src/filter.cpp",
 			"settings":
 			{
-				"buffer_size": 1608,
+				"buffer_size": 4140,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -587,7 +596,7 @@
 			"file": "src/py_types.hpp",
 			"settings":
 			{
-				"buffer_size": 3209,
+				"buffer_size": 3213,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -596,7 +605,7 @@
 			"file": "src/shape.cpp",
 			"settings":
 			{
-				"buffer_size": 3354,
+				"buffer_size": 4386,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "shape.cpp"
@@ -606,7 +615,16 @@
 			"file": "src/arraymodule.cpp",
 			"settings":
 			{
-				"buffer_size": 29868,
+				"buffer_size": 37206,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/kernels.cpp",
+			"settings":
+			{
+				"buffer_size": 4213,
+				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
@@ -614,7 +632,7 @@
 			"file": "src/karray.cpp",
 			"settings":
 			{
-				"buffer_size": 4076,
+				"buffer_size": 6312,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "karray.cpp"
@@ -844,6 +862,22 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"a",
+			"cohere",
+			"small",
+			"big",
+			"a",
+			"cohere",
+			"X",
+			"Karray::",
+			"other",
+			"Py_ssize_t",
+			"X",
+			"Py",
+			"owned",
+			"shape.other",
+			"const Karray&",
+			"AbstractBase",
 			"se ",
 			"self->",
 			"(PyArrayObject *) input",
@@ -955,23 +989,7 @@
 			"from_shape",
 			"to_pad",
 			"from",
-			"from->shape",
-			"from->nd",
-			"cond",
-			"origin",
-			"filter_offsets",
-			",",
-			"->",
-			"\n",
-			") {",
-			"*\n",
-			"\n",
-			"str",
-			"karray_length",
-			"#include",
-			"T",
-			"inline ",
-			"static "
+			"from->shape"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -989,7 +1007,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 4,
 			"sheets":
 			[
 				{
@@ -998,15 +1016,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 5556,
+						"buffer_size": 5967,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1724,
-								1724
+								4780,
+								4780
 							]
 						],
 						"settings":
@@ -1016,10 +1034,10 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 2239.33333333,
+						"translation.y": 2646.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
@@ -1028,15 +1046,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1406,
+						"buffer_size": 1976,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1393,
-								1393
+								1267,
+								1267
 							]
 						],
 						"settings":
@@ -1046,27 +1064,56 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 210.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 3,
 					"type": "text"
 				},
 				{
 					"buffer": 2,
-					"file": "src/members.cpp",
+					"file": "src/math_ops.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2242,
+						"buffer_size": 6851,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1285,
-								1285
+								2186,
+								2186
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 1161.33333333,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "src/members.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2831,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1540,
+								1540
 							]
 						],
 						"settings":
@@ -1076,25 +1123,25 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 426.0,
+						"translation.y": 698.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
-					"buffer": 3,
+					"buffer": 4,
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 94,
+						"buffer_size": 101,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								86,
+								93,
 								0
 							]
 						],
@@ -1107,24 +1154,24 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 8,
+					"stack_index": 1,
 					"type": "text"
 				},
 				{
-					"buffer": 4,
+					"buffer": 5,
 					"file": "src/python_boilerplate.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3732,
+						"buffer_size": 3705,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								3039,
-								3039
+								2157,
+								2157
 							]
 						],
 						"settings":
@@ -1134,14 +1181,14 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 163.333333333,
+						"translation.y": 794.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 7,
 					"type": "text"
 				},
 				{
-					"buffer": 5,
+					"buffer": 6,
 					"file": "setup.py",
 					"semi_transient": false,
 					"settings":
@@ -1153,8 +1200,8 @@
 						"selection":
 						[
 							[
-								698,
-								698
+								842,
+								842
 							]
 						],
 						"settings":
@@ -1163,34 +1210,34 @@
 							"tab_size": 2,
 							"translate_tabs_to_spaces": true
 						},
-						"translation.x": 3.33333333333,
-						"translation.y": 336.0,
+						"translation.x": 124.0,
+						"translation.y": 101.333333333,
 						"zoom_level": 1.0
 					},
-					"stack_index": 9,
+					"stack_index": 11,
 					"type": "text"
 				}
 			]
 		},
 		{
-			"selected": 4,
+			"selected": 2,
 			"sheets":
 			[
 				{
-					"buffer": 6,
+					"buffer": 7,
 					"file": "src/filter.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1608,
+						"buffer_size": 4140,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1608,
-								1608
+								2819,
+								2819
 							]
 						],
 						"settings":
@@ -1199,56 +1246,56 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 756.0,
+						"translation.y": 653.333333333,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"file": "src/py_types.hpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 3209,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1940,
-								1940
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 1344.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 5,
+					"stack_index": 12,
 					"type": "text"
 				},
 				{
 					"buffer": 8,
-					"file": "src/shape.cpp",
+					"file": "src/py_types.hpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3354,
+						"buffer_size": 3213,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2685,
-								2685
+								283,
+								283
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 9,
+					"file": "src/shape.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4386,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1562,
+								1562
 							]
 						],
 						"settings":
@@ -1258,27 +1305,85 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1848.0,
+						"translation.y": 703.333333333,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
-					"buffer": 9,
+					"buffer": 10,
 					"file": "src/arraymodule.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 29868,
+						"buffer_size": 37206,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								19608,
-								19608
+								18102,
+								18102
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 8.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 11,
+					"file": "src/kernels.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4213,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								55,
+								55
+							],
+							[
+								555,
+								555
+							],
+							[
+								1056,
+								1056
+							],
+							[
+								1557,
+								1557
+							],
+							[
+								2209,
+								2209
+							],
+							[
+								2659,
+								2659
+							],
+							[
+								3111,
+								3111
+							],
+							[
+								3670,
+								3670
 							]
 						],
 						"settings":
@@ -1288,27 +1393,27 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 8.0,
+						"translation.y": 58.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
+					"stack_index": 10,
 					"type": "text"
 				},
 				{
-					"buffer": 10,
+					"buffer": 12,
 					"file": "src/karray.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4076,
+						"buffer_size": 6312,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4074,
-								4074
+								1601,
+								1601
 							]
 						],
 						"settings":
@@ -1318,10 +1423,10 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1974.0,
+						"translation.y": 768.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 9,
 					"type": "text"
 				}
 			]
@@ -1355,7 +1460,7 @@
 		"cols":
 		[
 			0.0,
-			0.397536282772,
+			0.471640917603,
 			1.0
 		],
 		"rows":

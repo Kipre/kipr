@@ -66,15 +66,17 @@ public:
     Shape(T * input, int size = 8); 
     // Shape(size_t * input, int size = 8);
     Shape(PyObject * o, bool accept_singleton = false);
+    Shape(Shape a, Shape b) noexcept;
+    void swap(Shape &other);
     void print(const char * message = "");
     bool assert_or_set(size_t value, int dim);
     size_t operator[](size_t i);
-    size_t cohere();
+    size_t validate();
     void write(size_t * destination);
     std::string str();
     size_t sum();
     NDVector strides(int depth_diff = 0);
-    Filter broadcast_to(Shape other);
+    Filter broadcast_to(Shape& other);
     void push_back(size_t dim);
 
 private:
@@ -93,6 +95,7 @@ const size_t STRING = 5;
 const size_t NUMBER = 7;
 const size_t SEQUENCE = 11;
 const size_t SLICE = 13;
+const size_t KARRAY = 17;
 
 class Karray
 {
@@ -101,6 +104,7 @@ public:
     Shape shape;
     float * data;
 
+    // structor
     Karray();
     Karray(Shape new_shape, std::vector<float> vec);
     Karray(Shape new_shape, float * new_data);
@@ -112,6 +116,10 @@ public:
     Karray(Karray&& other);
     Karray& operator=(Karray&&);
     void Karray::swap(Karray& other);
+
+    // math
+    Karray& operator+=(const Karray& other);
+    Karray operator+(const Karray& rhs);
 
     void from_mode(Shape new_shape, size_t mode) noexcept;
     void from_numpy(PyObject * o) noexcept;
@@ -191,8 +199,8 @@ PyObject * Karray_mean(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_sum(PyKarray *self, PyObject *args, PyObject *kwds);
 
 // math
-// PyObject * Karray_add(PyObject * self, PyObject * other);
-// PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
+PyObject * Karray_add(PyObject * self, PyObject * other);
+PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
 // PyObject * Karray_sub(PyObject * self, PyObject * other);
 // PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
 // PyObject * Karray_mul(PyObject * self, PyObject * other);

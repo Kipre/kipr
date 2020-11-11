@@ -1,6 +1,6 @@
 
 // PyObject *
-// Karray_binary_op(PyObject * self, PyObject * other, 
+// Karray_binary_op(PyObject * self, PyObject * other,
 //                 void (*op_kernel)(float *, float*, Py_ssize_t)) {
 //     Karray *a, *b, *c;
 //     Py_ssize_t data_length, *cmn_shape;
@@ -13,7 +13,7 @@
 
 //     a = reinterpret_cast<Karray *>(self);
 //     b = reinterpret_cast<Karray *>(other);
-    
+
 //     data_length = Karray_length(a);
 //     if (Karray_length(b) != data_length) {
 //         cmn_shape = common_shape(a, b);
@@ -33,10 +33,10 @@
 //     }
 
 //     op_kernel(a->data, b->data, data_length);
-    
+
 //     // Py_INCREF(a);
 
-    
+
 //     if (b_owned)
 //         Py_DECREF(b);
 
@@ -45,14 +45,14 @@
 //     fail:
 //         Py_XDECREF(a);
 //         Py_XDECREF(b);
-//         PyErr_SetString(PyExc_TypeError, 
+//         PyErr_SetString(PyExc_TypeError,
 //             "Failed to apply binary operation.");
 //         return NULL;
 // }
 
 
 // PyObject *
-// Karray_inplace_binary_op(PyObject * self, PyObject * other, 
+// Karray_inplace_binary_op(PyObject * self, PyObject * other,
 //                          void (*op_kernel)(float *, float*, Py_ssize_t)) {
 //     Karray *a, *b;
 //     Py_ssize_t data_length;
@@ -63,7 +63,7 @@
 
 //     a = reinterpret_cast<Karray *>(self);
 //     b = reinterpret_cast<Karray *>(other);
-    
+
 //     data_length = Karray_length(a);
 //     if (Karray_length(b) != data_length) {
 //         b = broadcast(b, a->shape);
@@ -78,22 +78,40 @@
 //     fail:
 //         Py_XDECREF(a);
 //         Py_XDECREF(b);
-//         PyErr_SetString(PyExc_TypeError, 
+//         PyErr_SetString(PyExc_TypeError,
 //             "Failed to apply binary operation.");
 //         return NULL;
 // }
 
 
 
-// PyObject *
-// Karray_add(PyObject * self, PyObject * other) {
-//     return Karray_binary_op(self, other, add_kernel);
-// }
+PyObject *
+Karray_add(PyObject * self, PyObject * other) {
+	// Py_INCREF(other);
+	// DebugBreak();
+	auto karr = reinterpret_cast<PyKarray *>(self);
+	auto other_karr = reinterpret_cast<PyKarray *>(other);
+	auto third_karr = new_PyKarray();
+	third_karr->arr = karr->arr + other_karr->arr;
+	PYERR_PRINT_GOTO_FAIL;
+	PyObject * result = reinterpret_cast<PyObject *>(third_karr);
+	Py_INCREF(result);
+	return result;
 
-// PyObject *
-// Karray_inplace_add(PyObject * self, PyObject * other) {
-//     return Karray_inplace_binary_op(self, other, add_kernel);
-// }
+fail:
+	PyErr_Format(PyExc_TypeError,
+	             "Addition failed.");
+	return NULL;
+}
+
+PyObject *
+Karray_inplace_add(PyObject * self, PyObject * other) {
+	auto karr = reinterpret_cast<PyKarray *>(self);
+	auto other_karr = reinterpret_cast<PyKarray *>(other);
+	karr->arr += other_karr->arr;
+	Py_INCREF(self);
+	return self;
+}
 
 // PyObject *
 // Karray_sub(PyObject * self, PyObject * other) {
@@ -129,7 +147,7 @@
 // PyObject *
 // Karray_matmul(PyObject * self, PyObject * other) {
 //     Karray *a, *b, *c;
-//     Py_ssize_t left_dim, mid_dim, right_dim, 
+//     Py_ssize_t left_dim, mid_dim, right_dim,
 //                nb_mat_a, nb_mat_b,
 //                pos_a = 0, pos_b = 0, pos_c = 0;
 //     Py_ssize_t result_shape[MAX_NDIMS] = {};
@@ -142,14 +160,14 @@
 //     b = reinterpret_cast<Karray *>(other);
 
 //     if (a->nd < 2 || b->nd < 2) {
-//         PyErr_SetString(PyExc_TypeError, 
+//         PyErr_SetString(PyExc_TypeError,
 //             "MatMul works on at least 2-dimensional arrays.");
 //         PyErr_Print();
 //         goto fail;
 //     }
 
 //     if (a->shape[a->nd - 1] != b->shape[b->nd - 2]) {
-//         PyErr_SetString(PyExc_TypeError, 
+//         PyErr_SetString(PyExc_TypeError,
 //             "Arrays not compatible for MatMul.");
 //         PyErr_Print();
 //         goto fail;
@@ -171,7 +189,7 @@
 //         result_shape[1] = left_dim;
 //         result_shape[2] = right_dim;
 //     } else {
-//         PyErr_SetString(PyExc_TypeError, 
+//         PyErr_SetString(PyExc_TypeError,
 //             "Arrays not compatible for MatMul.");
 //         PyErr_Print();
 //         goto fail;
@@ -187,7 +205,7 @@
 //                 c->data[pos_c] = 0;
 //                 for (int k=0; k < mid_dim; ++k) {
 //                     // printf("indexes: %i %i\n", pos_a + k + mid_dim*i, pos_b + j + k*right_dim);
-//                     c->data[pos_c] += a->data[pos_a + k + mid_dim*i] * b->data[pos_b + j + k*right_dim]; 
+//                     c->data[pos_c] += a->data[pos_a + k + mid_dim*i] * b->data[pos_b + j + k*right_dim];
 //                 }
 //                 ++pos_c;
 //             }
@@ -207,12 +225,12 @@
 //         c->shape[c->nd-2] = left_dim;
 //     }
 
-    
+
 //     // Py_INCREF(c);
 //     return reinterpret_cast<PyObject *>(c);
 
 //     fail:
-//         PyErr_SetString(PyExc_TypeError, 
+//         PyErr_SetString(PyExc_TypeError,
 //             "Failed to mat-mutiply arrays.");
 //         return NULL;
 // }
