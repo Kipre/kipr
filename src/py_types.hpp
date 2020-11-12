@@ -152,9 +152,10 @@ fail:
 
 template<class T>
 NestedSequence<T>::NestedSequence(PyObject * o) {
+	size_t length;
 	NestedSequence<T>::parse_data(o, 0);
 	PYERR_PRINT_GOTO_FAIL;
-	size_t length = shape.validate();
+	length = shape.validate();
 	PYERR_PRINT_GOTO_FAIL;
 	if (data.size() !=  length)
 		goto fail;

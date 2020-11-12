@@ -28,6 +28,8 @@ const char * KARRAY_NAME = "kipr.arr";
 const int MAX_PRINT_SIZE = 30;
 const int STR_OFFSET = 10;
 
+PyObject* Karray_error;
+
 #define PYERR_PRINT_GOTO_FAIL \
     if (PyErr_Occurred()) { \
         PyErr_Print(); \
@@ -50,6 +52,42 @@ const int STR_OFFSET = 10;
     PyErr_Print();\
     goto fail;\
 
+#define KERR_GOTO_FAIL(msg) \
+    {PyErr_SetString(Karray_errorr, msg);\
+    goto fail;}
+
+#define KERR_RETURN(msg) \
+    {PyErr_SetString(Karray_error, msg);\
+    return;}
+
+
+#define KERR_FORMAT_RETURN(...) \
+    {PyErr_Format(Karray_error, __VA_ARGS__);\
+    return;}
+
+#define KERR_RETURN_VAL(msg, val) \
+    {PyErr_SetString(Karray_error, msg);\
+    return val;}
+
+#define PYERR_GOTO_FAIL \
+    if (PyErr_Occurred()) \
+        goto fail;
+
+#define PYERR_RETURN \
+    if (PyErr_Occurred()) \
+        return;
+
+#define PYERR_SET_RETURN(msg) \
+    if (PyErr_Occurred()) {\
+        PyErr_Print(); \
+        PyErr_SetString(Karray_error, msg);\
+        return;}
+
+#define PYERR_RETURN_VAL(val) \
+    if (PyErr_Occurred()) \
+        return val;
+
+
 class Filter;
 class NDVector;
 
@@ -63,9 +101,9 @@ public:
 
     Shape();
     template<typename T>
-    Shape(T * input, int size = 8); 
+    Shape(T * input, int size = 8);
     // Shape(size_t * input, int size = 8);
-    Shape(PyObject * o, bool accept_singleton = false);
+    Shape(PyObject * o, size_t target_length = 0);
     Shape(Shape a, Shape b) noexcept;
     void swap(Shape &other);
     void print(const char * message = "");
@@ -115,7 +153,7 @@ public:
     Karray& operator=(const Karray&);
     Karray(Karray&& other);
     Karray& operator=(Karray&&);
-    void Karray::swap(Karray& other);
+    void swap(Karray& other);
 
     // math
     Karray& operator+=(const Karray& other);
@@ -161,15 +199,20 @@ public:
     };
 
     void print(const char * message = "") {
-        std::cout << "NDVector " << message << "\n\t";
+        std::cout << "NDVector " << message 
+        << " " << str() << "\n";
+    };
+
+    std::string str() {
+        std::ostringstream ss;
         for (int k = 0; k < MAX_ND; ++k) {
-            std::cout << buf[k] << ", ";
+            ss << buf[k] << ", ";
         }
-        std::cout << '\n';
+        return ss.str();
     };
 
     ~NDVector() {
-        printf("destroying ndvector\n");
+        printf("destroying ndvector %s\n", str().c_str());
     };
 };
 
@@ -187,8 +230,11 @@ void Karray_dealloc(PyKarray *self);
 int Karray_init(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Karray_str(PyKarray * self);
-// PyObject * Karray_getshape(PyKarray *self, void *closure);
 PyObject * Karray_subscript(PyObject *o, PyObject *key);
+
+// getters and setters
+PyObject * Karray_getshape(PyKarray *self, void *closure);
+PyObject * Karray_getrefcnt(PyKarray *self, void *closure);
 
 // member functions
 PyObject * Karray_numpy(PyKarray *self, PyObject *Py_UNUSED(ignored));

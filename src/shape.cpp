@@ -15,42 +15,53 @@ Shape::Shape(T * input, int size) {
 	}
 }
 
-Shape::Shape(PyObject * o, bool accept_singleton) {
+Shape::Shape(PyObject * o, size_t target_length) {
 	nd = 0;
+	length = 1;
+	int wildcard = -1;
 	Py_ssize_t value;
-	if (accept_singleton) {
-		value = PyLong_AsSsize_t(o);
-		if (!PyErr_Occurred() && value > 0) {
-			buf[nd] = (size_t) value;
-			length = nd;
-			return;
-		} else {
-			PyErr_Clear();
-		}
-	}
 	if (!PyList_Check(o) && !PyTuple_Check(o))
-		goto fail;
-
-	Py_ssize_t length = PySequence_Length(o);
+		KERR_RETURN("Shape must be a list or a tuple.");
+	Py_ssize_t seq_length = PySequence_Length(o);
 	PyObject ** items = PySequence_Fast_ITEMS(o);
-	for (int i = 0; i < length; ++i) {
+	for (int i = 0; i < seq_length; ++i) {
 		value = PyLong_AsSsize_t(items[i]);
-		PYERR_CLEAR_GOTO_FAIL;
-		buf[nd] = value;
+
+		PYERR_SET_RETURN("Shape must be a sequence of integers.");
+		if (value == 0 || value < -1) {
+			PyErr_Format(Karray_error,
+			             "Proposed shape is invalid with value %I64i at %i", value, nd);
+			return;
+		}
+		if (value == -1) {
+			if (wildcard != -1)
+				KERR_RETURN("Can't have more than one wildcard (-1) in the shape.");
+			wildcard = nd;
+		} else {
+			buf[nd] = value;
+			length *= value;
+		}
 		++nd;
 	}
-	while (nd != MAX_ND) {
-		buf[nd] = 0;
-		++nd;
+	int i = nd;
+	while (i != MAX_ND) {
+		buf[i] = 0;
+		++i;
 	}
-	validate();
-	PYERR_PRINT_GOTO_FAIL;
+	if (wildcard >= 0) {
+		if (!target_length)
+			KERR_RETURN("Wildcard (-1) not allowed here.");
+		if (target_length % length != 0)
+			KERR_RETURN("Proposed shape cannot be adapted to data.");
+		buf[wildcard] = target_length / length;
+		length = target_length;
+	} else if (target_length) {
+		if (target_length != length)
+			KERR_RETURN("Proposed shape doesn't align with data.");
+
+	}
 	return;
 
-fail:
-	PyErr_Format(PyExc_TypeError,
-	             "Failed to parse the shape.");
-	return;
 }
 
 Shape::Shape() {
@@ -63,10 +74,10 @@ Shape::Shape() {
 Shape::Shape(Shape a, Shape b) noexcept { // [3, 4, 5] & [3, 1]
 	if (a.nd < b.nd)
 		std::swap(a, b);
-	
+
 	nd = a.nd;
 	length = 1;
-	int curr_dim = MAX_ND-1;
+	int curr_dim = MAX_ND - 1;
 	int dim_diff = a.nd - b.nd;
 	while (curr_dim >= 0) {
 		printf("curr_dim: %i\n", curr_dim);
@@ -91,7 +102,7 @@ fail:
 }
 
 
-void Shape::swap(Shape &other) {
+void Shape::swap(Shape & other) {
 	std::swap(nd, other.nd);
 	std::swap(length, other.length);
 	size_t * tmp = buf;
@@ -123,14 +134,14 @@ bool Shape::assert_or_set(size_t value, int dim) {
 }
 
 size_t Shape::validate() {
-	int new_nd = 0;
+	int i, new_nd = 0;
 	length = 1;
 	if (buf[0] == 0) goto fail;
 	while (buf[new_nd] != 0 && new_nd < MAX_ND) {
 		length *= buf[new_nd];
 		++new_nd;
 	}
-	int i = new_nd;
+	i = new_nd;
 	while (i < MAX_ND) {
 		if (buf[i++] != 0) goto fail;
 	}
@@ -150,6 +161,8 @@ void Shape::write(size_t * destination) {
 	}
 }
 
+
+
 std::string Shape::str() {
 	std::string result("[");
 	result += std::to_string(buf[0]);
@@ -158,7 +171,7 @@ std::string Shape::str() {
 	return result + "]";
 }
 
-Filter Shape::broadcast_to(Shape& other) {
+Filter Shape::broadcast_to(Shape & other) {
 	Filter filter(other);
 	int dim_diff = other.nd - nd;
 	// printf("dim_diff: %i\n", dim_diff);

@@ -134,6 +134,8 @@ Karray Karray::subscript(PyObject * key) {
 
 	Karray result;
 	Filter filter;
+	size_t positions[2] = {0, 0};
+
 	NDVector strides(shape.strides());
 	Shape new_shape(filter.from_subscript(key, shape));
 	PYERR_PRINT_GOTO_FAIL;
@@ -145,8 +147,6 @@ Karray Karray::subscript(PyObject * key) {
 	result.shape = new_shape;
 	delete[] result.data;
 	result.data = new float[new_shape.length];
-
-	size_t positions[2] = {0, 0};
 
 	// strides.print();
 	transfer(data, result.data, positions,
@@ -227,13 +227,13 @@ void Karray::broadcast(Shape new_shape) {
 	} else if (shape.length == new_shape.length) {
 		// do nothing
 	} else {
+		size_t positions[2] = {0, 0};
+		auto buffer = new float[new_shape.length];
+
 		NDVector strides(shape.strides(new_shape.nd - shape.nd));
 		Filter filter(shape.broadcast_to(new_shape));
 		PYERR_PRINT_GOTO_FAIL;
 		// filter.print();
-
-		auto buffer = new float[new_shape.length];
-		size_t positions[2] = {0, 0};
 
 		// strides.print();
 		transfer(data, buffer, positions,
@@ -247,6 +247,7 @@ void Karray::broadcast(Shape new_shape) {
 		return;
 
 fail:
+		delete[] buffer;
 		PyErr_SetString(PyExc_ValueError, "Failed to broadcast karray.");
 		return;
 	}

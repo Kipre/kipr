@@ -5,22 +5,24 @@ static PyMemberDef Karray_members[] = {
 };
 
 static PyGetSetDef Karray_getsetters[] = {
-    // {"shape", (getter) Karray_getshape, NULL,
-    //  "Shape of the array.", NULL},
+    {"refcnt", (getter) Karray_getrefcnt, NULL,
+     "Python refcount of the object.", NULL},
+    {"shape", (getter) Karray_getshape, NULL,
+     "Shape of the array.", NULL},
     {NULL}  /* Sentinel */
 };
 
 static PyMethodDef Karray_methods[] = {
-    // {"reshape", (PyCFunction) Karray_reshape, METH_O,
-    //  "Return the kipr.arr with the new shape."},
-    // {"broadcast", (PyCFunction) Karray_broadcast, METH_O,
-    //  "Return the kipr.arr with the breadcasted shape."},
+    {"reshape", (PyCFunction) Karray_reshape, METH_O,
+     "Return the kipr.arr with the new shape."},
+    {"broadcast", (PyCFunction) Karray_broadcast, METH_O,
+     "Return the kipr.arr with the breadcasted shape."},
     // {"mean", (PyCFunction) Karray_mean, METH_VARARGS | METH_KEYWORDS,
     //  "Return the averaged array."},
     // {"sum", (PyCFunction) Karray_sum, METH_VARARGS | METH_KEYWORDS,
     //  "Return the sum of the array along all or a particular dim."},
-    // {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
-    //  "Return a numpy representtion of the PyKarray."},
+    {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
+     "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
     //  "Return the float value of a scalar <kipr.arr>."},    
     {"execute", (PyCFunction)  execute_func, METH_O,
@@ -100,6 +102,7 @@ static PyTypeObject KarrayType = {
 PyMODINIT_FUNC
 PyInit_kipr_array(void)
 {
+    Karray_error = PyErr_NewException("kipr.KarrayError", NULL, NULL);
     import_array();
     PyObject *m;
     if (PyType_Ready(&KarrayType) < 0)

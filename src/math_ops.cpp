@@ -89,12 +89,13 @@ PyObject *
 Karray_add(PyObject * self, PyObject * other) {
 	// Py_INCREF(other);
 	// DebugBreak();
+	PyObject * result;
 	auto karr = reinterpret_cast<PyKarray *>(self);
 	auto other_karr = reinterpret_cast<PyKarray *>(other);
 	auto third_karr = new_PyKarray();
 	third_karr->arr = karr->arr + other_karr->arr;
 	PYERR_PRINT_GOTO_FAIL;
-	PyObject * result = reinterpret_cast<PyObject *>(third_karr);
+	result = reinterpret_cast<PyObject *>(third_karr);
 	Py_INCREF(result);
 	return result;
 

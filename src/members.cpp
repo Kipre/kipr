@@ -2,6 +2,7 @@
 
 void
 Karray_dealloc(PyKarray *self) {
+    printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
     self->arr.~Karray();
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
 }
@@ -89,9 +90,10 @@ execute_func(PyObject *self, PyObject * input) {
     DEBUG_Obj(input, "");
 
 
-    PyObject * out = Karray_new(&KarrayType, NULL, NULL);
+    Shape shape(input, (size_t) 120);
+    shape.print();
 
-    return out;
+    Py_RETURN_NONE;
 }
 
 PyObject *
@@ -117,4 +119,54 @@ fail:
     Py_DECREF(key);
     PyErr_SetString(PyExc_ValueError, "Failed to apply subscript.");
     return reinterpret_cast<PyObject *>(result);
+}
+
+PyObject *
+Karray_reshape(PyKarray * self, PyObject * shape) {
+    Py_INCREF(reinterpret_cast<PyObject *>(self));
+    Shape new_shape(shape, self->arr.shape.length);
+    PYERR_RETURN_VAL(NULL);
+    new_shape.print();
+    self->arr.shape = new_shape;
+    return reinterpret_cast<PyObject *>(self);
+}
+
+PyObject *
+Karray_getshape(PyKarray *self, void *closure) {
+    int nd = self->arr.shape.nd;
+    PyObject * result = PyTuple_New(nd);
+    for (int k=0; k < nd; k++) {
+        PyTuple_SET_ITEM(result, k, PyLong_FromSize_t(self->arr.shape[k]));
+    }
+    return result;
+}
+
+PyObject *
+Karray_getrefcnt(PyKarray *self, void *closure) {
+    Py_ssize_t refcnt = self->ob_base.ob_refcnt;
+    return PyLong_FromSsize_t(refcnt);
+}
+
+PyObject *
+Karray_numpy(PyKarray *self, PyObject *Py_UNUSED(ignored)) {
+    int nd = self->arr.shape.nd;
+    npy_intp * dims = new npy_intp[nd];
+    for (int k=0; k < nd; k++) {
+        dims[k] = (npy_intp) self->arr.shape[k];
+    }
+    float * buffer = new float[self->arr.shape.length];
+    std::copy(self->arr.data, self->arr.data + self->arr.shape.length, buffer);
+    PyObject * result = PyArray_SimpleNewFromData(nd, dims, NPY_FLOAT, buffer);
+    PyArray_UpdateFlags(reinterpret_cast<PyArrayObject *>(result), NPY_ARRAY_OWNDATA);
+    return result;
+}
+
+PyObject *
+Karray_broadcast(PyKarray * self, PyObject * shape) {
+    Py_INCREF(reinterpret_cast<PyObject *>(self));
+    Shape new_shape(shape);
+    PYERR_RETURN_VAL(NULL);
+    new_shape.print();
+    self->arr.broadcast(new_shape);
+    return reinterpret_cast<PyObject *>(self);
 }

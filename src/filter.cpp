@@ -68,6 +68,7 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
 
 	Shape new_shape;
 	size_t ind;
+	int rest;
 
 	std::vector<PyObject *> subs = full_subscript(key, current_shape);
 	PYERR_PRINT_GOTO_FAIL;
@@ -104,7 +105,7 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
 		}
 		}
 	}
-	int rest = subs.size();
+	rest = subs.size();
 	offset[rest] = vec.size();
 	while (rest < MAX_ND) {
 		++rest;
@@ -123,32 +124,34 @@ std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
 	elements.reserve(current_shape.nd);
 	Py_ssize_t tup_length = PySequence_Length(tuple);
 	bool found_ellipsis = false;
+	int missing_dims;
 
 	if (tup_length > current_shape.nd) {
 		VALERR_PRINT_GOTO_FAIL("Subscript has too much elements.");
-	}
+	} else {
 
-	PyObject * full_slice = PySlice_New(NULL, NULL, NULL);
-	// Py_INCREF(full_slice);
-	PyObject ** items = PySequence_Fast_ITEMS(tuple);
+		PyObject * full_slice = PySlice_New(NULL, NULL, NULL);
+		// Py_INCREF(full_slice);
+		PyObject ** items = PySequence_Fast_ITEMS(tuple);
 
-	for (int i = 0; i < tup_length; ++i) {
-		if (items[i] == Py_Ellipsis && !found_ellipsis) {
-			for (int k = 0; k < current_shape.nd - (tup_length - 1); ++k)
-				elements.push_back(full_slice);
-			found_ellipsis = true;
-		} else if (items[i] == Py_Ellipsis && found_ellipsis) {
-			VALERR_PRINT_GOTO_FAIL("Ellipsis cannot appear twice in subscript.");
-		} else {
-			// Py_INCREF(items[i]);
-			elements.push_back(items[i]);
+		for (int i = 0; i < tup_length; ++i) {
+			if (items[i] == Py_Ellipsis && !found_ellipsis) {
+				for (int k = 0; k < current_shape.nd - (tup_length - 1); ++k)
+					elements.push_back(full_slice);
+				found_ellipsis = true;
+			} else if (items[i] == Py_Ellipsis && found_ellipsis) {
+				VALERR_PRINT_GOTO_FAIL("Ellipsis cannot appear twice in subscript.");
+			} else {
+				// Py_INCREF(items[i]);
+				elements.push_back(items[i]);
+			}
 		}
-	}
-	auto missing_dims = current_shape.nd - elements.size();
-	for (int i = 0; i < missing_dims; ++i)
-		elements.push_back(full_slice);
+		missing_dims = current_shape.nd - elements.size();
+		for (int i = 0; i < missing_dims; ++i)
+			elements.push_back(full_slice);
 
-	return elements;
+		return elements;
+	}
 
 fail:
 	PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");

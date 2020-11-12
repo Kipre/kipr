@@ -31,6 +31,7 @@ size_t read_mode(PyObject * o) {
 	}
 	PyErr_Format(PyExc_ValueError,
 	             "String magic %s not understood.", PyUnicode_AsUTF8(o));
+	return ERROR_MODE;
 }
 
 size_t py_type(PyObject * o) {
