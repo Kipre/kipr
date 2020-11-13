@@ -4,9 +4,9 @@
 //     DEBUG_Obj(input);
 
 //     auto values = FastSequence<Int>(input, true);
-//     if (PyErr_Occurred()) { 
-//         PyErr_Print(); 
-//         Py_RETURN_NONE; 
+//     if (PyErr_Occurred()) {
+//         PyErr_Print();
+//         Py_RETURN_NONE;
 //     }
 
 
@@ -32,7 +32,7 @@
 // 	if (!is_Karray(o)) {
 // 		Py_RETURN_NOTIMPLEMENTED;
 // 	}
-	
+
 // 	Karray * result = new_Karray();
 // 	Karray * arr = reinterpret_cast<Karray *>(o);
 // 	Karray_copy(arr, result);
@@ -114,3 +114,23 @@
 //     return reinterpret_cast<PyObject *>(result);
 // }
 
+
+
+PyObject * function_decorator(PyObject *self, PyObject *func) {
+	PyObject * code;
+	PyCodeObject * code_ob;
+	PyBytesObject * bytes;
+	DEBUG_Obj(func, "function ");
+	if (PyFunction_Check(func)) {
+		code = PyFunction_GetCode(func);
+		DEBUG_Obj(code, "code ");
+		code_ob = reinterpret_cast<PyCodeObject *>(code);
+		bytes = reinterpret_cast<PyBytesObject *>(code_ob->co_code);
+
+		DEBUG_Obj(code_ob->co_code, "bytes ");
+		DebugBreak();
+	}
+
+
+	Py_RETURN_NONE;
+}

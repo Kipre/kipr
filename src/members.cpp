@@ -135,7 +135,7 @@ PyObject *
 Karray_getshape(PyKarray *self, void *closure) {
     int nd = self->arr.shape.nd;
     PyObject * result = PyTuple_New(nd);
-    for (int k=0; k < nd; k++) {
+    for (int k = 0; k < nd; k++) {
         PyTuple_SET_ITEM(result, k, PyLong_FromSize_t(self->arr.shape[k]));
     }
     return result;
@@ -151,7 +151,7 @@ PyObject *
 Karray_numpy(PyKarray *self, PyObject *Py_UNUSED(ignored)) {
     int nd = self->arr.shape.nd;
     npy_intp * dims = new npy_intp[nd];
-    for (int k=0; k < nd; k++) {
+    for (int k = 0; k < nd; k++) {
         dims[k] = (npy_intp) self->arr.shape[k];
     }
     float * buffer = new float[self->arr.shape.length];
@@ -170,3 +170,80 @@ Karray_broadcast(PyKarray * self, PyObject * shape) {
     self->arr.broadcast(new_shape);
     return reinterpret_cast<PyObject *>(self);
 }
+
+
+
+PyObject *
+Karray_sum(PyKarray * self, PyObject * shape) {
+    Py_INCREF(reinterpret_cast<PyObject *>(self));
+    Shape new_shape(shape);
+    PYERR_RETURN_VAL(NULL);
+    new_shape.print();
+    self->arr.broadcast(new_shape);
+    return reinterpret_cast<PyObject *>(self);
+}
+
+
+PyObject *
+Karray_sum(PyKarray *here, PyObject *args, PyObject *kwds) {
+    char *kwlist[] = {"axis", "weights", NULL};
+
+    int axis = NO_AXIS;
+    PyKarray * weights_obj = NULL;
+    PyKarray * result = new_PyKarray();
+
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|i$O!", kwlist,
+                                     &axis, &KarrayType, &weights_obj))
+        return NULL;
+
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+
+    if (axis == NO_AXIS) {
+        result->arr = self->arr.flat_sum();
+    } else {
+        size_t ax = self->arr.shape.axis(axis);
+        PYERR_RETURN_VAL(NULL);
+        if (weights_obj == NULL) {
+            result->arr = self->arr.sum(ax, Karray(Shape(), 1.0));
+        } else {
+            result->arr = self->arr.sum(ax, weights_obj->arr);
+            PYERR_RETURN_VAL(NULL);
+        }
+    }
+
+    return reinterpret_cast<PyObject *>(result);
+}
+
+
+PyObject *
+Karray_mean(PyKarray *here, PyObject *args, PyObject *kwds) {
+    char *kwlist[] = {"axis", "weights", NULL};
+
+    int axis = NO_AXIS;
+    PyKarray * weights_obj = NULL;
+    PyKarray * result = new_PyKarray();
+
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|i$O!", kwlist,
+                                     &axis, &KarrayType, &weights_obj))
+        return NULL;
+
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+
+    if (axis == NO_AXIS) {
+        result->arr = self->arr.flat_sum(true);
+    } else {
+        size_t ax = self->arr.shape.axis(axis);
+        PYERR_RETURN_VAL(NULL);
+        if (weights_obj == NULL) {
+            result->arr = self->arr.sum(ax, Karray(Shape(), 1.0), true);
+        } else {
+            result->arr = self->arr.sum(ax, weights_obj->arr, true);
+            PYERR_RETURN_VAL(NULL);
+        }
+    }
+
+    return reinterpret_cast<PyObject *>(result);
+}
+

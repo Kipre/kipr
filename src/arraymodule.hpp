@@ -18,6 +18,9 @@
 #include <debugapi.h>
 #endif
 
+#include "internal_test.hpp"
+
+
 // To avoid c++ mixed designated initializers error
 #define Karray_HEAD_INIT \
     .ob_base={.ob_base={1, NULL }, .ob_size=0},
@@ -100,15 +103,17 @@ public:
     size_t length;
 
     Shape();
+    Shape(int ndims...);
     template<typename T>
     Shape(T * input, int size = 8);
     // Shape(size_t * input, int size = 8);
     Shape(PyObject * o, size_t target_length = 0);
     Shape(Shape a, Shape b) noexcept;
     void swap(Shape &other);
-    void print(const char * message = "");
+    void print(const char * message = "") const;
     bool assert_or_set(size_t value, int dim);
     size_t operator[](size_t i);
+    bool operator==(Shape &other);
     size_t validate();
     void write(size_t * destination);
     std::string str();
@@ -116,6 +121,9 @@ public:
     NDVector strides(int depth_diff = 0);
     Filter broadcast_to(Shape& other);
     void push_back(size_t dim);
+    size_t pop(int i = -1);
+    size_t axis(PyObject * o);
+    size_t axis(int ax);
 
 private:
     size_t buf[MAX_ND];
@@ -126,6 +134,8 @@ const size_t ERROR_MODE = 0;
 const size_t RANDOM_UNIFORM = 1;
 const size_t RANDOM_NORMAL = 2;
 const size_t RANGE = 3;
+
+const int NO_AXIS = 9;
 
 
 const size_t NUMPY_ARRAY = 3;
@@ -140,12 +150,14 @@ class Karray
 public:
     int seed;
     Shape shape;
-    float * data;
+    float * data = nullptr;
 
     // structor
     Karray();
     Karray(Shape new_shape, std::vector<float> vec);
     Karray(Shape new_shape, float * new_data);
+    Karray(Shape new_shape, float value);
+    Karray(Shape new_shape);
     ~Karray() noexcept;
 
     // copy and move
@@ -157,7 +169,11 @@ public:
 
     // math
     Karray& operator+=(const Karray& other);
+    Karray& operator/=(const Karray& other);
     Karray operator+(const Karray& rhs);
+    Karray operator/(const Karray& rhs);
+    Karray operator-(const Karray& rhs);
+    Karray operator*(const Karray& rhs);
 
     void from_mode(Shape new_shape, size_t mode) noexcept;
     void from_numpy(PyObject * o) noexcept;
@@ -165,6 +181,8 @@ public:
     std::string str();
     void broadcast(Shape new_shape);
     Karray subscript(PyObject * key);
+    Karray flat_sum(bool mean = false);
+    Karray sum(size_t axis, const Karray &weights, bool mean = false);
 };
 
 class Filter
@@ -221,9 +239,12 @@ typedef struct {
     Karray arr;
 } PyKarray;
 
-//utils
+// utils
 size_t read_mode(PyObject * o);
 std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape);
+void _sum(float * self_data, float * result_data, float * weights_data,
+            Shape &self_shape, NDVector &strides, bool multiple_weights,
+            bool mean, int axis, int depth);
 
 // members
 void Karray_dealloc(PyKarray *self);
@@ -247,11 +268,11 @@ PyObject * Karray_sum(PyKarray *self, PyObject *args, PyObject *kwds);
 // math
 PyObject * Karray_add(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
-// PyObject * Karray_sub(PyObject * self, PyObject * other);
+PyObject * Karray_sub(PyObject * self, PyObject * other);
 // PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
-// PyObject * Karray_mul(PyObject * self, PyObject * other);
+PyObject * Karray_mul(PyObject * self, PyObject * other);
 // PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
-// PyObject * Karray_div(PyObject * self, PyObject * other);
+PyObject * Karray_div(PyObject * self, PyObject * other);
 // PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 // PyObject * Karray_matmul(PyObject * self, PyObject * other);
 // PyObject * Karray_negative(PyObject * self);
@@ -259,6 +280,7 @@ PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
+PyObject * function_decorator(PyObject *self, PyObject *func);
 // PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
 // PyObject * Karray_relu(PyObject *self, PyObject * o);
 // PyObject * Karray_exp(PyObject *self, PyObject * o);

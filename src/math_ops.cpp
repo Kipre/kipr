@@ -83,27 +83,86 @@
 //         return NULL;
 // }
 
-
-
-PyObject *
-Karray_add(PyObject * self, PyObject * other) {
-	// Py_INCREF(other);
-	// DebugBreak();
+inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
 	PyObject * result;
 	auto karr = reinterpret_cast<PyKarray *>(self);
 	auto other_karr = reinterpret_cast<PyKarray *>(other);
 	auto third_karr = new_PyKarray();
-	third_karr->arr = karr->arr + other_karr->arr;
-	PYERR_PRINT_GOTO_FAIL;
+	third_karr->arr = elementwise_binary_op(karr->arr, other_karr->arr, op_kernel);
+	PYERR_RETURN_VAL(NULL);
 	result = reinterpret_cast<PyObject *>(third_karr);
-	Py_INCREF(result);
 	return result;
-
-fail:
-	PyErr_Format(PyExc_TypeError,
-	             "Addition failed.");
-	return NULL;
 }
+
+
+PyObject *
+Karray_add(PyObject * self, PyObject * other) {
+	return binary_op(self, other, add_kernel);
+}
+
+// PyObject *
+// Karray_add(PyObject * self, PyObject * other) {
+// 	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+// 		Py_RETURN_NOTIMPLEMENTED;
+// 	}
+// 	PyObject * result;
+// 	auto karr = reinterpret_cast<PyKarray *>(self);
+// 	auto other_karr = reinterpret_cast<PyKarray *>(other);
+// 	auto third_karr = new_PyKarray();
+// 	third_karr->arr = karr->arr + other_karr->arr;
+// 	PYERR_RETURN_VAL(NULL);
+// 	result = reinterpret_cast<PyObject *>(third_karr);
+// 	return result;
+// }
+
+PyObject *
+Karray_sub(PyObject * self, PyObject * other) {
+	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+	PyObject * result;
+	auto karr = reinterpret_cast<PyKarray *>(self);
+	auto other_karr = reinterpret_cast<PyKarray *>(other);
+	auto third_karr = new_PyKarray();
+	third_karr->arr = karr->arr - other_karr->arr;
+	PYERR_RETURN_VAL(NULL);
+	result = reinterpret_cast<PyObject *>(third_karr);
+	return result;
+}
+
+PyObject *
+Karray_mul(PyObject * self, PyObject * other) {
+	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+	PyObject * result;
+	auto karr = reinterpret_cast<PyKarray *>(self);
+	auto other_karr = reinterpret_cast<PyKarray *>(other);
+	auto third_karr = new_PyKarray();
+	third_karr->arr = karr->arr * other_karr->arr;
+	PYERR_RETURN_VAL(NULL);
+	result = reinterpret_cast<PyObject *>(third_karr);
+	return result;
+}
+
+PyObject *
+Karray_div(PyObject * self, PyObject * other) {
+	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+	PyObject * result;
+	auto karr = reinterpret_cast<PyKarray *>(self);
+	auto other_karr = reinterpret_cast<PyKarray *>(other);
+	auto third_karr = new_PyKarray();
+	third_karr->arr = karr->arr / other_karr->arr;
+	PYERR_RETURN_VAL(NULL);
+	result = reinterpret_cast<PyObject *>(third_karr);
+	return result;
+}
+
 
 PyObject *
 Karray_inplace_add(PyObject * self, PyObject * other) {

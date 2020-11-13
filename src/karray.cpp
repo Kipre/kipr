@@ -1,4 +1,36 @@
 
+Karray inline elementwise_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+	if (here.shape.length != other.shape.length) {
+		Karray self(here);
+		Shape common(here.shape, other.shape);
+		PYERR_RETURN_VAL(self);
+		self.broadcast(common);
+		Karray other(other);
+		other.broadcast(common);
+		op_kernel(self.data, other.data, common.length);
+		return self;
+	} else {
+		Karray self(here);
+		op_kernel(self.data, other.data, here.shape.length);
+		return self;
+	}
+}
+
+Karray::Karray(Shape new_shape) {
+	seed = rand();
+	shape = new_shape;
+	data = new float[shape.length];
+}
+
+
+Karray::Karray(Shape new_shape, float value) {
+	seed = rand();
+	shape = new_shape;
+	data = new float[shape.length];
+	std::fill(data, data + shape.length, value);
+}
+
+
 Karray::Karray() {
 	printf("creating generic new karr\n");
 	seed = rand();
@@ -37,6 +69,7 @@ Karray::Karray(Karray&& other)
 Karray& Karray::operator=(Karray&& other) {
 	printf("moving array %i into %i\n", other.seed, seed);
 	shape = other.shape;
+	std::cout << "null pointer " << data << std::endl;
 	delete[] data;
 	data = other.data;
 	other.shape = Shape();
@@ -62,24 +95,37 @@ fail:
 	return *this;
 }
 
-Karray Karray::operator+(const Karray& rhs) {
-	if (shape.length != rhs.shape.length) {
-		Shape common(shape, rhs.shape);
-		Karray self(*this);
-		self.broadcast(common);
-		Karray other(rhs);
-		other.broadcast(common);
-		add_kernel(self.data, other.data, common.length);
-		return self;
+Karray& Karray::operator/=(const Karray& other) {
+	if (shape.length == other.shape.length) {
+		shape.print();
+		add_kernel(data, other.data, shape.length);
 	} else {
-		Karray self(*this);
-		add_kernel(self.data, rhs.data, shape.length);
-		return self;
+		Karray tmp(other);
+		tmp.broadcast(shape);
+		PYERR_PRINT_GOTO_FAIL;
+		div_kernel(data, tmp.data, shape.length);
 	}
-	fail:
+	return *this; // return the result by reference
+fail:
 	PyErr_SetString(PyExc_ValueError,
 	                "Failed to execute addition.");
 	return *this;
+}
+
+Karray Karray::operator-(const Karray& rhs) {
+	return elementwise_binary_op(*this, rhs, sub_kernel);
+}
+
+Karray Karray::operator*(const Karray& rhs) {
+	return elementwise_binary_op(*this, rhs, mul_kernel);
+}
+
+Karray Karray::operator+(const Karray& rhs) {
+	return elementwise_binary_op(*this, rhs, add_kernel);
+}
+
+Karray Karray::operator/(const Karray& rhs) {
+	return elementwise_binary_op(*this, rhs, div_kernel);
 }
 
 void Karray::swap(Karray& other) {
@@ -151,7 +197,7 @@ Karray Karray::subscript(PyObject * key) {
 	// strides.print();
 	transfer(data, result.data, positions,
 	         strides.buf, filter, shape.nd, 0);
-	printf("positions[0], positions[1]: %i %i\n", positions[0], positions[1]);
+	// printf("positions[0], positions[1]: %i %i\n", positions[0], positions[1]);
 	if (positions[0] != new_shape.length)
 		goto fail;
 
@@ -162,7 +208,7 @@ fail:
 }
 
 Karray::~Karray() {
-	printf("deallocating karr with shape %s and seed %i\n", shape.str(), seed);
+	printf("deallocating karr with shape %s and seed %i\n", shape.str().c_str(), seed);
 	delete[] data;
 	shape.~Shape();
 }
@@ -277,3 +323,99 @@ fail:
 		                "Failed to copy numpy array.");
 	}
 }
+
+Karray Karray::flat_sum(bool mean) {
+	Karray result;
+	for (int k = 0; k < shape.length; ++k) {
+		result.data[0] += data[k];
+	}
+	if (mean)
+		result.data[0] /= (float) shape.length;
+	return result;
+}
+
+
+Karray Karray::sum(size_t axis, const Karray &weights, bool mean) {
+	Shape new_shape = shape;
+	size_t reduction = new_shape.pop((int) axis);
+	if (weights.shape.length != 1 &&
+	        weights.shape.length != reduction)
+		KERR_RETURN_VAL("Weights do not correspond to sum reduction.", Karray{});
+	NDVector strides = shape.strides();
+	Karray result(new_shape, 0.);
+	_sum(data, result.data, weights.data, shape, strides, (weights.shape.length != 1), mean, axis, 0);
+	return result;
+}
+
+void
+inline _sum(float * self_data, float * result_data, float * weights_data,
+            Shape &self_shape, NDVector &strides, bool multiple_weights,
+            bool mean, int axis, int depth) {
+	if (axis != depth) {
+		for (int k = 0; k < self_shape[depth]; ++k) {
+			_sum(self_data + strides[depth]*k, result_data + strides[depth]*k / self_shape[axis],
+			     weights_data, self_shape, strides, multiple_weights, mean, axis, depth + 1);
+		}
+	} else {
+		for (int i = 0; i < self_shape[axis]; ++i) {
+			for (int k = 0; k < strides[axis]; ++k) {
+				// printf("val and result: %f %f %i %i\n", self_data[strides[axis] * i + k], result_data[k], strides[axis] * i + k, i);
+				result_data[k] += self_data[strides[axis] * i + k] * weights_data[multiple_weights * i];
+			}
+		}
+		if (mean)
+			for (int k = 0; k < strides[axis]; ++k)
+				result_data[k] /= (float) self_shape[axis];
+	}
+}
+
+// PyObject *
+// Karray_binary_op(PyObject * self, PyObject * other,
+//                 ) {
+//     Karray *a, *b, *c;
+//     Py_ssize_t data_length, *cmn_shape;
+//     bool a_owned = false, b_owned = false;
+
+
+//     if (!is_Karray(self) || !is_Karray(other)) {
+//         Py_RETURN_NOTIMPLEMENTED;
+//     }
+
+//     a = reinterpret_cast<Karray *>(self);
+//     b = reinterpret_cast<Karray *>(other);
+
+//     data_length = Karray_length(a);
+//     if (Karray_length(b) != data_length) {
+//         cmn_shape = common_shape(a, b);
+//         Karray_IF_ERR_GOTO_FAIL;
+//         a = broadcast(a, cmn_shape);
+//         a_owned = true;
+//         Karray_IF_ERR_GOTO_FAIL;
+//         b = broadcast(b, cmn_shape);
+//         b_owned = true;
+//         Karray_IF_ERR_GOTO_FAIL;
+//         data_length = Karray_length(a);
+//     } else {
+//         c = new_Karray_as(a);
+//         Karray_copy(a, c);
+//         a = c;
+
+//     }
+
+//     op_kernel(a->data, b->data, data_length);
+
+//     // Py_INCREF(a);
+
+
+//     if (b_owned)
+//         Py_DECREF(b);
+
+//     return reinterpret_cast<PyObject *>(a);
+
+//     fail:
+//         Py_XDECREF(a);
+//         Py_XDECREF(b);
+//         PyErr_SetString(PyExc_TypeError,
+//             "Failed to apply binary operation.");
+//         return NULL;
+// }

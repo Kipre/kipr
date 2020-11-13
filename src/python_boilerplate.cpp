@@ -17,10 +17,10 @@ static PyMethodDef Karray_methods[] = {
      "Return the kipr.arr with the new shape."},
     {"broadcast", (PyCFunction) Karray_broadcast, METH_O,
      "Return the kipr.arr with the breadcasted shape."},
-    // {"mean", (PyCFunction) Karray_mean, METH_VARARGS | METH_KEYWORDS,
-    //  "Return the averaged array."},
-    // {"sum", (PyCFunction) Karray_sum, METH_VARARGS | METH_KEYWORDS,
-    //  "Return the sum of the array along all or a particular dim."},
+    {"mean", (PyCFunction) Karray_mean, METH_VARARGS | METH_KEYWORDS,
+     "Return the averaged array."},
+    {"sum", (PyCFunction) Karray_sum, METH_VARARGS | METH_KEYWORDS,
+     "Return the sum of the array along all or a particular dim."},
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
      "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
@@ -36,8 +36,10 @@ static PyMethodDef arraymodule_methods[] = {
     //  "Get maximum number of dimensions for a kipr.arr() array."},
     {"execute", execute_func, METH_O,
      "Testing function to execute C code."},
-    // {"internal", internal_test, METH_NOARGS,
-    //  "Execute C code tests."},
+    {"function", function_decorator, METH_O,
+     "Function decorator."},
+    {"internal_test", internal_test, METH_NOARGS,
+     "Execute C/C++ side tests."},
     // {"relu", Karray_relu, METH_O,
     //  "ReLU function for <kipr.arr> arrays."},
     // {"exp", Karray_exp, METH_O,
@@ -61,8 +63,8 @@ static PyModuleDef arraymodule = {
 
 static PyNumberMethods Karray_as_number = {
     .nb_add = Karray_add,
-    // .nb_subtract = Karray_sub,
-    // .nb_multiply = Karray_mul,
+    .nb_subtract = Karray_sub,
+    .nb_multiply = Karray_mul,
 
     // .nb_negative = Karray_negative,
 
@@ -70,7 +72,7 @@ static PyNumberMethods Karray_as_number = {
     // .nb_inplace_subtract = Karray_inplace_sub,
     // .nb_inplace_multiply = Karray_inplace_mul,
 
-    // .nb_true_divide = Karray_div,
+    .nb_true_divide = Karray_div,
     // .nb_inplace_true_divide = Karray_inplace_div,
 
     // .nb_matrix_multiply = Karray_matmul

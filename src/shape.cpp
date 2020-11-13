@@ -1,4 +1,20 @@
 
+Shape::Shape(int ndims...) {
+	va_list args;
+	va_start(args, ndims);
+	nd = ndims;
+	length = 1;
+	for (int i = 0; i < MAX_ND; ++i) {
+		if (i < nd) {
+			length *= (buf[i] = (size_t) va_arg(args, int));
+		} else {
+			buf[i] = 0;
+		}
+	}
+	va_end(args);
+}
+
+
 template<typename T>
 Shape::Shape(T * input, int size) {
 	nd = 0;
@@ -110,9 +126,18 @@ void Shape::swap(Shape & other) {
 	*other.buf = *tmp;
 }
 
+bool Shape::operator==(Shape &other) {
+	if (nd != other.nd)
+		return false;
+	if (length != other.length)
+		return false;
+	for (int k = 0; k < MAX_ND; ++k)
+		if (buf[k] != other[k])
+			return false;
+	return true;
+}
 
-
-void Shape::print(const char * message) {
+void Shape::print(const char * message) const {
 	std::cout << "Shape " << message <<
 	          " nd=" << nd << ", length=" << length << "\n\t";
 	for (int k = 0; k < MAX_ND; ++k) {
@@ -210,9 +235,27 @@ size_t Shape::operator[](size_t i) {
 	return buf[i];
 }
 
+size_t Shape::pop(int i) {
+	if (abs(i) >= nd)
+		KERR_RETURN_VAL("Shape::pop out of range.", 0);
+	if (i == -1)
+		i = nd - 1;
+	size_t tmp = buf[i];
+	while (i != MAX_ND - 1) {
+		buf[i] = buf[i + 1];
+		++i;
+	}
+	buf[MAX_ND - 1] = 0;
+	--nd;
+	length /= tmp;
+	return tmp;
+}
+
 NDVector Shape::strides(int depth_diff) {
 	NDVector result;
 	size_t acc = 1;
+	printf("depth diff %i, nd %i\n", depth_diff, nd);
+	result.print();
 	for (int i = nd - 1; i >= 0; --i) {
 		result.buf[i + depth_diff] = acc;
 		acc *= buf[i];
@@ -233,3 +276,19 @@ void Shape::push_back(size_t dim) {
 	length *= dim;
 }
 
+size_t Shape::axis(PyObject * o) {
+	if (!PyIndex_Check(o))
+		KERR_RETURN_VAL("Axis is invalid.", 9);
+	Py_ssize_t value = PyLong_AsSsize_t(o);
+	if (abs(value) > nd-1)
+		KERR_RETURN_VAL("Axis is out of range.", 9);
+	return (size_t) (value % nd + nd) % nd;
+
+}
+
+size_t Shape::axis(int ax) {
+	if (abs(ax) > nd-1)
+		KERR_RETURN_VAL("Axis is out of range.", 9);
+	return (size_t) (ax % nd + nd) % nd;
+
+}
