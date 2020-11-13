@@ -1,5 +1,5 @@
 
-Karray inline elementwise_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+inline Karray elementwise_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
 	if (here.shape.length != other.shape.length) {
 		Karray self(here);
 		Shape common(here.shape, other.shape);
@@ -14,6 +14,18 @@ Karray inline elementwise_binary_op(Karray &here, const Karray  &other, void (*o
 		op_kernel(self.data, other.data, here.shape.length);
 		return self;
 	}
+}
+
+inline Karray& elementwise_inplace_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+	if (here.shape.length == other.shape.length) {
+		op_kernel(here.data, other.data, here.shape.length);
+	} else {
+		Karray tmp(other);
+		tmp.broadcast(here.shape);
+		PYERR_RETURN_VAL(here);
+		op_kernel(here.data, tmp.data, here.shape.length);
+	}
+	return here; // return the result by reference
 }
 
 Karray::Karray(Shape new_shape) {
@@ -79,38 +91,21 @@ Karray& Karray::operator=(Karray&& other) {
 }
 
 Karray& Karray::operator+=(const Karray& other) {
-	if (shape.length == other.shape.length) {
-		shape.print();
-		add_kernel(data, other.data, shape.length);
-	} else {
-		Karray tmp(other);
-		tmp.broadcast(shape);
-		PYERR_PRINT_GOTO_FAIL;
-		add_kernel(data, tmp.data, shape.length);
-	}
-	return *this; // return the result by reference
-fail:
-	PyErr_SetString(PyExc_ValueError,
-	                "Failed to execute addition.");
-	return *this;
+	return elementwise_inplace_binary_op(*this, other, add_kernel);
 }
 
 Karray& Karray::operator/=(const Karray& other) {
-	if (shape.length == other.shape.length) {
-		shape.print();
-		add_kernel(data, other.data, shape.length);
-	} else {
-		Karray tmp(other);
-		tmp.broadcast(shape);
-		PYERR_PRINT_GOTO_FAIL;
-		div_kernel(data, tmp.data, shape.length);
-	}
-	return *this; // return the result by reference
-fail:
-	PyErr_SetString(PyExc_ValueError,
-	                "Failed to execute addition.");
-	return *this;
+	return elementwise_inplace_binary_op(*this, other, div_kernel);
 }
+
+Karray& Karray::operator-=(const Karray& other) {
+	return elementwise_inplace_binary_op(*this, other, sub_kernel);
+}
+
+Karray& Karray::operator*=(const Karray& other) {
+	return elementwise_inplace_binary_op(*this, other, mul_kernel);
+}
+
 
 Karray Karray::operator-(const Karray& rhs) {
 	return elementwise_binary_op(*this, rhs, sub_kernel);

@@ -1,88 +1,4 @@
 
-// PyObject *
-// Karray_binary_op(PyObject * self, PyObject * other,
-//                 void (*op_kernel)(float *, float*, Py_ssize_t)) {
-//     Karray *a, *b, *c;
-//     Py_ssize_t data_length, *cmn_shape;
-//     bool a_owned = false, b_owned = false;
-
-
-//     if (!is_Karray(self) || !is_Karray(other)) {
-//         Py_RETURN_NOTIMPLEMENTED;
-//     }
-
-//     a = reinterpret_cast<Karray *>(self);
-//     b = reinterpret_cast<Karray *>(other);
-
-//     data_length = Karray_length(a);
-//     if (Karray_length(b) != data_length) {
-//         cmn_shape = common_shape(a, b);
-//         Karray_IF_ERR_GOTO_FAIL;
-//         a = broadcast(a, cmn_shape);
-//         a_owned = true;
-//         Karray_IF_ERR_GOTO_FAIL;
-//         b = broadcast(b, cmn_shape);
-//         b_owned = true;
-//         Karray_IF_ERR_GOTO_FAIL;
-//         data_length = Karray_length(a);
-//     } else {
-//         c = new_Karray_as(a);
-//         Karray_copy(a, c);
-//         a = c;
-
-//     }
-
-//     op_kernel(a->data, b->data, data_length);
-
-//     // Py_INCREF(a);
-
-
-//     if (b_owned)
-//         Py_DECREF(b);
-
-//     return reinterpret_cast<PyObject *>(a);
-
-//     fail:
-//         Py_XDECREF(a);
-//         Py_XDECREF(b);
-//         PyErr_SetString(PyExc_TypeError,
-//             "Failed to apply binary operation.");
-//         return NULL;
-// }
-
-
-// PyObject *
-// Karray_inplace_binary_op(PyObject * self, PyObject * other,
-//                          void (*op_kernel)(float *, float*, Py_ssize_t)) {
-//     Karray *a, *b;
-//     Py_ssize_t data_length;
-
-//     if (!is_Karray(self) || !is_Karray(other)) {
-//         Py_RETURN_NOTIMPLEMENTED;
-//     }
-
-//     a = reinterpret_cast<Karray *>(self);
-//     b = reinterpret_cast<Karray *>(other);
-
-//     data_length = Karray_length(a);
-//     if (Karray_length(b) != data_length) {
-//         b = broadcast(b, a->shape);
-//         Karray_IF_ERR_GOTO_FAIL;
-//     }
-
-//     op_kernel(a->data, b->data, data_length);
-
-//     Py_INCREF(self);
-//     return self;
-
-//     fail:
-//         Py_XDECREF(a);
-//         Py_XDECREF(b);
-//         PyErr_SetString(PyExc_TypeError,
-//             "Failed to apply binary operation.");
-//         return NULL;
-// }
-
 inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
 	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
@@ -97,112 +13,58 @@ inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(f
 	return result;
 }
 
+inline PyObject * inplace_binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+	auto karr = reinterpret_cast<PyKarray *>(self);
+	auto other_karr = reinterpret_cast<PyKarray *>(other);
+	elementwise_inplace_binary_op(karr->arr, other_karr->arr, op_kernel);
+	Py_INCREF(self);
+	return self;
+}
+
 
 PyObject *
 Karray_add(PyObject * self, PyObject * other) {
 	return binary_op(self, other, add_kernel);
 }
 
-// PyObject *
-// Karray_add(PyObject * self, PyObject * other) {
-// 	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
-// 		Py_RETURN_NOTIMPLEMENTED;
-// 	}
-// 	PyObject * result;
-// 	auto karr = reinterpret_cast<PyKarray *>(self);
-// 	auto other_karr = reinterpret_cast<PyKarray *>(other);
-// 	auto third_karr = new_PyKarray();
-// 	third_karr->arr = karr->arr + other_karr->arr;
-// 	PYERR_RETURN_VAL(NULL);
-// 	result = reinterpret_cast<PyObject *>(third_karr);
-// 	return result;
-// }
-
 PyObject *
 Karray_sub(PyObject * self, PyObject * other) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
-		Py_RETURN_NOTIMPLEMENTED;
-	}
-	PyObject * result;
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	auto third_karr = new_PyKarray();
-	third_karr->arr = karr->arr - other_karr->arr;
-	PYERR_RETURN_VAL(NULL);
-	result = reinterpret_cast<PyObject *>(third_karr);
-	return result;
+	return binary_op(self, other, sub_kernel);
 }
 
 PyObject *
 Karray_mul(PyObject * self, PyObject * other) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
-		Py_RETURN_NOTIMPLEMENTED;
-	}
-	PyObject * result;
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	auto third_karr = new_PyKarray();
-	third_karr->arr = karr->arr * other_karr->arr;
-	PYERR_RETURN_VAL(NULL);
-	result = reinterpret_cast<PyObject *>(third_karr);
-	return result;
+	return binary_op(self, other, mul_kernel);
 }
 
 PyObject *
 Karray_div(PyObject * self, PyObject * other) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
-		Py_RETURN_NOTIMPLEMENTED;
-	}
-	PyObject * result;
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	auto third_karr = new_PyKarray();
-	third_karr->arr = karr->arr / other_karr->arr;
-	PYERR_RETURN_VAL(NULL);
-	result = reinterpret_cast<PyObject *>(third_karr);
-	return result;
+	return binary_op(self, other, div_kernel);
 }
 
 
 PyObject *
 Karray_inplace_add(PyObject * self, PyObject * other) {
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	karr->arr += other_karr->arr;
-	Py_INCREF(self);
-	return self;
+	return inplace_binary_op(self, other, add_kernel);
 }
 
-// PyObject *
-// Karray_sub(PyObject * self, PyObject * other) {
-//     return Karray_binary_op(self, other, sub_kernel);
-// }
+PyObject *
+Karray_inplace_sub(PyObject * self, PyObject * other) {
+	return inplace_binary_op(self, other, sub_kernel);
+}
 
-// PyObject *
-// Karray_inplace_sub(PyObject * self, PyObject * other) {
-//     return Karray_inplace_binary_op(self, other, sub_kernel);
-// }
+PyObject *
+Karray_inplace_mul(PyObject * self, PyObject * other) {
+	return inplace_binary_op(self, other, mul_kernel);
+}
 
-// PyObject *
-// Karray_mul(PyObject * self, PyObject * other) {
-//     return Karray_binary_op(self, other, mul_kernel);
-// }
-
-// PyObject *
-// Karray_inplace_mul(PyObject * self, PyObject * other) {
-//     return Karray_inplace_binary_op(self, other, mul_kernel);
-// }
-
-// PyObject *
-// Karray_div(PyObject * self, PyObject * other) {
-//     return Karray_binary_op(self, other, div_kernel);
-// }
-
-// PyObject *
-// Karray_inplace_div(PyObject * self, PyObject * other) {
-//     return Karray_inplace_binary_op(self, other, div_kernel);
-// }
-
+PyObject *
+Karray_inplace_div(PyObject * self, PyObject * other) {
+	return inplace_binary_op(self, other, div_kernel);
+}
 
 // PyObject *
 // Karray_matmul(PyObject * self, PyObject * other) {
@@ -254,9 +116,7 @@ Karray_inplace_add(PyObject * self, PyObject * other) {
 //         PyErr_Print();
 //         goto fail;
 //     }
-
 //     c = new_Karray_from_shape(result_shape);
-
 //     for (int m=0; m < result_shape[0]; ++m) {
 //         pos_a = (m % nb_mat_a) * left_dim*mid_dim;
 //         pos_b = (m % nb_mat_b) * mid_dim*right_dim;
@@ -271,7 +131,6 @@ Karray_inplace_add(PyObject * self, PyObject * other) {
 //             }
 //         }
 //     }
-
 //     // risky
 //     if (nb_mat_a >= nb_mat_b) {
 //         c->nd = a->nd;
@@ -284,11 +143,8 @@ Karray_inplace_add(PyObject * self, PyObject * other) {
 //         c->shape[c->nd-1] = right_dim;
 //         c->shape[c->nd-2] = left_dim;
 //     }
-
-
 //     // Py_INCREF(c);
 //     return reinterpret_cast<PyObject *>(c);
-
 //     fail:
 //         PyErr_SetString(PyExc_TypeError,
 //             "Failed to mat-mutiply arrays.");

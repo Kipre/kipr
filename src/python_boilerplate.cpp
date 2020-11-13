@@ -69,11 +69,11 @@ static PyNumberMethods Karray_as_number = {
     // .nb_negative = Karray_negative,
 
     .nb_inplace_add = Karray_inplace_add,
-    // .nb_inplace_subtract = Karray_inplace_sub,
-    // .nb_inplace_multiply = Karray_inplace_mul,
+    .nb_inplace_subtract = Karray_inplace_sub,
+    .nb_inplace_multiply = Karray_inplace_mul,
 
     .nb_true_divide = Karray_div,
-    // .nb_inplace_true_divide = Karray_inplace_div,
+    .nb_inplace_true_divide = Karray_inplace_div,
 
     // .nb_matrix_multiply = Karray_matmul
 };

@@ -170,6 +170,8 @@ public:
     // math
     Karray& operator+=(const Karray& other);
     Karray& operator/=(const Karray& other);
+    Karray& operator*=(const Karray& other);
+    Karray& operator-=(const Karray& other);
     Karray operator+(const Karray& rhs);
     Karray operator/(const Karray& rhs);
     Karray operator-(const Karray& rhs);
@@ -269,11 +271,11 @@ PyObject * Karray_sum(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_add(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_add(PyObject * self, PyObject * other);
 PyObject * Karray_sub(PyObject * self, PyObject * other);
-// PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
+PyObject * Karray_inplace_sub(PyObject * self, PyObject * other);
 PyObject * Karray_mul(PyObject * self, PyObject * other);
-// PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
+PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
 PyObject * Karray_div(PyObject * self, PyObject * other);
-// PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
+PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 // PyObject * Karray_matmul(PyObject * self, PyObject * other);
 // PyObject * Karray_negative(PyObject * self);
 
