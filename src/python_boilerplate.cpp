@@ -40,14 +40,14 @@ static PyMethodDef arraymodule_methods[] = {
      "Function decorator."},
     {"internal_test", internal_test, METH_NOARGS,
      "Execute C/C++ side tests."},
-    // {"relu", Karray_relu, METH_O,
-    //  "ReLU function for <kipr.arr> arrays."},
-    // {"exp", Karray_exp, METH_O,
-    //  "Exponential function for <kipr.arr> arrays."},
-    // {"softmax", Karray_softmax, METH_O,
-    //  "Softmax function for <kipr.arr> arrays, computes along the last axis."},
-    // {"ln", Karray_log, METH_O,
-    //  "Log function for <kipr.arr> arrays."},
+    {"relu", Karray_relu, METH_O,
+     "ReLU function for <kipr.arr> arrays."},
+    {"exp", Karray_exp, METH_O,
+     "Exponential function for <kipr.arr> arrays."},
+    {"softmax", (PyCFunction) Karray_softmax, METH_FASTCALL,
+     "Softmax function for <kipr.arr> arrays, computes along the last axis."},
+    {"log", Karray_log, METH_O,
+     "Log function for <kipr.arr> arrays."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -66,7 +66,7 @@ static PyNumberMethods Karray_as_number = {
     .nb_subtract = Karray_sub,
     .nb_multiply = Karray_mul,
 
-    // .nb_negative = Karray_negative,
+    .nb_negative = Karray_negative,
 
     .nb_inplace_add = Karray_inplace_add,
     .nb_inplace_subtract = Karray_inplace_sub,

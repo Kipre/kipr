@@ -122,12 +122,12 @@ log_kernel(float * destination, float * other, ssize_t length) {
         _mm256_store_ps(&destination[k], v_a);
     }
     while (k < length) {
-        destination[k] = exp(other[k]);
+        destination[k] = log(other[k]);
         k++;
     }
 #else
     for (int k=0; k < length; k++) {
-        destination[k] = exp(other[k]);
+        destination[k] = log(other[k]);
     }
 #endif
 }

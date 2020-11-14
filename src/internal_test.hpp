@@ -63,7 +63,7 @@ if (PyErr_Occurred()) {\
 //   }
 
 #define ASSERT_SHAPE_EQ(a, b) \
-  if (a != b) {\
+  if (!(a == b)) {\
     printf("%s{    info} %s", mt::yellow(), mt::def());\
     a.print(#a);\
     b.print(#b);\

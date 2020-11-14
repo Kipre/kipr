@@ -42,6 +42,14 @@ Karray::Karray(Shape new_shape, float value) {
 	std::fill(data, data + shape.length, value);
 }
 
+Karray::Karray(float val) {
+	printf("creating generic new karr\n");
+	seed = rand();
+	shape = Shape();
+	data = new float[1];
+	data[0] = val;
+}
+
 
 Karray::Karray() {
 	printf("creating generic new karr\n");

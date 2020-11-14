@@ -241,6 +241,11 @@ size_t Shape::pop(int i) {
 	if (i == -1)
 		i = nd - 1;
 	size_t tmp = buf[i];
+	if (i == 0 && nd == 1) {
+		buf[0] = 1;
+		length = 1;
+		return tmp;
+	}
 	while (i != MAX_ND - 1) {
 		buf[i] = buf[i + 1];
 		++i;
@@ -264,6 +269,20 @@ NDVector Shape::strides(int depth_diff) {
 		result.buf[i] = 0;
 	}
 	return result;
+}
+
+void Shape::insert_one(int i) {
+	if (i < 0 || i > nd)
+		KERR_RETURN("Cannot insert 1 into shape becaise index is out of bounds.");
+	if (i == 0 && nd == 1 && buf[0] == 1)
+		return;
+	++nd;
+	int k = MAX_ND - 1;
+	while (k > i) {
+		buf[k] = buf[k-1];
+		--k;
+	}
+	buf[i] = 1;
 }
 
 void Shape::push_back(size_t dim) {

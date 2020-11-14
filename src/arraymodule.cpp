@@ -41,14 +41,14 @@ static PyMethodDef arraymodule_methods[] = {
      "Function decorator."},
     {"internal_test", internal_test, METH_NOARGS,
      "Execute C/C++ side tests."},
-    // {"relu", Karray_relu, METH_O,
-    //  "ReLU function for <kipr.arr> arrays."},
-    // {"exp", Karray_exp, METH_O,
-    //  "Exponential function for <kipr.arr> arrays."},
-    // {"softmax", Karray_softmax, METH_O,
-    //  "Softmax function for <kipr.arr> arrays, computes along the last axis."},
-    // {"ln", Karray_log, METH_O,
-    //  "Log function for <kipr.arr> arrays."},
+    {"relu", Karray_relu, METH_O,
+     "ReLU function for <kipr.arr> arrays."},
+    {"exp", Karray_exp, METH_O,
+     "Exponential function for <kipr.arr> arrays."},
+    {"softmax", (PyCFunction) Karray_softmax, METH_FASTCALL,
+     "Softmax function for <kipr.arr> arrays, computes along the last axis."},
+    {"log", Karray_log, METH_O,
+     "Log function for <kipr.arr> arrays."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -67,7 +67,7 @@ static PyNumberMethods Karray_as_number = {
     .nb_subtract = Karray_sub,
     .nb_multiply = Karray_mul,
 
-    // .nb_negative = Karray_negative,
+    .nb_negative = Karray_negative,
 
     .nb_inplace_add = Karray_inplace_add,
     .nb_inplace_subtract = Karray_inplace_sub,
@@ -197,6 +197,131 @@ size_t align_index(Py_ssize_t i, size_t dim_length) {
 }
 
 
+std::map<int, std::string> op_name() {
+	std::map<int, std::string> correspondance;
+	correspondance[  0 ] = std::string("STOP_CODE");
+	correspondance[  1 ] = std::string("POP_TOP");
+	correspondance[  2 ] = std::string("ROT_TWO");
+	correspondance[  3 ] = std::string("ROT_THREE");
+	correspondance[  4 ] = std::string("DUP_TOP");
+	correspondance[  5 ] = std::string("ROT_FOUR");
+	correspondance[  9 ] = std::string("NOP");
+	correspondance[ 10 ] = std::string("UNARY_POSITIVE");
+	correspondance[ 11 ] = std::string("UNARY_NEGATIVE");
+	correspondance[ 12 ] = std::string("UNARY_NOT");
+	correspondance[ 13 ] = std::string("UNARY_CONVERT");
+	correspondance[ 15 ] = std::string("UNARY_INVERT");
+	correspondance[ 19 ] = std::string("BINARY_POWER");
+	correspondance[ 20 ] = std::string("BINARY_MULTIPLY");
+	correspondance[ 21 ] = std::string("BINARY_DIVIDE");
+	correspondance[ 22 ] = std::string("BINARY_MODULO");
+	correspondance[ 23 ] = std::string("BINARY_ADD");
+	correspondance[ 24 ] = std::string("BINARY_SUBTRACT");
+	correspondance[ 25 ] = std::string("BINARY_SUBSCR");
+	correspondance[ 26 ] = std::string("BINARY_FLOOR_DIVIDE");
+	correspondance[ 27 ] = std::string("BINARY_TRUE_DIVIDE");
+	correspondance[ 28 ] = std::string("INPLACE_FLOOR_DIVIDE");
+	correspondance[ 29 ] = std::string("INPLACE_TRUE_DIVIDE");
+	correspondance[ 30 ] = std::string("SLICE+0");
+	correspondance[ 31 ] = std::string("SLICE+1");
+	correspondance[ 32 ] = std::string("SLICE+2");
+	correspondance[ 33 ] = std::string("SLICE+3");
+	correspondance[ 40 ] = std::string("STORE_SLICE+0");
+	correspondance[ 41 ] = std::string("STORE_SLICE+1");
+	correspondance[ 42 ] = std::string("STORE_SLICE+2");
+	correspondance[ 43 ] = std::string("STORE_SLICE+3");
+	correspondance[ 50 ] = std::string("DELETE_SLICE+0");
+	correspondance[ 51 ] = std::string("DELETE_SLICE+1");
+	correspondance[ 52 ] = std::string("DELETE_SLICE+2");
+	correspondance[ 53 ] = std::string("DELETE_SLICE+3");
+	correspondance[ 54 ] = std::string("STORE_MAP");
+	correspondance[ 55 ] = std::string("INPLACE_ADD");
+	correspondance[ 56 ] = std::string("INPLACE_SUBTRACT");
+	correspondance[ 57 ] = std::string("INPLACE_MULTIPLY");
+	correspondance[ 58 ] = std::string("INPLACE_DIVIDE");
+	correspondance[ 59 ] = std::string("INPLACE_MODULO");
+	correspondance[ 60 ] = std::string("STORE_SUBSCR");
+	correspondance[ 61 ] = std::string("DELETE_SUBSCR");
+	correspondance[ 62 ] = std::string("BINARY_LSHIFT");
+	correspondance[ 63 ] = std::string("BINARY_RSHIFT");
+	correspondance[ 64 ] = std::string("BINARY_AND");
+	correspondance[ 65 ] = std::string("BINARY_XOR");
+	correspondance[ 66 ] = std::string("BINARY_OR");
+	correspondance[ 67 ] = std::string("INPLACE_POWER");
+	correspondance[ 68 ] = std::string("GET_ITER");
+	correspondance[ 70 ] = std::string("PRINT_EXPR");
+	correspondance[ 71 ] = std::string("PRINT_ITEM");
+	correspondance[ 72 ] = std::string("PRINT_NEWLINE");
+	correspondance[ 73 ] = std::string("PRINT_ITEM_TO");
+	correspondance[ 74 ] = std::string("PRINT_NEWLINE_TO");
+	correspondance[ 75 ] = std::string("INPLACE_LSHIFT");
+	correspondance[ 76 ] = std::string("INPLACE_RSHIFT");
+	correspondance[ 77 ] = std::string("INPLACE_AND");
+	correspondance[ 78 ] = std::string("INPLACE_XOR");
+	correspondance[ 79 ] = std::string("INPLACE_OR");
+	correspondance[ 80 ] = std::string("BREAK_LOOP");
+	correspondance[ 81 ] = std::string("WITH_CLEANUP");
+	correspondance[ 82 ] = std::string("LOAD_LOCALS");
+	correspondance[ 83 ] = std::string("RETURN_VALUE");
+	correspondance[ 84 ] = std::string("IMPORT_STAR");
+	correspondance[ 85 ] = std::string("EXEC_STMT");
+	correspondance[ 86 ] = std::string("YIELD_VALUE");
+	correspondance[ 87 ] = std::string("POP_BLOCK");
+	correspondance[ 88 ] = std::string("END_FINALLY");
+	correspondance[ 89 ] = std::string("BUILD_CLASS");
+	correspondance[ 90 ] = std::string("STORE_NAME");       // Index in name list
+	correspondance[ 91 ] = std::string("DELETE_NAME");      // ""
+	correspondance[ 92 ] = std::string("UNPACK_SEQUENCE");   // Number of tuple items
+	correspondance[ 93 ] = std::string("FOR_ITER");
+	correspondance[ 94 ] = std::string("LIST_APEND");
+	correspondance[ 95 ] = std::string("STORE_ATTR");       // Index in name list
+	correspondance[ 96 ] = std::string("DELETE_ATTR");      // ""
+	correspondance[ 97 ] = std::string("STORE_GLOBAL");     // ""
+	correspondance[ 98 ] = std::string("DELETE_GLOBAL");    // ""
+	correspondance[ 99 ] = std::string("DUP_TOPX");          // number of items to duplicate
+	correspondance[100 ] = std::string("LOAD_CONST");       // Index in const list
+	correspondance[101 ] = std::string("LOAD_NAME");       // Index in name list
+	correspondance[102 ] = std::string("BUILD_TUPLE");      // Number of tuple items
+	correspondance[103 ] = std::string("BUILD_LIST");       // Number of list items
+	correspondance[104 ] = std::string("BUILD_SET");        // Number of set items
+	correspondance[105 ] = std::string("BUILD_MAP");        // Number of dict entries (upto 255);
+	correspondance[106 ] = std::string("LOAD_ATTR");       // Index in name list
+	correspondance[107 ] = std::string("COMPARE_OP");       // Comparison operator
+	correspondance[108 ] = std::string("IMPORT_NAME");     // Index in name list
+	correspondance[109 ] = std::string("IMPORT_FROM");     // Index in name list
+	correspondance[110 ] = std::string("JUMP_FORWARD");    // Number of bytes to skip
+	correspondance[111 ] = std::string("JUMP_IF_FALSE_OR_POP"); // Target byte offset from beginning of code
+	correspondance[112 ] = std::string("JUMP_IF_TRUE_OR_POP");  // ""
+	correspondance[113 ] = std::string("JUMP_ABSOLUTE");        // ""
+	correspondance[114 ] = std::string("POP_JUMP_IF_FALSE");    // ""
+	correspondance[115 ] = std::string("POP_JUMP_IF_TRUE");     // ""
+	correspondance[116 ] = std::string("LOAD_GLOBAL");     // Index in name list
+	correspondance[119 ] = std::string("CONTINUE_LOOP");   // Target address
+	correspondance[120 ] = std::string("SETUP_LOOP");      // Distance to target address
+	correspondance[121 ] = std::string("SETUP_EXCEPT");    // ""
+	correspondance[122 ] = std::string("SETUP_FINALLY");   // ""
+	correspondance[124 ] = std::string("LOAD_FAST");        // Local variable number
+	correspondance[125 ] = std::string("STORE_FAST");       // Local variable number
+	correspondance[126 ] = std::string("DELETE_FAST");      // Local variable number
+	correspondance[130 ] = std::string("RAISE_VARARGS");    // Number of raise arguments (1, or 3);
+	correspondance[131 ] = std::string("CALL_FUNCTION");    // //args + (//kwargs << 8);
+	correspondance[132 ] = std::string("MAKE_FUNCTION");    // Number of args with default values
+	correspondance[133 ] = std::string("BUILD_SLICE");      // Number of items
+	correspondance[134 ] = std::string("MAKE_CLOSURE");
+	correspondance[135 ] = std::string("LOAD_CLOSURE");
+	correspondance[136 ] = std::string("LOAD_DEREF");
+	correspondance[137 ] = std::string("STORE_DEREF");
+	correspondance[140 ] = std::string("CALL_FUNCTION_VAR");     // //args + (//kwargs << 8);
+	correspondance[141 ] = std::string("CALL_FUNCTION_KW");      // //args + (//kwargs << 8);
+	correspondance[142 ] = std::string("CALL_FUNCTION_VAR_KW");  // //args + (//kwargs << 8);
+	correspondance[143 ] = std::string("SETUP_WITH");
+	correspondance[145 ] = std::string("EXTENDED_ARG");
+	correspondance[146 ] = std::string("SET_ADD");
+	correspondance[147 ] = std::string("MAP_ADD");
+
+	return correspondance;
+}
+
 void
 add_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
@@ -320,12 +445,12 @@ log_kernel(float * destination, float * other, ssize_t length) {
         _mm256_store_ps(&destination[k], v_a);
     }
     while (k < length) {
-        destination[k] = exp(other[k]);
+        destination[k] = log(other[k]);
         k++;
     }
 #else
     for (int k=0; k < length; k++) {
-        destination[k] = exp(other[k]);
+        destination[k] = log(other[k]);
     }
 #endif
 }
@@ -414,6 +539,14 @@ Karray::Karray(Shape new_shape, float value) {
 	shape = new_shape;
 	data = new float[shape.length];
 	std::fill(data, data + shape.length, value);
+}
+
+Karray::Karray(float val) {
+	printf("creating generic new karr\n");
+	seed = rand();
+	shape = Shape();
+	data = new float[1];
+	data[0] = val;
 }
 
 
@@ -1030,6 +1163,11 @@ size_t Shape::pop(int i) {
 	if (i == -1)
 		i = nd - 1;
 	size_t tmp = buf[i];
+	if (i == 0 && nd == 1) {
+		buf[0] = 1;
+		length = 1;
+		return tmp;
+	}
 	while (i != MAX_ND - 1) {
 		buf[i] = buf[i + 1];
 		++i;
@@ -1053,6 +1191,20 @@ NDVector Shape::strides(int depth_diff) {
 		result.buf[i] = 0;
 	}
 	return result;
+}
+
+void Shape::insert_one(int i) {
+	if (i < 0 || i > nd)
+		KERR_RETURN("Cannot insert 1 into shape becaise index is out of bounds.");
+	if (i == 0 && nd == 1 && buf[0] == 1)
+		return;
+	++nd;
+	int k = MAX_ND - 1;
+	while (k > i) {
+		buf[k] = buf[k-1];
+		--k;
+	}
+	buf[i] = 1;
 }
 
 void Shape::push_back(size_t dim) {
@@ -1257,6 +1409,28 @@ PyKarray *
 new_PyKarray() {
     return reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
 }
+
+PyKarray *
+new_PyKarray(Shape &shape) {
+    PyKarray * result = reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
+    result->arr = Karray(shape);
+    return result;
+}
+
+PyKarray *
+new_PyKarray(Shape &shape, float val) {
+    PyKarray * result = reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
+    result->arr = Karray(shape, val);
+    return result;
+}
+
+PyKarray *
+new_PyKarray(const Karray &arr) {
+    PyKarray * result = reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
+    result->arr = Karray(arr);
+    return result;
+}
+
 
 int
 Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
@@ -1489,7 +1663,7 @@ Karray_mean(PyKarray *here, PyObject *args, PyObject *kwds) {
 }
 
 
-inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, ssize_t)) {
 	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
@@ -1503,7 +1677,7 @@ inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(f
 	return result;
 }
 
-inline PyObject * inplace_binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
+inline PyObject * inplace_binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, ssize_t)) {
 	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
@@ -1641,15 +1815,27 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 //         return NULL;
 // }
 
-// PyObject *
-// Karray_negative(PyObject * self) {
-//     Karray * result = new_Karray();
-//     Karray_copy(reinterpret_cast<Karray *>(self), result);
 
-//     val_mul_kernel(result->data, -1, Karray_length(result));
+inline PyObject *
+inplace_val_unary_op(PyObject * o,  float val, void (*op_kernel)(float *, float, ssize_t)) {
+	if (!(py_type(o) == KARRAY)) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
 
-//     return reinterpret_cast<PyObject *>(result);
-// }
+	PyKarray * self = reinterpret_cast<PyKarray *>(o);
+	PyKarray * result = new_PyKarray(self->arr);
+
+	size_t length = self->arr.shape.length;
+
+	op_kernel(result->arr.data, val, length);
+
+	return reinterpret_cast<PyObject *>(result);
+}
+
+PyObject *
+Karray_negative(PyObject * here) {
+	return inplace_val_unary_op(here, -1.0, val_mul_kernel);
+}
 
 // PyObject *
 // execute_func(PyObject *self, PyObject * input) {
@@ -1676,56 +1862,63 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 //     return PyLong_FromLong(static_cast<long>(MAX_NDIMS));
 // }
 
+inline PyObject *
+overwrite_unary_op(PyObject * o,  void (*op_kernel)(float *, float*, ssize_t)) {
+	if (!(py_type(o) == KARRAY)) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
 
+	PyKarray * self = reinterpret_cast<PyKarray *>(o);
+	PyKarray * result = new_PyKarray(self->arr.shape);
+
+	size_t length = self->arr.shape.length;
+
+	op_kernel(result->arr.data, self->arr.data, length);
+
+	return reinterpret_cast<PyObject *>(result);
+}
+
+PyObject *
+Karray_relu(PyObject *module, PyObject * o) {
+	return inplace_val_unary_op(o, 0, max_val_kernel);
+}
+
+PyObject *Karray_softmax(PyObject *module,
+                           PyObject *const *args,
+                           Py_ssize_t nargs) {
+	if (nargs == 0 || nargs > 2)
+		KERR_RETURN_VAL("Wrong number of arguments", NULL);
+	if (py_type(args[0]) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+	PyKarray * self = reinterpret_cast<PyKarray *>(args[0]);
+	int ax = self->arr.shape.nd - 1;
+	if (nargs == 2)
+		ax = self->arr.shape.axis(args[1]);
+
+	PyKarray * result = new_PyKarray(self->arr.shape);
+	exp_kernel(result->arr.data, self->arr.data, self->arr.shape.length);
+	Karray summed_exp = result->arr.sum(ax, Karray(1.), false);
+	summed_exp.shape.insert_one(ax);
+	summed_exp.broadcast(result->arr.shape);
+	result->arr /= summed_exp;
+
+	return reinterpret_cast<PyObject *>(result);
+}
 
 // PyObject *
-// Karray_relu(PyObject *self, PyObject * o) {
-
-// 	if (!is_Karray(o)) {
+// Karray_softmax(PyObject *module, PyObject * o) {
+// 	if (!(py_type(o) == KARRAY)) {
 // 		Py_RETURN_NOTIMPLEMENTED;
 // 	}
 
-// 	Karray * result = new_Karray();
-// 	Karray * arr = reinterpret_cast<Karray *>(o);
-// 	Karray_copy(arr, result);
+// 	PyKarray * self = reinterpret_cast<PyKarray *>(o);
 
-// 	Py_ssize_t length = Karray_length(arr);
-// 	max_val_kernel(result->data, 0, Karray_length(result));
-
-//     return reinterpret_cast<PyObject *>(result);
-// }
-
-// PyObject *
-// Karray_exp(PyObject *self, PyObject * o) {
-
-// 	if (!is_Karray(o)) {
-// 		Py_RETURN_NOTIMPLEMENTED;
-// 	}
-
-// 	Karray * arr = reinterpret_cast<Karray *>(o);
-// 	Karray * result = new_Karray_from_shape(arr->shape);
-
-// 	Py_ssize_t length = Karray_length(arr);
-
-// 	exp_kernel(result->data, arr->data, Karray_length(arr));
-
-//     return reinterpret_cast<PyObject *>(result);
-// }
-
-// PyObject *
-// Karray_softmax(PyObject *self, PyObject * o) {
-
-// 	if (!is_Karray(o)) {
-// 		Py_RETURN_NOTIMPLEMENTED;
-// 	}
-
-// 	Py_ssize_t reduction, nb_sums, sum_shape[MAX_NDIMS] = {};
-// 	Karray * arr = reinterpret_cast<Karray *>(o);
-// 	Karray * result = new_Karray_from_shape(arr->shape);
-
-// 	copy_shape(arr->shape, sum_shape);
+// 	Shape new_shape = self->arr.shape
 // 	reduction = shape_pop(sum_shape);
 // 	nb_sums = product(sum_shape, arr->nd-1);
+
+// 	PyKarray * result = new_PyKarray(self->arr.shape, 0.0);
 
 // 	float * tmp_sums = new float[nb_sums];
 // 	std::fill(tmp_sums, tmp_sums+nb_sums, 0);
@@ -1749,22 +1942,15 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 //     return reinterpret_cast<PyObject *>(result);
 // }
 
-// PyObject *
-// Karray_log(PyObject *self, PyObject * o) {
+PyObject *
+Karray_log(PyObject *module, PyObject * o) {
+	return overwrite_unary_op(o, log_kernel);
+}
 
-// 	if (!is_Karray(o)) {
-// 		Py_RETURN_NOTIMPLEMENTED;
-// 	}
-
-// 	Karray * arr = reinterpret_cast<Karray *>(o);
-// 	Karray * result = new_Karray_from_shape(arr->shape);
-
-// 	Py_ssize_t length = Karray_length(arr);
-
-// 	log_kernel(result->data, arr->data, Karray_length(arr));
-
-//     return reinterpret_cast<PyObject *>(result);
-// }
+PyObject *
+Karray_exp(PyObject *module, PyObject * o) {
+	return overwrite_unary_op(o, exp_kernel);
+}
 
 
 
@@ -1772,15 +1958,34 @@ PyObject * function_decorator(PyObject *self, PyObject *func) {
 	PyObject * code;
 	PyCodeObject * code_ob;
 	PyBytesObject * bytes;
-	DEBUG_Obj(func, "function ");
 	if (PyFunction_Check(func)) {
 		code = PyFunction_GetCode(func);
-		DEBUG_Obj(code, "code ");
 		code_ob = reinterpret_cast<PyCodeObject *>(code);
 		bytes = reinterpret_cast<PyBytesObject *>(code_ob->co_code);
 
-		DEBUG_Obj(code_ob->co_code, "bytes ");
-		DebugBreak();
+
+		Py_ssize_t len = PyBytes_Size(code_ob->co_code);
+		char* items =  PyBytes_AsString(code_ob->co_code);
+		PYERR_RETURN_VAL(NULL);
+		auto maps = op_name();
+		int op;
+		for (int i = 0; i < len; ++i) {
+			op = (int) (unsigned char) items[i];
+			if (op >= 90) {
+				std::cout.width(4);
+				std::cout << op << " ";
+				std::cout.width(15);
+				std::cout << maps[op] << " ";
+				std::cout.width(4);
+				std::cout << (int) (unsigned char) items[++i] << std::endl;
+			} else {
+				std::cout.width(4);
+				std::cout << op << " ";
+				std::cout.width(15);
+				std::cout << maps[op] << "\n";
+			}
+		}
+
 	}
 
 

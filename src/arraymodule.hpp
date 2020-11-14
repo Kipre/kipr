@@ -11,6 +11,7 @@
 #include <sstream>
 #include <random>
 #include <numeric>
+#include <map>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -121,6 +122,7 @@ public:
     NDVector strides(int depth_diff = 0);
     Filter broadcast_to(Shape& other);
     void push_back(size_t dim);
+    void insert_one(int i);
     size_t pop(int i = -1);
     size_t axis(PyObject * o);
     size_t axis(int ax);
@@ -154,6 +156,7 @@ public:
 
     // structor
     Karray();
+    Karray(float value);
     Karray(Shape new_shape, std::vector<float> vec);
     Karray(Shape new_shape, float * new_data);
     Karray(Shape new_shape, float value);
@@ -277,17 +280,17 @@ PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
 PyObject * Karray_div(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 // PyObject * Karray_matmul(PyObject * self, PyObject * other);
-// PyObject * Karray_negative(PyObject * self);
+PyObject * Karray_negative(PyObject * self);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * function_decorator(PyObject *self, PyObject *func);
 // PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
-// PyObject * Karray_relu(PyObject *self, PyObject * o);
-// PyObject * Karray_exp(PyObject *self, PyObject * o);
-// PyObject * Karray_softmax(PyObject *self, PyObject * o);
-// PyObject * Karray_log(PyObject *self, PyObject * o);
+PyObject * Karray_relu(PyObject *self, PyObject * o);
+PyObject * Karray_exp(PyObject *self, PyObject * o);
+PyObject *Karray_softmax(PyObject *module, PyObject *const *args, Py_ssize_t nargs);
+PyObject * Karray_log(PyObject *self, PyObject * o);
 
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");

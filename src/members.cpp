@@ -17,6 +17,28 @@ new_PyKarray() {
     return reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
 }
 
+PyKarray *
+new_PyKarray(Shape &shape) {
+    PyKarray * result = reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
+    result->arr = Karray(shape);
+    return result;
+}
+
+PyKarray *
+new_PyKarray(Shape &shape, float val) {
+    PyKarray * result = reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
+    result->arr = Karray(shape, val);
+    return result;
+}
+
+PyKarray *
+new_PyKarray(const Karray &arr) {
+    PyKarray * result = reinterpret_cast<PyKarray *>(KarrayType.tp_alloc(&KarrayType, 0));
+    result->arr = Karray(arr);
+    return result;
+}
+
+
 int
 Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     char *kwlist[] = {"data", "shape", NULL};
