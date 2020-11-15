@@ -114,7 +114,6 @@ Karray& Karray::operator*=(const Karray& other) {
 	return elementwise_inplace_binary_op(*this, other, mul_kernel);
 }
 
-
 Karray Karray::operator-(const Karray& rhs) {
 	return elementwise_binary_op(*this, rhs, sub_kernel);
 }
@@ -130,6 +129,12 @@ Karray Karray::operator+(const Karray& rhs) {
 Karray Karray::operator/(const Karray& rhs) {
 	return elementwise_binary_op(*this, rhs, div_kernel);
 }
+
+// Karray Karray::matmul(const Karray& rhs) {
+// 	if (!shape.compatible_for_matmul(rhs.shape))
+// 		throw std::exception("shapes incompatible for matmul");
+	
+// }
 
 void Karray::swap(Karray& other) {
 	printf("swapping %i and %i\n", seed, other.seed);

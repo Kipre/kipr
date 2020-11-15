@@ -93,28 +93,55 @@ Shape::Shape(Shape a, Shape b) noexcept { // [3, 4, 5] & [3, 1]
 
 	nd = a.nd;
 	length = 1;
-	int curr_dim = MAX_ND - 1;
+	int i = MAX_ND - 1;
 	int dim_diff = a.nd - b.nd;
-	while (curr_dim >= 0) {
-		printf("curr_dim: %i\n", curr_dim);
-		if (curr_dim >= dim_diff &&
-		        a[curr_dim] != b[curr_dim - dim_diff]) {
-			if (a[curr_dim] == 1) {
-				buf[curr_dim] = b[curr_dim - dim_diff];
-			} else if (b[curr_dim - dim_diff] == 1) {
-				buf[curr_dim] = a[curr_dim];
-			} else goto fail;
+	while (i >= 0) {
+		if (i >= dim_diff &&
+		        a[i] != b[i - dim_diff]) {
+			if (a[i] == 1) {
+				buf[i] = b[i - dim_diff];
+			} else if (b[i - dim_diff] == 1) {
+				buf[i] = a[i];
+			} else {
+				PyErr_Format(Karray_error,
+				             "Shapes %s and %s are not compatible.", a.str(), b.str());
+				return;
+			}
 		} else {
-			buf[curr_dim] = a[curr_dim];
+			buf[i] = a[i];
 		}
-		length *= max(1, buf[curr_dim]);
-		--curr_dim;
+		length *= max(1, buf[i]);
+		--i;
 	}
-	return;
+}
 
-fail:
-	PyErr_Format(PyExc_ValueError,
-	             "Shapes %s and %s are not compatible.", a.str(), b.str());
+static std::tuple<Shape, NDVector, NDVector>
+paired_strides(Shape a, Shape b) noexcept {
+	Shape common = Shape(a, b);
+	NDVector astr, bstr;
+    size_t acc = 1, bcc = 1;
+	while((a.nd - b.nd) > 0)
+			b.insert_one(0);
+	while((b.nd - a.nd) > 0)
+			a.insert_one(0);
+    a.print("a shape");
+    b.print("b shape");
+
+	for (int k = a.nd-1; k >= 0; --k) {
+		if (a[k] == common[k]) {
+			astr.buf[k] = acc;
+			acc *= a[k];
+		} else {
+			astr.buf[k] = 0;
+		}
+		if (b[k] == common[k]) {
+			bstr.buf[k] = bcc;
+			bcc *= b[k];
+		} else {
+			bstr.buf[k] = 0;
+		}
+	}
+	return {common, astr, bstr};
 }
 
 
@@ -279,7 +306,7 @@ void Shape::insert_one(int i) {
 	++nd;
 	int k = MAX_ND - 1;
 	while (k > i) {
-		buf[k] = buf[k-1];
+		buf[k] = buf[k - 1];
 		--k;
 	}
 	buf[i] = 1;
@@ -299,15 +326,23 @@ size_t Shape::axis(PyObject * o) {
 	if (!PyIndex_Check(o))
 		KERR_RETURN_VAL("Axis is invalid.", 9);
 	Py_ssize_t value = PyLong_AsSsize_t(o);
-	if (abs(value) > nd-1)
+	if (abs(value) > nd - 1)
 		KERR_RETURN_VAL("Axis is out of range.", 9);
 	return (size_t) (value % nd + nd) % nd;
 
 }
 
 size_t Shape::axis(int ax) {
-	if (abs(ax) > nd-1)
+	if (abs(ax) > nd - 1)
 		KERR_RETURN_VAL("Axis is out of range.", 9);
 	return (size_t) (ax % nd + nd) % nd;
 
+}
+
+bool Shape::compatible_for_matmul(Shape & other) {
+	if (nd < 2 || other.nd < 2)
+		return false;
+	if (buf[nd - 1] != other[other.nd - 2])
+		return false;
+	return true;
 }

@@ -26,6 +26,8 @@ static PyMethodDef Karray_methods[] = {
      "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
     //  "Return the float value of a scalar <kipr.arr>."},    
+    {"recadd", (PyCFunction)  Karray_recadd, METH_O,
+     "recursive add"},
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
     {NULL}  /* Sentinel */
@@ -326,7 +328,7 @@ void
 add_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_add_ps(v_a, v_b);
@@ -337,17 +339,53 @@ add_kernel(float * destination, float * other, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] += other[k];
     }
 #endif
 }
 
+inline void binary_op(float * dest, float * lhs, float * rhs, Shape &shape, 
+                      NDVector &l_strides, NDVector &r_strides, size_t * positions, 
+                      float (*op)(float, float), int depth) {
+    if (depth < shape.nd) {
+        for (int k = 0; k < shape[depth]; ++k) {
+            binary_op(dest, lhs, rhs, shape, l_strides, r_strides, positions, op, depth + 1);
+            positions[1] += l_strides[depth];
+            positions[2] += r_strides[depth];
+        }
+        positions[1] -= l_strides[depth] * shape[depth];
+        positions[2] -= r_strides[depth] * shape[depth];
+    } else {
+        printf("positions %i %i %i\n", positions[0], positions[1], positions[2]);
+        dest[positions[0]] = op(lhs[positions[1]], rhs[positions[2]]);
+        ++positions[0];
+    }
+
+}
+
+inline float _add(float a, float b) {
+    return a + b;
+}
+
+inline float _mul(float a, float b) {
+    return a * b;
+}
+
+inline float _sub(float a, float b) {
+    return a - b;
+}
+
+inline float _div(float a, float b) {
+    return a / b;
+}
+
+
 void
 sub_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_sub_ps(v_a, v_b);
@@ -358,7 +396,7 @@ sub_kernel(float * destination, float * other, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] -= other[k];
     }
 #endif
@@ -369,7 +407,7 @@ void
 mul_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_mul_ps(v_a, v_b);
@@ -380,7 +418,7 @@ mul_kernel(float * destination, float * other, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] *= other[k];
     }
 #endif
@@ -391,7 +429,7 @@ void
 div_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&destination[k]);
         __m256 v_b = _mm256_load_ps(&other[k]);
         v_a = _mm256_div_ps(v_a, v_b);
@@ -402,7 +440,7 @@ div_kernel(float * destination, float * other, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         if (other[k] == 0) {
             PyErr_SetString(PyExc_ZeroDivisionError, "");
             PyErr_Print();
@@ -418,7 +456,7 @@ void
 exp_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&other[k]);
         v_a = _mm256_exp_ps(v_a);
         _mm256_store_ps(&destination[k], v_a);
@@ -428,7 +466,7 @@ exp_kernel(float * destination, float * other, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] = exp(other[k]);
     }
 #endif
@@ -439,7 +477,7 @@ void
 log_kernel(float * destination, float * other, ssize_t length) {
 #if __AVX__
     int k;
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&other[k]);
         v_a = _mm256_log_ps(v_a);
         _mm256_store_ps(&destination[k], v_a);
@@ -449,7 +487,7 @@ log_kernel(float * destination, float * other, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] = log(other[k]);
     }
 #endif
@@ -461,7 +499,7 @@ val_mul_kernel(float * destination, float value, ssize_t length) {
 #if __AVX__
     int k;
     __m256 values, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         values = _mm256_load_ps(&destination[k]);
         values = _mm256_mul_ps(values, constant);
         _mm256_store_ps(&destination[k], values);
@@ -471,7 +509,7 @@ val_mul_kernel(float * destination, float value, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] *= value;
     }
 #endif
@@ -479,10 +517,10 @@ val_mul_kernel(float * destination, float value, ssize_t length) {
 
 void
 max_val_kernel(float * destination, float value, ssize_t length) {
-    #if __AVX__
+#if __AVX__
     int k;
     __m256 values, val = _mm256_set_ps (value, value, value, value, value, value, value, value);
-    for (k=0; k < length-8; k += 8) {
+    for (k = 0; k < length - 8; k += 8) {
         values = _mm256_load_ps(&destination[k]);
         values = _mm256_max_ps(values, val);
         _mm256_store_ps(&destination[k], values);
@@ -492,7 +530,7 @@ max_val_kernel(float * destination, float value, ssize_t length) {
         k++;
     }
 #else
-    for (int k=0; k < length; k++) {
+    for (int k = 0; k < length; k++) {
         destination[k] = Py_MAX(value, destination[k]);
     }
 #endif
@@ -613,7 +651,6 @@ Karray& Karray::operator*=(const Karray& other) {
 	return elementwise_inplace_binary_op(*this, other, mul_kernel);
 }
 
-
 Karray Karray::operator-(const Karray& rhs) {
 	return elementwise_binary_op(*this, rhs, sub_kernel);
 }
@@ -629,6 +666,12 @@ Karray Karray::operator+(const Karray& rhs) {
 Karray Karray::operator/(const Karray& rhs) {
 	return elementwise_binary_op(*this, rhs, div_kernel);
 }
+
+// Karray Karray::matmul(const Karray& rhs) {
+// 	if (!shape.compatible_for_matmul(rhs.shape))
+// 		throw std::exception("shapes incompatible for matmul");
+	
+// }
 
 void Karray::swap(Karray& other) {
 	printf("swapping %i and %i\n", seed, other.seed);
@@ -1015,28 +1058,55 @@ Shape::Shape(Shape a, Shape b) noexcept { // [3, 4, 5] & [3, 1]
 
 	nd = a.nd;
 	length = 1;
-	int curr_dim = MAX_ND - 1;
+	int i = MAX_ND - 1;
 	int dim_diff = a.nd - b.nd;
-	while (curr_dim >= 0) {
-		printf("curr_dim: %i\n", curr_dim);
-		if (curr_dim >= dim_diff &&
-		        a[curr_dim] != b[curr_dim - dim_diff]) {
-			if (a[curr_dim] == 1) {
-				buf[curr_dim] = b[curr_dim - dim_diff];
-			} else if (b[curr_dim - dim_diff] == 1) {
-				buf[curr_dim] = a[curr_dim];
-			} else goto fail;
+	while (i >= 0) {
+		if (i >= dim_diff &&
+		        a[i] != b[i - dim_diff]) {
+			if (a[i] == 1) {
+				buf[i] = b[i - dim_diff];
+			} else if (b[i - dim_diff] == 1) {
+				buf[i] = a[i];
+			} else {
+				PyErr_Format(Karray_error,
+				             "Shapes %s and %s are not compatible.", a.str(), b.str());
+				return;
+			}
 		} else {
-			buf[curr_dim] = a[curr_dim];
+			buf[i] = a[i];
 		}
-		length *= max(1, buf[curr_dim]);
-		--curr_dim;
+		length *= max(1, buf[i]);
+		--i;
 	}
-	return;
+}
 
-fail:
-	PyErr_Format(PyExc_ValueError,
-	             "Shapes %s and %s are not compatible.", a.str(), b.str());
+static std::tuple<Shape, NDVector, NDVector>
+paired_strides(Shape a, Shape b) noexcept {
+	Shape common = Shape(a, b);
+	NDVector astr, bstr;
+    size_t acc = 1, bcc = 1;
+	while((a.nd - b.nd) > 0)
+			b.insert_one(0);
+	while((b.nd - a.nd) > 0)
+			a.insert_one(0);
+    a.print("a shape");
+    b.print("b shape");
+
+	for (int k = a.nd-1; k >= 0; --k) {
+		if (a[k] == common[k]) {
+			astr.buf[k] = acc;
+			acc *= a[k];
+		} else {
+			astr.buf[k] = 0;
+		}
+		if (b[k] == common[k]) {
+			bstr.buf[k] = bcc;
+			bcc *= b[k];
+		} else {
+			bstr.buf[k] = 0;
+		}
+	}
+	return {common, astr, bstr};
 }
 
 
@@ -1201,7 +1271,7 @@ void Shape::insert_one(int i) {
 	++nd;
 	int k = MAX_ND - 1;
 	while (k > i) {
-		buf[k] = buf[k-1];
+		buf[k] = buf[k - 1];
 		--k;
 	}
 	buf[i] = 1;
@@ -1221,176 +1291,184 @@ size_t Shape::axis(PyObject * o) {
 	if (!PyIndex_Check(o))
 		KERR_RETURN_VAL("Axis is invalid.", 9);
 	Py_ssize_t value = PyLong_AsSsize_t(o);
-	if (abs(value) > nd-1)
+	if (abs(value) > nd - 1)
 		KERR_RETURN_VAL("Axis is out of range.", 9);
 	return (size_t) (value % nd + nd) % nd;
 
 }
 
 size_t Shape::axis(int ax) {
-	if (abs(ax) > nd-1)
+	if (abs(ax) > nd - 1)
 		KERR_RETURN_VAL("Axis is out of range.", 9);
 	return (size_t) (ax % nd + nd) % nd;
 
 }
+
+bool Shape::compatible_for_matmul(Shape & other) {
+	if (nd < 2 || other.nd < 2)
+		return false;
+	if (buf[nd - 1] != other[other.nd - 2])
+		return false;
+	return true;
+}
 Filter::Filter(Shape& shape) {
-	size_t total = 0;
-	int i;
-	offset[0] = 0;
-	for (i = 0; i < shape.nd;) {
-		total += shape[i];
-		offset[++i] = total;
-	}
-	while (i != MAX_ND) {
-		offset[i++] = total;
-	}
-	vec.reserve(total);
-	// std::fill(vec, vec + total, -1);
+    size_t total = 0;
+    int i;
+    offset[0] = 0;
+    for (i = 0; i < shape.nd;) {
+        total += shape[i];
+        offset[++i] = total;
+    }
+    while (i != MAX_ND) {
+        offset[i++] = total;
+    }
+    vec.reserve(total);
+    // std::fill(vec, vec + total, -1);
 }
 
 Filter::Filter(Filter&& other) noexcept : vec{}, offset{0} {
-	vec = std::move(other.vec);
-	for (int i = 0; i < MAX_ND; ++i) {
-		offset[i] = other.offset[i];
-		other.offset[i] = 0;
-	}
+    vec = std::move(other.vec);
+    for (int i = 0; i < MAX_ND; ++i) {
+        offset[i] = other.offset[i];
+        other.offset[i] = 0;
+    }
 }
 
 void Filter::set_val_along_axis(int axis , size_t value) {
-	// printf("writing val from %i to %i on axis %i\n", offset[axis], offset[axis + 1], axis);
-	std::fill(vec.begin() + offset[axis], vec.begin() + offset[axis + 1], value);
+    // printf("writing val from %i to %i on axis %i\n", offset[axis], offset[axis + 1], axis);
+    std::fill(vec.begin() + offset[axis], vec.begin() + offset[axis + 1], value);
 }
 
 void Filter::set_range_along_axis(int axis) {
-	// printf("writing range from %i to %i on axis %i\n", offset[axis], offset[axis + 1], axis);
-	std::iota (vec.begin() + offset[axis], vec.begin() + offset[axis + 1], 0);
+    // printf("writing range from %i to %i on axis %i\n", offset[axis], offset[axis + 1], axis);
+    std::iota (vec.begin() + offset[axis], vec.begin() + offset[axis + 1], 0);
 }
 
 void Filter::print(const char * message) {
-	std::cout << "Filter " << message << "\n\t";
-	int o = 1;
-	for (int k = 0; k < vec.size(); ++k) {
-		if (k == offset[o]) {
-			std::cout << "| ";
-			++o;
-		}
-		std::cout << vec[k] << ", ";
-	}
-	std::cout << "\n\toffsets:";
-	for (int k = 0; k < MAX_ND + 1; ++k) {
-		std::cout << offset[k] << ", ";
-	}
-	std::cout << '\n';
+    std::cout << "Filter " << message << "\n\t";
+    int o = 1;
+    for (int k = 0; k < vec.size(); ++k) {
+        if (k == offset[o]) {
+            std::cout << "| ";
+            ++o;
+        }
+        std::cout << vec[k] << ", ";
+    }
+    std::cout << "\n\toffsets:";
+    for (int k = 0; k < MAX_ND + 1; ++k) {
+        std::cout << offset[k] << ", ";
+    }
+    std::cout << '\n';
 }
 
 Filter& Filter::operator=(Filter&& other) noexcept {
-	if (this != &other) {
-		vec = std::move(other.vec);
-		for (int i = 0; i < MAX_ND; ++i) {
-			offset[i] = other.offset[i];
-			other.offset[i] = 0;
-		}
-	}
-	return *this;
+    if (this != &other) {
+        vec = std::move(other.vec);
+        for (int i = 0; i < MAX_ND; ++i) {
+            offset[i] = other.offset[i];
+            other.offset[i] = 0;
+        }
+    }
+    return *this;
 }
 
 void Filter::push_back(size_t number, int index) {
-	vec.push_back(number);
-	offset[index + 1] = vec.size();
+    vec.push_back(number);
+    offset[index + 1] = vec.size();
 }
 
 Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
 
-	Shape new_shape;
-	size_t ind;
-	int rest;
+    Shape new_shape;
+    size_t ind;
+    int rest;
 
-	std::vector<PyObject *> subs = full_subscript(key, current_shape);
-	PYERR_PRINT_GOTO_FAIL;
-	for (int i = 0; i < subs.size(); ++i) {
-		switch (subscript_type(subs[i])) {
-		case (NUMBER):
-			ind = align_index(PyLong_AsSsize_t(subs[i]), current_shape[i]);
-			push_back(ind, i);
-			break;
-		case (SLICE): {
-			Py_ssize_t start, stop, step, slicelength;
-			PySlice_GetIndicesEx(subs[i], current_shape[i],
-			                     &start, &stop, &step, &slicelength);
-			if (start == stop) {
-				push_back((size_t) start, i);
-			} else {
-				for (int k = 0; k < slicelength; ++k) {
-					push_back(k * step + start, i);
-				}
-				new_shape.push_back(slicelength);
-			}
-		}
-		break;
-		case (SEQUENCE): {
-			Py_ssize_t length = PySequence_Length(subs[i]);
-			PyObject ** items = PySequence_Fast_ITEMS(subs[i]);
-			printf("seq length: %i\n", length);
-			for (int k = 0; k < length; ++k) {
-				ind = align_index(PyLong_AsSsize_t(items[k]), current_shape[i]);
-				PYERR_PRINT_GOTO_FAIL;
-				push_back(ind, i);
-			}
-			new_shape.push_back(length);
-		}
-		}
-	}
-	rest = subs.size();
-	offset[rest] = vec.size();
-	while (rest < MAX_ND) {
-		++rest;
-		offset[rest] = offset[rest - 1];
-	}
-	return new_shape;
+    std::vector<PyObject *> subs = full_subscript(key, current_shape);
+    PYERR_PRINT_GOTO_FAIL;
+    for (int i = 0; i < subs.size(); ++i) {
+        switch (subscript_type(subs[i])) {
+        case (NUMBER):
+            ind = align_index(PyLong_AsSsize_t(subs[i]), current_shape[i]);
+            push_back(ind, i);
+            break;
+        case (SLICE): {
+            Py_ssize_t start, stop, step, slicelength;
+            PySlice_GetIndicesEx(subs[i], current_shape[i],
+                                 &start, &stop, &step, &slicelength);
+            if (start == stop) {
+                push_back((size_t) start, i);
+            } else {
+                for (int k = 0; k < slicelength; ++k) {
+                    push_back(k * step + start, i);
+                }
+                new_shape.push_back(slicelength);
+            }
+        }
+        break;
+        case (SEQUENCE): {
+            Py_ssize_t length = PySequence_Length(subs[i]);
+            PyObject ** items = PySequence_Fast_ITEMS(subs[i]);
+            printf("seq length: %i\n", length);
+            for (int k = 0; k < length; ++k) {
+                ind = align_index(PyLong_AsSsize_t(items[k]), current_shape[i]);
+                PYERR_PRINT_GOTO_FAIL;
+                push_back(ind, i);
+            }
+            new_shape.push_back(length);
+        }
+        }
+    }
+    rest = subs.size();
+    offset[rest] = vec.size();
+    while (rest < MAX_ND) {
+        ++rest;
+        offset[rest] = offset[rest - 1];
+    }
+    return new_shape;
 
 
 fail:
-	PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
-	return new_shape;
+    PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
+    return new_shape;
 }
 
 std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
-	std::vector<PyObject *> elements;
-	elements.reserve(current_shape.nd);
-	Py_ssize_t tup_length = PySequence_Length(tuple);
-	bool found_ellipsis = false;
-	int missing_dims;
+    std::vector<PyObject *> elements;
+    elements.reserve(current_shape.nd);
+    Py_ssize_t tup_length = PySequence_Length(tuple);
+    bool found_ellipsis = false;
+    int missing_dims;
 
-	if (tup_length > current_shape.nd) {
-		VALERR_PRINT_GOTO_FAIL("Subscript has too much elements.");
-	} else {
+    if (tup_length > current_shape.nd) {
+        VALERR_PRINT_GOTO_FAIL("Subscript has too much elements.");
+    } else {
 
-		PyObject * full_slice = PySlice_New(NULL, NULL, NULL);
-		// Py_INCREF(full_slice);
-		PyObject ** items = PySequence_Fast_ITEMS(tuple);
+        PyObject * full_slice = PySlice_New(NULL, NULL, NULL);
+        // Py_INCREF(full_slice);
+        PyObject ** items = PySequence_Fast_ITEMS(tuple);
 
-		for (int i = 0; i < tup_length; ++i) {
-			if (items[i] == Py_Ellipsis && !found_ellipsis) {
-				for (int k = 0; k < current_shape.nd - (tup_length - 1); ++k)
-					elements.push_back(full_slice);
-				found_ellipsis = true;
-			} else if (items[i] == Py_Ellipsis && found_ellipsis) {
-				VALERR_PRINT_GOTO_FAIL("Ellipsis cannot appear twice in subscript.");
-			} else {
-				// Py_INCREF(items[i]);
-				elements.push_back(items[i]);
-			}
-		}
-		missing_dims = current_shape.nd - elements.size();
-		for (int i = 0; i < missing_dims; ++i)
-			elements.push_back(full_slice);
+        for (int i = 0; i < tup_length; ++i) {
+            if (items[i] == Py_Ellipsis && !found_ellipsis) {
+                for (int k = 0; k < current_shape.nd - (tup_length - 1); ++k)
+                    elements.push_back(full_slice);
+                found_ellipsis = true;
+            } else if (items[i] == Py_Ellipsis && found_ellipsis) {
+                VALERR_PRINT_GOTO_FAIL("Ellipsis cannot appear twice in subscript.");
+            } else {
+                // Py_INCREF(items[i]);
+                elements.push_back(items[i]);
+            }
+        }
+        missing_dims = current_shape.nd - elements.size();
+        for (int i = 0; i < missing_dims; ++i)
+            elements.push_back(full_slice);
 
-		return elements;
-	}
+        return elements;
+    }
 
 fail:
-	PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
-	return elements;
+    PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
+    return elements;
 }
 
 void
@@ -1587,18 +1665,6 @@ Karray_broadcast(PyKarray * self, PyObject * shape) {
 }
 
 
-
-PyObject *
-Karray_sum(PyKarray * self, PyObject * shape) {
-    Py_INCREF(reinterpret_cast<PyObject *>(self));
-    Shape new_shape(shape);
-    PYERR_RETURN_VAL(NULL);
-    new_shape.print();
-    self->arr.broadcast(new_shape);
-    return reinterpret_cast<PyObject *>(self);
-}
-
-
 PyObject *
 Karray_sum(PyKarray *here, PyObject *args, PyObject *kwds) {
     char *kwlist[] = {"axis", "weights", NULL};
@@ -1659,6 +1725,31 @@ Karray_mean(PyKarray *here, PyObject *args, PyObject *kwds) {
         }
     }
 
+    return reinterpret_cast<PyObject *>(result);
+}
+
+
+
+
+PyObject *Karray_recadd(PyObject *here, PyObject *other) {
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+    PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
+    PyKarray * result;
+    if (self->arr.shape.length == rhs->arr.shape.length) {
+        result = new_PyKarray(self->arr);
+        add_kernel(result->arr.data, rhs->arr.data, self->arr.shape.length);
+    } else {
+        auto [common, a_strides, b_strides] =
+            paired_strides(self->arr.shape, rhs->arr.shape);
+        PYERR_RETURN_VAL(NULL);
+        common.print("common ");
+        a_strides.print();
+        b_strides.print();
+        result = new_PyKarray(common);
+        size_t positions[3] = {0};
+        binary_op(result->arr.data, self->arr.data, rhs->arr.data,
+            common, a_strides, b_strides, positions, _add, 0);
+    }
     return reinterpret_cast<PyObject *>(result);
 }
 

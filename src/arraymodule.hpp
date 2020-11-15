@@ -12,6 +12,7 @@
 #include <random>
 #include <numeric>
 #include <map>
+#include <tuple>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -126,6 +127,7 @@ public:
     size_t pop(int i = -1);
     size_t axis(PyObject * o);
     size_t axis(int ax);
+    bool compatible_for_matmul(Shape & other);
 
 private:
     size_t buf[MAX_ND];
@@ -250,6 +252,8 @@ std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape);
 void _sum(float * self_data, float * result_data, float * weights_data,
             Shape &self_shape, NDVector &strides, bool multiple_weights,
             bool mean, int axis, int depth);
+static std::tuple<Shape, NDVector, NDVector>
+paired_strides(Shape a, Shape b) noexcept;
 
 // members
 void Karray_dealloc(PyKarray *self);
@@ -281,6 +285,8 @@ PyObject * Karray_div(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 // PyObject * Karray_matmul(PyObject * self, PyObject * other);
 PyObject * Karray_negative(PyObject * self);
+
+PyObject *Karray_recadd(PyObject *here, PyObject *other);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));

@@ -25,6 +25,8 @@ static PyMethodDef Karray_methods[] = {
      "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
     //  "Return the float value of a scalar <kipr.arr>."},    
+    {"recadd", (PyCFunction)  Karray_recadd, METH_O,
+     "recursive add"},
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
     {NULL}  /* Sentinel */
