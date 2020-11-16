@@ -42,7 +42,7 @@ overwrite_unary_op(PyObject * o,  void (*op_kernel)(float *, float*, ssize_t)) {
 
 PyObject *
 Karray_relu(PyObject *module, PyObject * o) {
-	return inplace_val_unary_op(o, 0, max_val_kernel);
+	return inplace_val_binary_op(o, 0, val_max_kernel);
 }
 
 PyObject *Karray_softmax(PyObject *module,

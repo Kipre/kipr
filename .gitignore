@@ -3,3 +3,4 @@ dist/**
 kipr.egg-info/**
 **/__pycache__/**
 **/**.pdb
+**/.ipynb_checkpoints/**

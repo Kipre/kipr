@@ -2,7 +2,7 @@
 
 void
 Karray_dealloc(PyKarray *self) {
-    printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
+    // printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
     self->arr.~Karray();
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
 }
@@ -51,6 +51,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
         return -1;
 
     if (shape) {
+        Py_INCREF(shape);
         proposed_shape = Shape(shape);
         PYERR_PRINT_GOTO_FAIL;
     }
@@ -148,7 +149,6 @@ Karray_reshape(PyKarray * self, PyObject * shape) {
     Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape, self->arr.shape.length);
     PYERR_RETURN_VAL(NULL);
-    new_shape.print();
     self->arr.shape = new_shape;
     return reinterpret_cast<PyObject *>(self);
 }
@@ -188,7 +188,6 @@ Karray_broadcast(PyKarray * self, PyObject * shape) {
     Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape);
     PYERR_RETURN_VAL(NULL);
-    new_shape.print();
     self->arr.broadcast(new_shape);
     return reinterpret_cast<PyObject *>(self);
 }
@@ -264,21 +263,44 @@ PyObject *Karray_recadd(PyObject *here, PyObject *other) {
     PyKarray * self = reinterpret_cast<PyKarray *>(here);
     PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
     PyKarray * result;
-    if (self->arr.shape.length == rhs->arr.shape.length) {
-        result = new_PyKarray(self->arr);
-        add_kernel(result->arr.data, rhs->arr.data, self->arr.shape.length);
+    size_t length = self->arr.shape.length;
+    if (length == rhs->arr.shape.length) {
+        result = new_PyKarray(self->arr.shape);
+        add_kernel(result->arr.data, self->arr.data, rhs->arr.data, length);
     } else {
         auto [common, a_strides, b_strides] =
             paired_strides(self->arr.shape, rhs->arr.shape);
         PYERR_RETURN_VAL(NULL);
-        common.print("common ");
-        a_strides.print();
-        b_strides.print();
         result = new_PyKarray(common);
         size_t positions[3] = {0};
-        binary_op(result->arr.data, self->arr.data, rhs->arr.data,
+        rec_binary_op(result->arr.data, self->arr.data, rhs->arr.data,
             common, a_strides, b_strides, positions, _add, 0);
     }
     return reinterpret_cast<PyObject *>(result);
 }
 
+
+
+
+
+
+
+PyObject *Karray_pureadd(PyObject *here, PyObject *other) {
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+    PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
+    PyKarray * result = new_PyKarray(self->arr.shape);
+    size_t length = self->arr.shape.length;
+    int k;
+    for (k = 0; k < length - 8; k += 8) {
+        __m256 v_a = _mm256_load_ps(&self->arr.data[k]);
+        __m256 v_b = _mm256_load_ps(&rhs->arr.data[k]);
+        v_a = _mm256_add_ps(v_a, v_b);
+        _mm256_store_ps(&rhs->arr.data[k], v_a);
+    }
+    while (k < length) {
+        rhs->arr.data[k] = self->arr.data[k] + rhs->arr.data[k];
+        k++;
+    }
+
+    return reinterpret_cast<PyObject *>(result);
+}

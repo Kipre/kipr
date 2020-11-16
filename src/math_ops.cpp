@@ -1,69 +1,74 @@
 
-inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, ssize_t)) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+inline PyObject * py_binary_op(PyObject *here,
+                               PyObject *other,
+                               binary_kernel kernel,
+                               binary_op op) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
-	PyObject * result;
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	auto third_karr = new_PyKarray();
-	third_karr->arr = elementwise_binary_op(karr->arr, other_karr->arr, op_kernel);
+
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	auto result = new_PyKarray();
+	result->arr = self->arr.elementwise_binary_op(rhs->arr, kernel, op);
 	PYERR_RETURN_VAL(NULL);
-	result = reinterpret_cast<PyObject *>(third_karr);
-	return result;
+	return reinterpret_cast<PyObject *>(result);
 }
 
-inline PyObject * inplace_binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, ssize_t)) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+inline PyObject * py_inplace_binary_op(PyObject *here,
+                                       PyObject *other,
+                                       binary_kernel kernel,
+                                       binary_op op) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	elementwise_inplace_binary_op(karr->arr, other_karr->arr, op_kernel);
-	Py_INCREF(self);
-	return self;
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	self->arr.inplace_binary_op(rhs->arr, kernel, op);
+	Py_INCREF(here);
+	return here;
 }
 
 
 PyObject *
 Karray_add(PyObject * self, PyObject * other) {
-	return binary_op(self, other, add_kernel);
+	return py_binary_op(self, other, add_kernel, _add);
 }
 
 PyObject *
 Karray_sub(PyObject * self, PyObject * other) {
-	return binary_op(self, other, sub_kernel);
+	return py_binary_op(self, other, sub_kernel, _sub);
 }
 
 PyObject *
 Karray_mul(PyObject * self, PyObject * other) {
-	return binary_op(self, other, mul_kernel);
+	return py_binary_op(self, other, mul_kernel, _mul);
 }
 
 PyObject *
 Karray_div(PyObject * self, PyObject * other) {
-	return binary_op(self, other, div_kernel);
+	return py_binary_op(self, other, div_kernel, _div);
 }
 
 
 PyObject *
 Karray_inplace_add(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, add_kernel);
+	return py_inplace_binary_op(self, other, add_kernel, _add);
 }
 
 PyObject *
 Karray_inplace_sub(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, sub_kernel);
+	return py_inplace_binary_op(self, other, sub_kernel, _sub);
 }
 
 PyObject *
 Karray_inplace_mul(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, mul_kernel);
+	return py_inplace_binary_op(self, other, mul_kernel, _mul);
 }
 
 PyObject *
 Karray_inplace_div(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, div_kernel);
+	return py_inplace_binary_op(self, other, div_kernel, _div);
 }
 
 // PyObject *
@@ -153,22 +158,21 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 
 
 inline PyObject *
-inplace_val_unary_op(PyObject * o,  float val, void (*op_kernel)(float *, float, ssize_t)) {
+inplace_val_binary_op(PyObject * o,  float val,
+                      binary_val_kernel kernel) {
 	if (!(py_type(o) == KARRAY)) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
 
 	PyKarray * self = reinterpret_cast<PyKarray *>(o);
-	PyKarray * result = new_PyKarray(self->arr);
+	PyKarray * result = new_PyKarray(self->arr.shape);
 
-	size_t length = self->arr.shape.length;
-
-	op_kernel(result->arr.data, val, length);
+	kernel(result->arr.data, self->arr.data, val, self->arr.shape.length);
 
 	return reinterpret_cast<PyObject *>(result);
 }
 
 PyObject *
 Karray_negative(PyObject * here) {
-	return inplace_val_unary_op(here, -1.0, val_mul_kernel);
+	return inplace_val_binary_op(here, -1.0, val_mul_kernel);
 }

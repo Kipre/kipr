@@ -25,7 +25,9 @@ static PyMethodDef Karray_methods[] = {
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
      "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
-    //  "Return the float value of a scalar <kipr.arr>."},    
+    //  "Return the float value of a scalar <kipr.arr>."},
+    {"pureadd", (PyCFunction)  Karray_pureadd, METH_O,
+     "pureursive add"},
     {"recadd", (PyCFunction)  Karray_recadd, METH_O,
      "recursive add"},
     {"execute", (PyCFunction)  execute_func, METH_O,
@@ -324,42 +326,100 @@ std::map<int, std::string> op_name() {
 	return correspondance;
 }
 
-void
-add_kernel(float * destination, float * other, ssize_t length) {
+
+void inline
+add_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
 #if __AVX__
-    int k;
+    __m256 v_a, v_b;
     for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&destination[k]);
-        __m256 v_b = _mm256_load_ps(&other[k]);
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_b = _mm256_load_ps(&rhs[k]);
         v_a = _mm256_add_ps(v_a, v_b);
-        _mm256_store_ps(&destination[k], v_a);
-    }
-    while (k < length) {
-        destination[k] += other[k];
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] += other[k];
+        _mm256_store_ps(&dest[k], v_a);
     }
 #endif
+    while (k < length) {
+        dest[k] = lhs[k] + rhs[k];
+        ++k;
+    }
 }
 
-inline void binary_op(float * dest, float * lhs, float * rhs, Shape &shape, 
-                      NDVector &l_strides, NDVector &r_strides, size_t * positions, 
-                      float (*op)(float, float), int depth) {
-    if (depth < shape.nd) {
+
+void inline
+sub_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, v_b;
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_b = _mm256_load_ps(&rhs[k]);
+        v_a = _mm256_sub_ps(v_a, v_b);
+        _mm256_store_ps(&dest[k], v_a);
+    }
+#endif
+    while (k < length) {
+        dest[k] = lhs[k] - rhs[k];
+        ++k;
+    }
+}
+
+
+void inline
+mul_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, v_b;
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_b = _mm256_load_ps(&rhs[k]);
+        v_a = _mm256_mul_ps(v_a, v_b);
+        _mm256_store_ps(&dest[k], v_a);
+    }
+#endif
+    while (k < length) {
+        dest[k] = lhs[k] * rhs[k];
+        ++k;
+    }
+}
+
+
+void inline
+div_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, v_b;
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_b = _mm256_load_ps(&rhs[k]);
+        v_a = _mm256_div_ps(v_a, v_b);
+        _mm256_store_ps(&dest[k], v_a);
+    }
+#endif
+    while (k < length) {
+        dest[k] = lhs[k] / rhs[k];
+        ++k;
+    }
+}
+
+
+inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
+                          NDVector &l_strides, NDVector &r_strides, size_t * positions,
+                          binary_op op, int depth) {
+    if (depth < shape.nd - 1) {
         for (int k = 0; k < shape[depth]; ++k) {
-            binary_op(dest, lhs, rhs, shape, l_strides, r_strides, positions, op, depth + 1);
+            rec_binary_op(dest, lhs, rhs, shape, l_strides, r_strides, positions, op, depth + 1);
             positions[1] += l_strides[depth];
             positions[2] += r_strides[depth];
         }
         positions[1] -= l_strides[depth] * shape[depth];
         positions[2] -= r_strides[depth] * shape[depth];
     } else {
-        printf("positions %i %i %i\n", positions[0], positions[1], positions[2]);
-        dest[positions[0]] = op(lhs[positions[1]], rhs[positions[2]]);
-        ++positions[0];
+        for (int k = 0; k < shape[depth]; ++k) {
+            dest[positions[0]] = op(lhs[positions[1] + l_strides[depth] * k],
+                                    rhs[positions[2] + r_strides[depth] * k]);
+            ++positions[0];
+        }
     }
 
 }
@@ -382,187 +442,127 @@ inline float _div(float a, float b) {
 
 
 void
-sub_kernel(float * destination, float * other, ssize_t length) {
+exp_kernel(float * dest, float * src, ssize_t length) {
+    int k = 0;
 #if __AVX__
-    int k;
+    __m256 v_a;
     for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&destination[k]);
-        __m256 v_b = _mm256_load_ps(&other[k]);
-        v_a = _mm256_sub_ps(v_a, v_b);
-        _mm256_store_ps(&destination[k], v_a);
-    }
-    while (k < length) {
-        destination[k] -= other[k];
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] -= other[k];
-    }
-#endif
-}
-
-
-void
-mul_kernel(float * destination, float * other, ssize_t length) {
-#if __AVX__
-    int k;
-    for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&destination[k]);
-        __m256 v_b = _mm256_load_ps(&other[k]);
-        v_a = _mm256_mul_ps(v_a, v_b);
-        _mm256_store_ps(&destination[k], v_a);
-    }
-    while (k < length) {
-        destination[k] *= other[k];
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] *= other[k];
-    }
-#endif
-}
-
-
-void
-div_kernel(float * destination, float * other, ssize_t length) {
-#if __AVX__
-    int k;
-    for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&destination[k]);
-        __m256 v_b = _mm256_load_ps(&other[k]);
-        v_a = _mm256_div_ps(v_a, v_b);
-        _mm256_store_ps(&destination[k], v_a);
-    }
-    while (k < length) {
-        destination[k] /= other[k];
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        if (other[k] == 0) {
-            PyErr_SetString(PyExc_ZeroDivisionError, "");
-            PyErr_Print();
-            PyErr_Clear();
-        }
-        destination[k] /= other[k];
-    }
-#endif
-}
-
-
-void
-exp_kernel(float * destination, float * other, ssize_t length) {
-#if __AVX__
-    int k;
-    for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&other[k]);
+        v_a = _mm256_load_ps(&src[k]);
         v_a = _mm256_exp_ps(v_a);
-        _mm256_store_ps(&destination[k], v_a);
-    }
-    while (k < length) {
-        destination[k] = exp(other[k]);
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] = exp(other[k]);
+        _mm256_store_ps(&dest[k], v_a);
     }
 #endif
+    while (k < length) {
+        dest[k] = exp(src[k]);
+        ++k;
+    }
 }
 
 
 void
-log_kernel(float * destination, float * other, ssize_t length) {
+log_kernel(float * dest, float * src, ssize_t length) {
+    int k = 0;
 #if __AVX__
-    int k;
+    __m256 v_a;
     for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&other[k]);
+        v_a = _mm256_load_ps(&src[k]);
         v_a = _mm256_log_ps(v_a);
-        _mm256_store_ps(&destination[k], v_a);
-    }
-    while (k < length) {
-        destination[k] = log(other[k]);
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] = log(other[k]);
+        _mm256_store_ps(&dest[k], v_a);
     }
 #endif
+    while (k < length) {
+        dest[k] = log(src[k]);
+        ++k;
+    }
 }
 
 
-void
-val_mul_kernel(float * destination, float value, ssize_t length) {
+void inline
+val_add_kernel(float * dest, float * lhs, float value, ssize_t length) {
+    int k = 0;
 #if __AVX__
-    int k;
-    __m256 values, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
+    __m256 v_a, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
     for (k = 0; k < length - 8; k += 8) {
-        values = _mm256_load_ps(&destination[k]);
-        values = _mm256_mul_ps(values, constant);
-        _mm256_store_ps(&destination[k], values);
-    }
-    while (k < length) {
-        destination[k] *= value;
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] *= value;
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_a = _mm256_add_ps(v_a, constant);
+        _mm256_store_ps(&dest[k], v_a);
     }
 #endif
+    while (k < length) {
+        dest[k] = lhs[k] + value;
+        ++k;
+    }
 }
 
-void
-max_val_kernel(float * destination, float value, ssize_t length) {
+
+void inline
+val_mul_kernel(float * dest, float * lhs, float value, ssize_t length) {
+    int k = 0;
 #if __AVX__
-    int k;
-    __m256 values, val = _mm256_set_ps (value, value, value, value, value, value, value, value);
+    __m256 v_a, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
     for (k = 0; k < length - 8; k += 8) {
-        values = _mm256_load_ps(&destination[k]);
-        values = _mm256_max_ps(values, val);
-        _mm256_store_ps(&destination[k], values);
-    }
-    while (k < length) {
-        destination[k] = Py_MAX(value, destination[k]);
-        k++;
-    }
-#else
-    for (int k = 0; k < length; k++) {
-        destination[k] = Py_MAX(value, destination[k]);
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_a = _mm256_mul_ps(v_a, constant);
+        _mm256_store_ps(&dest[k], v_a);
     }
 #endif
+    while (k < length) {
+        dest[k] = lhs[k] * value;
+        ++k;
+    }
 }
 
-inline Karray elementwise_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
-	if (here.shape.length != other.shape.length) {
-		Karray self(here);
-		Shape common(here.shape, other.shape);
-		PYERR_RETURN_VAL(self);
-		self.broadcast(common);
-		Karray other(other);
-		other.broadcast(common);
-		op_kernel(self.data, other.data, common.length);
-		return self;
+
+void inline
+val_max_kernel(float * dest, float * lhs, float value, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_a = _mm256_max_ps(v_a, constant);
+        _mm256_store_ps(&dest[k], v_a);
+    }
+#endif
+    while (k < length) {
+        dest[k] = max(lhs[k], value);
+        ++k;
+    }
+}
+
+Karray Karray::elementwise_binary_op(const Karray &other,
+                                     binary_kernel kernel,
+                                     binary_op op) {
+	size_t length = shape.length;
+	if (length == other.shape.length) {
+		Karray result(shape);
+		kernel(result.data, data, other.data, length);
+		return result;
 	} else {
-		Karray self(here);
-		op_kernel(self.data, other.data, here.shape.length);
-		return self;
+		auto [common, a_strides, b_strides] =
+		    paired_strides(shape, other.shape);
+		PYERR_RETURN_VAL(Karray());
+		Karray result(common);
+		size_t positions[3] = {0};
+		rec_binary_op(result.data, data, other.data,
+		              common, a_strides, b_strides, positions, op, 0);
+		return result;
 	}
 }
 
-inline Karray& elementwise_inplace_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
-	if (here.shape.length == other.shape.length) {
-		op_kernel(here.data, other.data, here.shape.length);
+void Karray::inplace_binary_op(const Karray  &rhs,
+                               binary_kernel kernel,
+                               binary_op op) {
+	if (shape.length == rhs.shape.length) {
+		kernel(data, data, rhs.data, shape.length);
 	} else {
-		Karray tmp(other);
-		tmp.broadcast(here.shape);
-		PYERR_RETURN_VAL(here);
-		op_kernel(here.data, tmp.data, here.shape.length);
+		auto [a_strides, b_strides] =
+		    shape.paired_strides(rhs.shape);
+		PYERR_RETURN;
+		size_t positions[3] = {0};
+		rec_binary_op(data, data, rhs.data, shape,
+		              a_strides, b_strides, positions, op, 0);
 	}
-	return here; // return the result by reference
 }
 
 Karray::Karray(Shape new_shape) {
@@ -580,7 +580,7 @@ Karray::Karray(Shape new_shape, float value) {
 }
 
 Karray::Karray(float val) {
-	printf("creating generic new karr\n");
+	// printf("creating generic new karr\n");
 	seed = rand();
 	shape = Shape();
 	data = new float[1];
@@ -589,7 +589,7 @@ Karray::Karray(float val) {
 
 
 Karray::Karray() {
-	printf("creating generic new karr\n");
+	// printf("creating generic new karr\n");
 	seed = rand();
 	shape = Shape();
 	data = new float[1];
@@ -604,7 +604,7 @@ Karray::Karray(const Karray& other)
 }
 
 Karray& Karray::operator=(const Karray& other) {
-	printf("copying array %i into %i\n", other.seed, seed);
+	// printf("copying array %i into %i\n", other.seed, seed);
 	shape = other.shape;
 	delete[] data;
 	data = new float[shape.length];
@@ -616,7 +616,7 @@ Karray::Karray(Karray&& other)
 	: seed{other.seed + 1},
 	  shape{other.shape} {
 	seed = other.seed + 1;
-	printf("moving array %i into %i\n", other.seed, seed);
+	// printf("moving array %i into %i\n", other.seed, seed);
 	data = other.data;
 	other.shape = Shape();
 	other.data = new float[1];
@@ -624,9 +624,8 @@ Karray::Karray(Karray&& other)
 }
 
 Karray& Karray::operator=(Karray&& other) {
-	printf("moving array %i into %i\n", other.seed, seed);
+	// printf("moving array %i into %i\n", other.seed, seed);
 	shape = other.shape;
-	std::cout << "null pointer " << data << std::endl;
 	delete[] data;
 	data = other.data;
 	other.shape = Shape();
@@ -636,45 +635,49 @@ Karray& Karray::operator=(Karray&& other) {
 }
 
 Karray& Karray::operator+=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, add_kernel);
+	inplace_binary_op(other, add_kernel, _add);
+	return *this;
 }
 
 Karray& Karray::operator/=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, div_kernel);
+	inplace_binary_op(other, div_kernel, _div);
+	return *this;
 }
 
 Karray& Karray::operator-=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, sub_kernel);
+	inplace_binary_op(other, sub_kernel, _sub);
+	return *this;
 }
 
 Karray& Karray::operator*=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, mul_kernel);
+	inplace_binary_op(other, mul_kernel, _mul);
+	return *this;
 }
 
 Karray Karray::operator-(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, sub_kernel);
+	return elementwise_binary_op(rhs, sub_kernel, _sub);
 }
 
 Karray Karray::operator*(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, mul_kernel);
+	return elementwise_binary_op(rhs, mul_kernel, _mul);
 }
 
 Karray Karray::operator+(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, add_kernel);
+	return elementwise_binary_op(rhs, add_kernel, _add);
 }
 
 Karray Karray::operator/(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, div_kernel);
+	return elementwise_binary_op(rhs, div_kernel, _div);
 }
 
 // Karray Karray::matmul(const Karray& rhs) {
 // 	if (!shape.compatible_for_matmul(rhs.shape))
 // 		throw std::exception("shapes incompatible for matmul");
-	
+
 // }
 
 void Karray::swap(Karray& other) {
-	printf("swapping %i and %i\n", seed, other.seed);
+	// printf("swapping %i and %i\n", seed, other.seed);
 	std::swap(shape, other.shape);
 	std::swap(data, other.data);
 }
@@ -731,10 +734,6 @@ Karray Karray::subscript(PyObject * key) {
 	Shape new_shape(filter.from_subscript(key, shape));
 	PYERR_PRINT_GOTO_FAIL;
 
-	strides.print();
-	new_shape.print();
-	filter.print();
-
 	result.shape = new_shape;
 	delete[] result.data;
 	result.data = new float[new_shape.length];
@@ -753,7 +752,7 @@ fail:
 }
 
 Karray::~Karray() {
-	printf("deallocating karr with shape %s and seed %i\n", shape.str().c_str(), seed);
+	// printf("deallocating karr with shape %s and seed %i\n", shape.str().c_str(), seed);
 	delete[] data;
 	shape.~Shape();
 }
@@ -913,57 +912,6 @@ inline _sum(float * self_data, float * result_data, float * weights_data,
 				result_data[k] /= (float) self_shape[axis];
 	}
 }
-
-// PyObject *
-// Karray_binary_op(PyObject * self, PyObject * other,
-//                 ) {
-//     Karray *a, *b, *c;
-//     Py_ssize_t data_length, *cmn_shape;
-//     bool a_owned = false, b_owned = false;
-
-
-//     if (!is_Karray(self) || !is_Karray(other)) {
-//         Py_RETURN_NOTIMPLEMENTED;
-//     }
-
-//     a = reinterpret_cast<Karray *>(self);
-//     b = reinterpret_cast<Karray *>(other);
-
-//     data_length = Karray_length(a);
-//     if (Karray_length(b) != data_length) {
-//         cmn_shape = common_shape(a, b);
-//         Karray_IF_ERR_GOTO_FAIL;
-//         a = broadcast(a, cmn_shape);
-//         a_owned = true;
-//         Karray_IF_ERR_GOTO_FAIL;
-//         b = broadcast(b, cmn_shape);
-//         b_owned = true;
-//         Karray_IF_ERR_GOTO_FAIL;
-//         data_length = Karray_length(a);
-//     } else {
-//         c = new_Karray_as(a);
-//         Karray_copy(a, c);
-//         a = c;
-
-//     }
-
-//     op_kernel(a->data, b->data, data_length);
-
-//     // Py_INCREF(a);
-
-
-//     if (b_owned)
-//         Py_DECREF(b);
-
-//     return reinterpret_cast<PyObject *>(a);
-
-//     fail:
-//         Py_XDECREF(a);
-//         Py_XDECREF(b);
-//         PyErr_SetString(PyExc_TypeError,
-//             "Failed to apply binary operation.");
-//         return NULL;
-// }
 Shape::Shape(int ndims...) {
 	va_list args;
 	va_start(args, ndims);
@@ -1089,8 +1037,6 @@ paired_strides(Shape a, Shape b) noexcept {
 			b.insert_one(0);
 	while((b.nd - a.nd) > 0)
 			a.insert_one(0);
-    a.print("a shape");
-    b.print("b shape");
 
 	for (int k = a.nd-1; k >= 0; --k) {
 		if (a[k] == common[k]) {
@@ -1107,6 +1053,33 @@ paired_strides(Shape a, Shape b) noexcept {
 		}
 	}
 	return {common, astr, bstr};
+}
+
+std::tuple<NDVector, NDVector>
+Shape::paired_strides(Shape b) noexcept {
+	NDVector astr, bstr;
+    size_t acc = 1, bcc = 1;
+	while((nd - b.nd) > 0)
+			b.insert_one(0);
+
+	for (int k = nd-1; k >= 0; --k) {
+		if (b[k] == buf[k]) {
+			bstr.buf[k] = bcc;
+			bcc *= b[k];
+			astr.buf[k] = acc;
+			acc *= buf[k];
+		} else if (b[k] == 1) {
+			astr.buf[k] = acc;
+			acc *= buf[k];
+			bstr.buf[k] = 0;
+		} else {
+			PyErr_Format(Karray_error, 
+				"Shapes %s and %s not compatible for inplace binary op.",
+				str(), b.str());
+			return {astr, bstr};
+		}
+	}
+	return {astr, bstr};
 }
 
 
@@ -1251,8 +1224,7 @@ size_t Shape::pop(int i) {
 NDVector Shape::strides(int depth_diff) {
 	NDVector result;
 	size_t acc = 1;
-	printf("depth diff %i, nd %i\n", depth_diff, nd);
-	result.print();
+	// printf("depth diff %i, nd %i\n", depth_diff, nd);
 	for (int i = nd - 1; i >= 0; --i) {
 		result.buf[i + depth_diff] = acc;
 		acc *= buf[i];
@@ -1473,7 +1445,7 @@ fail:
 
 void
 Karray_dealloc(PyKarray *self) {
-    printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
+    // printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
     self->arr.~Karray();
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
 }
@@ -1522,6 +1494,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
         return -1;
 
     if (shape) {
+        Py_INCREF(shape);
         proposed_shape = Shape(shape);
         PYERR_PRINT_GOTO_FAIL;
     }
@@ -1619,7 +1592,6 @@ Karray_reshape(PyKarray * self, PyObject * shape) {
     Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape, self->arr.shape.length);
     PYERR_RETURN_VAL(NULL);
-    new_shape.print();
     self->arr.shape = new_shape;
     return reinterpret_cast<PyObject *>(self);
 }
@@ -1659,7 +1631,6 @@ Karray_broadcast(PyKarray * self, PyObject * shape) {
     Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape);
     PYERR_RETURN_VAL(NULL);
-    new_shape.print();
     self->arr.broadcast(new_shape);
     return reinterpret_cast<PyObject *>(self);
 }
@@ -1735,90 +1706,117 @@ PyObject *Karray_recadd(PyObject *here, PyObject *other) {
     PyKarray * self = reinterpret_cast<PyKarray *>(here);
     PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
     PyKarray * result;
-    if (self->arr.shape.length == rhs->arr.shape.length) {
-        result = new_PyKarray(self->arr);
-        add_kernel(result->arr.data, rhs->arr.data, self->arr.shape.length);
+    size_t length = self->arr.shape.length;
+    if (length == rhs->arr.shape.length) {
+        result = new_PyKarray(self->arr.shape);
+        add_kernel(result->arr.data, self->arr.data, rhs->arr.data, length);
     } else {
         auto [common, a_strides, b_strides] =
             paired_strides(self->arr.shape, rhs->arr.shape);
         PYERR_RETURN_VAL(NULL);
-        common.print("common ");
-        a_strides.print();
-        b_strides.print();
         result = new_PyKarray(common);
         size_t positions[3] = {0};
-        binary_op(result->arr.data, self->arr.data, rhs->arr.data,
+        rec_binary_op(result->arr.data, self->arr.data, rhs->arr.data,
             common, a_strides, b_strides, positions, _add, 0);
     }
     return reinterpret_cast<PyObject *>(result);
 }
 
 
-inline PyObject * binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, ssize_t)) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+
+
+
+
+
+PyObject *Karray_pureadd(PyObject *here, PyObject *other) {
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+    PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
+    PyKarray * result = new_PyKarray(self->arr.shape);
+    size_t length = self->arr.shape.length;
+    int k;
+    for (k = 0; k < length - 8; k += 8) {
+        __m256 v_a = _mm256_load_ps(&self->arr.data[k]);
+        __m256 v_b = _mm256_load_ps(&rhs->arr.data[k]);
+        v_a = _mm256_add_ps(v_a, v_b);
+        _mm256_store_ps(&rhs->arr.data[k], v_a);
+    }
+    while (k < length) {
+        rhs->arr.data[k] = self->arr.data[k] + rhs->arr.data[k];
+        k++;
+    }
+
+    return reinterpret_cast<PyObject *>(result);
+}
+inline PyObject * py_binary_op(PyObject *here,
+                               PyObject *other,
+                               binary_kernel kernel,
+                               binary_op op) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
-	PyObject * result;
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	auto third_karr = new_PyKarray();
-	third_karr->arr = elementwise_binary_op(karr->arr, other_karr->arr, op_kernel);
+
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	auto result = new_PyKarray();
+	result->arr = self->arr.elementwise_binary_op(rhs->arr, kernel, op);
 	PYERR_RETURN_VAL(NULL);
-	result = reinterpret_cast<PyObject *>(third_karr);
-	return result;
+	return reinterpret_cast<PyObject *>(result);
 }
 
-inline PyObject * inplace_binary_op(PyObject *self, PyObject *other, void (*op_kernel)(float *, float*, ssize_t)) {
-	if (py_type(self) != KARRAY || py_type(other) != KARRAY) {
+inline PyObject * py_inplace_binary_op(PyObject *here,
+                                       PyObject *other,
+                                       binary_kernel kernel,
+                                       binary_op op) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
-	auto karr = reinterpret_cast<PyKarray *>(self);
-	auto other_karr = reinterpret_cast<PyKarray *>(other);
-	elementwise_inplace_binary_op(karr->arr, other_karr->arr, op_kernel);
-	Py_INCREF(self);
-	return self;
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	self->arr.inplace_binary_op(rhs->arr, kernel, op);
+	Py_INCREF(here);
+	return here;
 }
 
 
 PyObject *
 Karray_add(PyObject * self, PyObject * other) {
-	return binary_op(self, other, add_kernel);
+	return py_binary_op(self, other, add_kernel, _add);
 }
 
 PyObject *
 Karray_sub(PyObject * self, PyObject * other) {
-	return binary_op(self, other, sub_kernel);
+	return py_binary_op(self, other, sub_kernel, _sub);
 }
 
 PyObject *
 Karray_mul(PyObject * self, PyObject * other) {
-	return binary_op(self, other, mul_kernel);
+	return py_binary_op(self, other, mul_kernel, _mul);
 }
 
 PyObject *
 Karray_div(PyObject * self, PyObject * other) {
-	return binary_op(self, other, div_kernel);
+	return py_binary_op(self, other, div_kernel, _div);
 }
 
 
 PyObject *
 Karray_inplace_add(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, add_kernel);
+	return py_inplace_binary_op(self, other, add_kernel, _add);
 }
 
 PyObject *
 Karray_inplace_sub(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, sub_kernel);
+	return py_inplace_binary_op(self, other, sub_kernel, _sub);
 }
 
 PyObject *
 Karray_inplace_mul(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, mul_kernel);
+	return py_inplace_binary_op(self, other, mul_kernel, _mul);
 }
 
 PyObject *
 Karray_inplace_div(PyObject * self, PyObject * other) {
-	return inplace_binary_op(self, other, div_kernel);
+	return py_inplace_binary_op(self, other, div_kernel, _div);
 }
 
 // PyObject *
@@ -1908,24 +1906,23 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 
 
 inline PyObject *
-inplace_val_unary_op(PyObject * o,  float val, void (*op_kernel)(float *, float, ssize_t)) {
+inplace_val_binary_op(PyObject * o,  float val,
+                      binary_val_kernel kernel) {
 	if (!(py_type(o) == KARRAY)) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}
 
 	PyKarray * self = reinterpret_cast<PyKarray *>(o);
-	PyKarray * result = new_PyKarray(self->arr);
+	PyKarray * result = new_PyKarray(self->arr.shape);
 
-	size_t length = self->arr.shape.length;
-
-	op_kernel(result->arr.data, val, length);
+	kernel(result->arr.data, self->arr.data, val, self->arr.shape.length);
 
 	return reinterpret_cast<PyObject *>(result);
 }
 
 PyObject *
 Karray_negative(PyObject * here) {
-	return inplace_val_unary_op(here, -1.0, val_mul_kernel);
+	return inplace_val_binary_op(here, -1.0, val_mul_kernel);
 }
 
 // PyObject *
@@ -1971,7 +1968,7 @@ overwrite_unary_op(PyObject * o,  void (*op_kernel)(float *, float*, ssize_t)) {
 
 PyObject *
 Karray_relu(PyObject *module, PyObject * o) {
-	return inplace_val_unary_op(o, 0, max_val_kernel);
+	return inplace_val_binary_op(o, 0, val_max_kernel);
 }
 
 PyObject *Karray_softmax(PyObject *module,

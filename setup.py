@@ -12,11 +12,11 @@ elif platform == "darwin":
     pass
 elif platform == "win32":
     extra_args = {
-      'extra_compile_args': ['/std:c++latest', "/arch:AVX2"],
+      'extra_compile_args': ['/std:c++latest', "/arch:AVX2", '/Zc:strictStrings-'],
       'extra_link_args': []
     }
     if debug:
-        extra_args['extra_compile_args'] += ['/Zi', '/Od', '/Zc:strictStrings-']
+        extra_args['extra_compile_args'] += ['/Zi', '/Od']
         extra_args['extra_link_args'] += ['/DEBUG']
 
 # amalgamation 

@@ -1,31 +1,36 @@
-
-inline Karray elementwise_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
-	if (here.shape.length != other.shape.length) {
-		Karray self(here);
-		Shape common(here.shape, other.shape);
-		PYERR_RETURN_VAL(self);
-		self.broadcast(common);
-		Karray other(other);
-		other.broadcast(common);
-		op_kernel(self.data, other.data, common.length);
-		return self;
+Karray Karray::elementwise_binary_op(const Karray &other,
+                                     binary_kernel kernel,
+                                     binary_op op) {
+	size_t length = shape.length;
+	if (length == other.shape.length) {
+		Karray result(shape);
+		kernel(result.data, data, other.data, length);
+		return result;
 	} else {
-		Karray self(here);
-		op_kernel(self.data, other.data, here.shape.length);
-		return self;
+		auto [common, a_strides, b_strides] =
+		    paired_strides(shape, other.shape);
+		PYERR_RETURN_VAL(Karray());
+		Karray result(common);
+		size_t positions[3] = {0};
+		rec_binary_op(result.data, data, other.data,
+		              common, a_strides, b_strides, positions, op, 0);
+		return result;
 	}
 }
 
-inline Karray& elementwise_inplace_binary_op(Karray &here, const Karray  &other, void (*op_kernel)(float *, float*, Py_ssize_t)) {
-	if (here.shape.length == other.shape.length) {
-		op_kernel(here.data, other.data, here.shape.length);
+void Karray::inplace_binary_op(const Karray  &rhs,
+                               binary_kernel kernel,
+                               binary_op op) {
+	if (shape.length == rhs.shape.length) {
+		kernel(data, data, rhs.data, shape.length);
 	} else {
-		Karray tmp(other);
-		tmp.broadcast(here.shape);
-		PYERR_RETURN_VAL(here);
-		op_kernel(here.data, tmp.data, here.shape.length);
+		auto [a_strides, b_strides] =
+		    shape.paired_strides(rhs.shape);
+		PYERR_RETURN;
+		size_t positions[3] = {0};
+		rec_binary_op(data, data, rhs.data, shape,
+		              a_strides, b_strides, positions, op, 0);
 	}
-	return here; // return the result by reference
 }
 
 Karray::Karray(Shape new_shape) {
@@ -43,7 +48,7 @@ Karray::Karray(Shape new_shape, float value) {
 }
 
 Karray::Karray(float val) {
-	printf("creating generic new karr\n");
+	// printf("creating generic new karr\n");
 	seed = rand();
 	shape = Shape();
 	data = new float[1];
@@ -52,7 +57,7 @@ Karray::Karray(float val) {
 
 
 Karray::Karray() {
-	printf("creating generic new karr\n");
+	// printf("creating generic new karr\n");
 	seed = rand();
 	shape = Shape();
 	data = new float[1];
@@ -67,7 +72,7 @@ Karray::Karray(const Karray& other)
 }
 
 Karray& Karray::operator=(const Karray& other) {
-	printf("copying array %i into %i\n", other.seed, seed);
+	// printf("copying array %i into %i\n", other.seed, seed);
 	shape = other.shape;
 	delete[] data;
 	data = new float[shape.length];
@@ -79,7 +84,7 @@ Karray::Karray(Karray&& other)
 	: seed{other.seed + 1},
 	  shape{other.shape} {
 	seed = other.seed + 1;
-	printf("moving array %i into %i\n", other.seed, seed);
+	// printf("moving array %i into %i\n", other.seed, seed);
 	data = other.data;
 	other.shape = Shape();
 	other.data = new float[1];
@@ -87,9 +92,8 @@ Karray::Karray(Karray&& other)
 }
 
 Karray& Karray::operator=(Karray&& other) {
-	printf("moving array %i into %i\n", other.seed, seed);
+	// printf("moving array %i into %i\n", other.seed, seed);
 	shape = other.shape;
-	std::cout << "null pointer " << data << std::endl;
 	delete[] data;
 	data = other.data;
 	other.shape = Shape();
@@ -99,45 +103,49 @@ Karray& Karray::operator=(Karray&& other) {
 }
 
 Karray& Karray::operator+=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, add_kernel);
+	inplace_binary_op(other, add_kernel, _add);
+	return *this;
 }
 
 Karray& Karray::operator/=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, div_kernel);
+	inplace_binary_op(other, div_kernel, _div);
+	return *this;
 }
 
 Karray& Karray::operator-=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, sub_kernel);
+	inplace_binary_op(other, sub_kernel, _sub);
+	return *this;
 }
 
 Karray& Karray::operator*=(const Karray& other) {
-	return elementwise_inplace_binary_op(*this, other, mul_kernel);
+	inplace_binary_op(other, mul_kernel, _mul);
+	return *this;
 }
 
 Karray Karray::operator-(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, sub_kernel);
+	return elementwise_binary_op(rhs, sub_kernel, _sub);
 }
 
 Karray Karray::operator*(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, mul_kernel);
+	return elementwise_binary_op(rhs, mul_kernel, _mul);
 }
 
 Karray Karray::operator+(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, add_kernel);
+	return elementwise_binary_op(rhs, add_kernel, _add);
 }
 
 Karray Karray::operator/(const Karray& rhs) {
-	return elementwise_binary_op(*this, rhs, div_kernel);
+	return elementwise_binary_op(rhs, div_kernel, _div);
 }
 
 // Karray Karray::matmul(const Karray& rhs) {
 // 	if (!shape.compatible_for_matmul(rhs.shape))
 // 		throw std::exception("shapes incompatible for matmul");
-	
+
 // }
 
 void Karray::swap(Karray& other) {
-	printf("swapping %i and %i\n", seed, other.seed);
+	// printf("swapping %i and %i\n", seed, other.seed);
 	std::swap(shape, other.shape);
 	std::swap(data, other.data);
 }
@@ -194,10 +202,6 @@ Karray Karray::subscript(PyObject * key) {
 	Shape new_shape(filter.from_subscript(key, shape));
 	PYERR_PRINT_GOTO_FAIL;
 
-	strides.print();
-	new_shape.print();
-	filter.print();
-
 	result.shape = new_shape;
 	delete[] result.data;
 	result.data = new float[new_shape.length];
@@ -216,7 +220,7 @@ fail:
 }
 
 Karray::~Karray() {
-	printf("deallocating karr with shape %s and seed %i\n", shape.str().c_str(), seed);
+	// printf("deallocating karr with shape %s and seed %i\n", shape.str().c_str(), seed);
 	delete[] data;
 	shape.~Shape();
 }
@@ -376,54 +380,3 @@ inline _sum(float * self_data, float * result_data, float * weights_data,
 				result_data[k] /= (float) self_shape[axis];
 	}
 }
-
-// PyObject *
-// Karray_binary_op(PyObject * self, PyObject * other,
-//                 ) {
-//     Karray *a, *b, *c;
-//     Py_ssize_t data_length, *cmn_shape;
-//     bool a_owned = false, b_owned = false;
-
-
-//     if (!is_Karray(self) || !is_Karray(other)) {
-//         Py_RETURN_NOTIMPLEMENTED;
-//     }
-
-//     a = reinterpret_cast<Karray *>(self);
-//     b = reinterpret_cast<Karray *>(other);
-
-//     data_length = Karray_length(a);
-//     if (Karray_length(b) != data_length) {
-//         cmn_shape = common_shape(a, b);
-//         Karray_IF_ERR_GOTO_FAIL;
-//         a = broadcast(a, cmn_shape);
-//         a_owned = true;
-//         Karray_IF_ERR_GOTO_FAIL;
-//         b = broadcast(b, cmn_shape);
-//         b_owned = true;
-//         Karray_IF_ERR_GOTO_FAIL;
-//         data_length = Karray_length(a);
-//     } else {
-//         c = new_Karray_as(a);
-//         Karray_copy(a, c);
-//         a = c;
-
-//     }
-
-//     op_kernel(a->data, b->data, data_length);
-
-//     // Py_INCREF(a);
-
-
-//     if (b_owned)
-//         Py_DECREF(b);
-
-//     return reinterpret_cast<PyObject *>(a);
-
-//     fail:
-//         Py_XDECREF(a);
-//         Py_XDECREF(b);
-//         PyErr_SetString(PyExc_TypeError,
-//             "Failed to apply binary operation.");
-//         return NULL;
-// }

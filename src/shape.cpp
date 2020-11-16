@@ -124,8 +124,6 @@ paired_strides(Shape a, Shape b) noexcept {
 			b.insert_one(0);
 	while((b.nd - a.nd) > 0)
 			a.insert_one(0);
-    a.print("a shape");
-    b.print("b shape");
 
 	for (int k = a.nd-1; k >= 0; --k) {
 		if (a[k] == common[k]) {
@@ -142,6 +140,33 @@ paired_strides(Shape a, Shape b) noexcept {
 		}
 	}
 	return {common, astr, bstr};
+}
+
+std::tuple<NDVector, NDVector>
+Shape::paired_strides(Shape b) noexcept {
+	NDVector astr, bstr;
+    size_t acc = 1, bcc = 1;
+	while((nd - b.nd) > 0)
+			b.insert_one(0);
+
+	for (int k = nd-1; k >= 0; --k) {
+		if (b[k] == buf[k]) {
+			bstr.buf[k] = bcc;
+			bcc *= b[k];
+			astr.buf[k] = acc;
+			acc *= buf[k];
+		} else if (b[k] == 1) {
+			astr.buf[k] = acc;
+			acc *= buf[k];
+			bstr.buf[k] = 0;
+		} else {
+			PyErr_Format(Karray_error, 
+				"Shapes %s and %s not compatible for inplace binary op.",
+				str(), b.str());
+			return {astr, bstr};
+		}
+	}
+	return {astr, bstr};
 }
 
 
@@ -286,8 +311,7 @@ size_t Shape::pop(int i) {
 NDVector Shape::strides(int depth_diff) {
 	NDVector result;
 	size_t acc = 1;
-	printf("depth diff %i, nd %i\n", depth_diff, nd);
-	result.print();
+	// printf("depth diff %i, nd %i\n", depth_diff, nd);
 	for (int i = nd - 1; i >= 0; --i) {
 		result.buf[i + depth_diff] = acc;
 		acc *= buf[i];

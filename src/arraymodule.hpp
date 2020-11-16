@@ -93,6 +93,13 @@ PyObject* Karray_error;
         return val;
 
 
+typedef float(*binary_op)(float, float);
+typedef void(*binary_kernel)(float *, float *, float *, ssize_t);
+typedef void(*binary_val_kernel)(float *, float *, float, ssize_t);
+typedef void(*unary_kernel)(float *, float *, ssize_t);
+
+
+
 class Filter;
 class NDVector;
 
@@ -128,6 +135,7 @@ public:
     size_t axis(PyObject * o);
     size_t axis(int ax);
     bool compatible_for_matmul(Shape & other);
+    std::tuple<NDVector, NDVector> paired_strides(Shape b) noexcept;
 
 private:
     size_t buf[MAX_ND];
@@ -190,6 +198,8 @@ public:
     Karray subscript(PyObject * key);
     Karray flat_sum(bool mean = false);
     Karray sum(size_t axis, const Karray &weights, bool mean = false);
+    Karray elementwise_binary_op(const Karray &other, binary_kernel kernel, binary_op op);
+    void inplace_binary_op(const Karray  &rhs, binary_kernel kernel, binary_op op);
 };
 
 class Filter
@@ -236,9 +246,9 @@ public:
         return ss.str();
     };
 
-    ~NDVector() {
-        printf("destroying ndvector %s\n", str().c_str());
-    };
+    // ~NDVector() {
+    //     // printf("destroying ndvector %s\n", str().c_str());
+    // };
 };
 
 typedef struct {
@@ -287,6 +297,7 @@ PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 PyObject * Karray_negative(PyObject * self);
 
 PyObject *Karray_recadd(PyObject *here, PyObject *other);
+PyObject *Karray_pureadd(PyObject *here, PyObject *other);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
