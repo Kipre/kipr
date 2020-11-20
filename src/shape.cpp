@@ -119,13 +119,13 @@ static std::tuple<Shape, NDVector, NDVector>
 paired_strides(Shape a, Shape b) noexcept {
 	Shape common = Shape(a, b);
 	NDVector astr, bstr;
-    size_t acc = 1, bcc = 1;
-	while((a.nd - b.nd) > 0)
-			b.insert_one(0);
-	while((b.nd - a.nd) > 0)
-			a.insert_one(0);
+	size_t acc = 1, bcc = 1;
+	while ((a.nd - b.nd) > 0)
+		b.insert_one(0);
+	while ((b.nd - a.nd) > 0)
+		a.insert_one(0);
 
-	for (int k = a.nd-1; k >= 0; --k) {
+	for (int k = a.nd - 1; k >= 0; --k) {
 		if (a[k] == common[k]) {
 			astr.buf[k] = acc;
 			acc *= a[k];
@@ -145,11 +145,11 @@ paired_strides(Shape a, Shape b) noexcept {
 std::tuple<NDVector, NDVector>
 Shape::paired_strides(Shape b) noexcept {
 	NDVector astr, bstr;
-    size_t acc = 1, bcc = 1;
-	while((nd - b.nd) > 0)
-			b.insert_one(0);
+	size_t acc = 1, bcc = 1;
+	while ((nd - b.nd) > 0)
+		b.insert_one(0);
 
-	for (int k = nd-1; k >= 0; --k) {
+	for (int k = nd - 1; k >= 0; --k) {
 		if (b[k] == buf[k]) {
 			bstr.buf[k] = bcc;
 			bcc *= b[k];
@@ -160,9 +160,9 @@ Shape::paired_strides(Shape b) noexcept {
 			acc *= buf[k];
 			bstr.buf[k] = 0;
 		} else {
-			PyErr_Format(Karray_error, 
-				"Shapes %s and %s not compatible for inplace binary op.",
-				str(), b.str());
+			PyErr_Format(Karray_error,
+			             "Shapes %s and %s not compatible for inplace binary op.",
+			             str(), b.str());
 			return {astr, bstr};
 		}
 	}
@@ -210,6 +210,33 @@ bool Shape::assert_or_set(size_t value, int dim) {
 	}
 }
 
+// void Shape::set(int i, size_t val) {
+// 	buf[i] = val;
+// }
+
+void Shape::set(int i, size_t val) {
+	if (i < nd) {
+		length /= buf[i];
+		buf[i] = val;
+		length *= val;
+	} else {
+		for (int k=nd; k < i; ++k) {
+			buf[k] = 1;
+		}
+		buf[i] = val;
+		length *= val;
+		nd = i + 1;
+	}
+}
+
+size_t Shape::nbmats() {
+	if (nd == 1)
+		return 0;
+	if (nd == 2)
+		return 1;
+	return length / (buf[nd-1] * buf[nd-2]);
+}
+
 size_t Shape::validate() {
 	int i, new_nd = 0;
 	length = 1;
@@ -240,7 +267,7 @@ void Shape::write(size_t * destination) {
 
 
 
-std::string Shape::str() {
+std::string Shape::str() const {
 	std::string result("[");
 	result += std::to_string(buf[0]);
 	for (int i = 1; i < nd; ++i)
@@ -283,13 +310,13 @@ size_t Shape::sum() {
 	return result;
 }
 
-size_t Shape::operator[](size_t i) {
+size_t Shape::operator[](size_t i) const {
 	return buf[i];
 }
 
-size_t Shape::pop(int i) {
+size_t Shape::pop(int i) noexcept {
 	if (abs(i) >= nd)
-		KERR_RETURN_VAL("Shape::pop out of range.", 0);
+		throw std::exception("Shape::pop out of range");
 	if (i == -1)
 		i = nd - 1;
 	size_t tmp = buf[i];
@@ -308,7 +335,7 @@ size_t Shape::pop(int i) {
 	return tmp;
 }
 
-NDVector Shape::strides(int depth_diff) {
+NDVector Shape::strides(int depth_diff) const {
 	NDVector result;
 	size_t acc = 1;
 	// printf("depth diff %i, nd %i\n", depth_diff, nd);
@@ -324,7 +351,7 @@ NDVector Shape::strides(int depth_diff) {
 
 void Shape::insert_one(int i) {
 	if (i < 0 || i > nd)
-		KERR_RETURN("Cannot insert 1 into shape becaise index is out of bounds.");
+		KERR_RETURN("Cannot insert 1 into shape because index is out of bounds.");
 	if (i == 0 && nd == 1 && buf[0] == 1)
 		return;
 	++nd;
@@ -369,4 +396,18 @@ bool Shape::compatible_for_matmul(Shape & other) {
 	if (buf[nd - 1] != other[other.nd - 2])
 		return false;
 	return true;
+}
+
+std::tuple<Shape, NDVector> Shape::transpose() const {
+	Shape result;
+	result.nd = nd;
+	result.length = length;
+	std::copy(buf, buf + MAX_ND, result.buf);
+	NDVector strides_t = strides();
+	result.buf[nd-1] = buf[nd-2];
+	result.buf[nd-2] = buf[nd-1];
+	size_t tmp = strides_t.buf[nd-1];
+	strides_t.buf[nd-1] = strides_t.buf[nd-2];
+	strides_t.buf[nd-2] = tmp;
+	return {result, strides_t};
 }

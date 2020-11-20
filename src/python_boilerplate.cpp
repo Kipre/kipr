@@ -25,12 +25,18 @@ static PyMethodDef Karray_methods[] = {
      "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
     //  "Return the float value of a scalar <kipr.arr>."},
+    {"matmul", (PyCFunction)  Karray_matmul_loop, METH_O,
+     "looping matmul"},
+    {"matmul_t", (PyCFunction)  Karray_matmul_loop_transpose, METH_O,
+     "transpose matmul"},
     {"pureadd", (PyCFunction)  Karray_pureadd, METH_O,
      "pureursive add"},
     {"recadd", (PyCFunction)  Karray_recadd, METH_O,
      "recursive add"},
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
+    {"transpose", (PyCFunction)  Karray_transpose, METH_NOARGS,
+     "Get the transpose of <kipr.arr>."},
     {NULL}  /* Sentinel */
 };
 
@@ -79,7 +85,7 @@ static PyNumberMethods Karray_as_number = {
     .nb_true_divide = Karray_div,
     .nb_inplace_true_divide = Karray_inplace_div,
 
-    // .nb_matrix_multiply = Karray_matmul
+    .nb_matrix_multiply = Karray_matmul
 };
 
 static PyMappingMethods Karray_as_mapping = {

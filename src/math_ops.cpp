@@ -29,7 +29,6 @@ inline PyObject * py_inplace_binary_op(PyObject *here,
 	return here;
 }
 
-
 PyObject *
 Karray_add(PyObject * self, PyObject * other) {
 	return py_binary_op(self, other, add_kernel, _add);
@@ -71,90 +70,92 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 	return py_inplace_binary_op(self, other, div_kernel, _div);
 }
 
-// PyObject *
-// Karray_matmul(PyObject * self, PyObject * other) {
-//     Karray *a, *b, *c;
-//     Py_ssize_t left_dim, mid_dim, right_dim,
-//                nb_mat_a, nb_mat_b,
-//                pos_a = 0, pos_b = 0, pos_c = 0;
-//     Py_ssize_t result_shape[MAX_NDIMS] = {};
 
-//     if (!is_Karray(self) || !is_Karray(other)) {
-//         Py_RETURN_NOTIMPLEMENTED;
-//     }
 
-//     a = reinterpret_cast<Karray *>(self);
-//     b = reinterpret_cast<Karray *>(other);
+PyObject *
+Karray_matmul(PyObject * here, PyObject * other) {
 
-//     if (a->nd < 2 || b->nd < 2) {
-//         PyErr_SetString(PyExc_TypeError,
-//             "MatMul works on at least 2-dimensional arrays.");
-//         PyErr_Print();
-//         goto fail;
-//     }
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
 
-//     if (a->shape[a->nd - 1] != b->shape[b->nd - 2]) {
-//         PyErr_SetString(PyExc_TypeError,
-//             "Arrays not compatible for MatMul.");
-//         PyErr_Print();
-//         goto fail;
-//     }
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
 
-//     left_dim = a->shape[a->nd - 2];
-//     mid_dim = a->shape[a->nd - 1];
-//     right_dim = b->shape[b->nd - 1];
+	if (self->arr.shape.nd < 2 && rhs->arr.shape.nd < 2) {
+		KERR_RETURN_VAL("Both arrays must be at least two-dimensional for matmul.", NULL);
+	}
 
-//     nb_mat_a = product(a->shape, a->nd-2);
-//     nb_mat_b = product(b->shape, b->nd-2);
+	size_t M, N, I, J, K;
+	I = self->arr.shape[0];
+	K = self->arr.shape[1];
+	J = rhs->arr.shape[1];
 
-//     // printf("nb_mat_a, nb_mat_b: %i %i\n", nb_mat_a, nb_mat_b);
+	if (K != rhs->arr.shape[0]) {
+		PyErr_Format(Karray_error,
+		             "Matmul not possible with shapes %s and %s.",
+		             self->arr.shape.str(), rhs->arr.shape.str());
+		return NULL;
+	}
 
-//     if (nb_mat_a == nb_mat_b ||
-//         nb_mat_a == 1 ||
-//         nb_mat_b == 1) {
-//         result_shape[0] = Py_MAX(nb_mat_a, nb_mat_b);
-//         result_shape[1] = left_dim;
-//         result_shape[2] = right_dim;
-//     } else {
-//         PyErr_SetString(PyExc_TypeError,
-//             "Arrays not compatible for MatMul.");
-//         PyErr_Print();
-//         goto fail;
-//     }
-//     c = new_Karray_from_shape(result_shape);
-//     for (int m=0; m < result_shape[0]; ++m) {
-//         pos_a = (m % nb_mat_a) * left_dim*mid_dim;
-//         pos_b = (m % nb_mat_b) * mid_dim*right_dim;
-//         for (int i=0; i < left_dim; ++i) {
-//             for (int j=0; j < right_dim; ++j) {
-//                 c->data[pos_c] = 0;
-//                 for (int k=0; k < mid_dim; ++k) {
-//                     // printf("indexes: %i %i\n", pos_a + k + mid_dim*i, pos_b + j + k*right_dim);
-//                     c->data[pos_c] += a->data[pos_a + k + mid_dim*i] * b->data[pos_b + j + k*right_dim];
-//                 }
-//                 ++pos_c;
-//             }
-//         }
-//     }
-//     // risky
-//     if (nb_mat_a >= nb_mat_b) {
-//         c->nd = a->nd;
-//         set_shape(c, a->shape);
-//         c->shape[c->nd-1] = right_dim;
-//         c->shape[c->nd-2] = left_dim;
-//     } else {
-//         c->nd = b->nd;
-//         set_shape(c, b->shape);
-//         c->shape[c->nd-1] = right_dim;
-//         c->shape[c->nd-2] = left_dim;
-//     }
-//     // Py_INCREF(c);
-//     return reinterpret_cast<PyObject *>(c);
-//     fail:
-//         PyErr_SetString(PyExc_TypeError,
-//             "Failed to mat-mutiply arrays.");
-//         return NULL;
-// }
+	// M = self->arr.shape.nbmats();
+	// N = rhs->arr.shape.nbmats();
+
+	// if (I < 4 || J < 8) {
+	// 	if (I < 4 && J < 8) {
+	// 		for
+	// 	} else if (I == 1) {
+
+	// 	} else if (J == 1) {
+
+	// 	} else {}
+	// }
+
+	// if ()
+
+	Shape new_shape;
+	new_shape.set(0, I);
+	new_shape.set(1, J);
+
+	auto result = new_PyKarray(new_shape);
+
+	matmul(result->arr.data, self->arr.data, rhs->arr.data, I, J, K);
+
+	return reinterpret_cast<PyObject *>(result);
+}
+
+
+PyObject *
+Karray_matmul_loop(PyObject * here, PyObject * other) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	Karray mult = loop_matmul(self->arr, rhs->arr);
+	PYERR_RETURN_VAL(NULL);
+	auto result = new_PyKarray();
+	result->arr.swap(mult);
+	return reinterpret_cast<PyObject *>(result);
+}
+
+
+PyObject *
+Karray_matmul_loop_transpose(PyObject * here, PyObject * other) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	Karray mult = loop_transpose_matmul(self->arr, rhs->arr);
+	PYERR_RETURN_VAL(NULL);
+	auto result = new_PyKarray();
+	result->arr.swap(mult);
+	PyObject * final = reinterpret_cast<PyObject *>(result);
+	return final;
+}
 
 
 inline PyObject *

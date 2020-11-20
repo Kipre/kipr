@@ -108,16 +108,16 @@ fail:
     return -1;
 }
 
-PyObject *
-execute_func(PyObject *self, PyObject * input) {
-    DEBUG_Obj(input, "");
+// PyObject *
+// execute_func(PyObject *self, PyObject * input) {
+//     DEBUG_Obj(input, "");
 
 
-    Shape shape(input, (size_t) 120);
-    shape.print();
+//     Shape shape(input, (size_t) 120);
+//     shape.print();
 
-    Py_RETURN_NONE;
-}
+//     Py_RETURN_NONE;
+// }
 
 PyObject *
 Karray_str(PyKarray * self) {
@@ -256,6 +256,17 @@ Karray_mean(PyKarray *here, PyObject *args, PyObject *kwds) {
     return reinterpret_cast<PyObject *>(result);
 }
 
+PyObject *Karray_transpose(PyObject *here, PyObject *Py_UNUSED(ignored)) {
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+    auto [shape_t, strides_t] = self->arr.shape.transpose();
+    PyKarray * result = new_PyKarray(shape_t);
+    Positions pos {0, 0, 0};
+    transpose(self->arr.data, result->arr.data, &pos, shape_t, strides_t, 0);
+    return reinterpret_cast<PyObject *>(result);
+}
+
+
+
 
 
 
@@ -274,7 +285,7 @@ PyObject *Karray_recadd(PyObject *here, PyObject *other) {
         result = new_PyKarray(common);
         size_t positions[3] = {0};
         rec_binary_op(result->arr.data, self->arr.data, rhs->arr.data,
-            common, a_strides, b_strides, positions, _add, 0);
+                      common, a_strides, b_strides, positions, _add, 0);
     }
     return reinterpret_cast<PyObject *>(result);
 }
@@ -291,6 +302,7 @@ PyObject *Karray_pureadd(PyObject *here, PyObject *other) {
     PyKarray * result = new_PyKarray(self->arr.shape);
     size_t length = self->arr.shape.length;
     int k;
+    #pragma omp parallel for num_threads(8)
     for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&self->arr.data[k]);
         __m256 v_b = _mm256_load_ps(&rhs->arr.data[k]);

@@ -31,9 +31,23 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 		ASSERT(shape1.axis(one) == 1);
 		ASSERT(shape1.axis(minusone) == 2);
 		ASSERT(shape1.axis(two) == 2);
-		ASSERT(shape1.axis(NULL) == 3);
 		ASSERT_ERROR(shape1.axis(three));
 		ASSERT_ERROR(shape1.axis(fl));
+	};
+
+	TEST(ShapeSet) {
+		Shape shape1;
+		Shape expected;
+
+		shape1.set(0, 2);
+		expected = Shape(1, 2, 0);
+		ASSERT_SHAPE_EQ(expected, shape1);
+
+		shape1.set(3, 4);
+		ASSERT_SHAPE_EQ(Shape(4, 2, 1, 1, 4), shape1);
+
+		shape1.set(2, 6);
+		ASSERT_SHAPE_EQ(Shape(4, 2, 1, 6, 4), shape1);
 	};
 
 	// TEST(ShapeInsertOne) {

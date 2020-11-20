@@ -30,7 +30,7 @@
 const int MAX_ND = 8;
 const char * KARRAY_NAME = "kipr.arr";
 
-const int MAX_PRINT_SIZE = 30;
+const int MAX_PRINT_SIZE = 100;
 const int STR_OFFSET = 10;
 
 PyObject* Karray_error;
@@ -120,26 +120,28 @@ public:
     Shape(Shape a, Shape b) noexcept;
     void swap(Shape &other);
     void print(const char * message = "") const;
+    void set(int i, size_t val);
     bool assert_or_set(size_t value, int dim);
-    size_t operator[](size_t i);
+    size_t operator[](size_t i) const;
     bool operator==(Shape &other);
     size_t validate();
     void write(size_t * destination);
-    std::string str();
+    std::string str() const;
     size_t sum();
-    NDVector strides(int depth_diff = 0);
+    NDVector strides(int depth_diff = 0) const;
     Filter broadcast_to(Shape& other);
     void push_back(size_t dim);
     void insert_one(int i);
-    size_t pop(int i = -1);
+    size_t pop(int i = -1) noexcept;
     size_t axis(PyObject * o);
     size_t axis(int ax);
     bool compatible_for_matmul(Shape & other);
     std::tuple<NDVector, NDVector> paired_strides(Shape b) noexcept;
+    std::tuple<Shape, NDVector> transpose() const;
+    size_t nbmats();
 
 private:
     size_t buf[MAX_ND];
-
 };
 
 const size_t ERROR_MODE = 0;
@@ -229,13 +231,13 @@ public:
     NDVector(size_t value) : buf{value} {};
     NDVector() {};
 
-    size_t operator[](size_t i) {
+    size_t operator[](size_t i) const {
         return buf[i];
     };
 
     void print(const char * message = "") {
-        std::cout << "NDVector " << message 
-        << " " << str() << "\n";
+        std::cout << "NDVector " << message
+                  << " " << str() << "\n";
     };
 
     std::string str() {
@@ -256,14 +258,24 @@ typedef struct {
     Karray arr;
 } PyKarray;
 
+
+struct Positions {
+    size_t write;
+    size_t left;
+    size_t right;
+};
+
 // utils
 size_t read_mode(PyObject * o);
 std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape);
 void _sum(float * self_data, float * result_data, float * weights_data,
-            Shape &self_shape, NDVector &strides, bool multiple_weights,
-            bool mean, int axis, int depth);
-static std::tuple<Shape, NDVector, NDVector>
-paired_strides(Shape a, Shape b) noexcept;
+          Shape &self_shape, NDVector &strides, bool multiple_weights,
+          bool mean, int axis, int depth);
+static std::tuple<Shape, NDVector, NDVector> paired_strides(Shape a, Shape b) noexcept;
+void transpose(float * from, float * to, Positions * pos,
+               Shape & shape, const NDVector& strides, int depth);
+
+// extern "C" void __cdecl matmul(float*, float*, float*, unsigned long, unsigned long, unsigned long);
 
 // members
 void Karray_dealloc(PyKarray *self);
@@ -283,6 +295,7 @@ PyObject * Karray_reshape(PyKarray *self, PyObject *shape);
 PyObject * Karray_broadcast(PyKarray *self, PyObject *o);
 PyObject * Karray_mean(PyKarray *self, PyObject *args, PyObject *kwds);
 PyObject * Karray_sum(PyKarray *self, PyObject *args, PyObject *kwds);
+PyObject * Karray_transpose(PyObject *here, PyObject *Py_UNUSED(ignored));
 
 // math
 PyObject * Karray_add(PyObject * self, PyObject * other);
@@ -293,11 +306,14 @@ PyObject * Karray_mul(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_mul(PyObject * self, PyObject * other);
 PyObject * Karray_div(PyObject * self, PyObject * other);
 PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
-// PyObject * Karray_matmul(PyObject * self, PyObject * other);
+PyObject * Karray_matmul(PyObject * self, PyObject * other);
 PyObject * Karray_negative(PyObject * self);
 
-PyObject *Karray_recadd(PyObject *here, PyObject *other);
-PyObject *Karray_pureadd(PyObject *here, PyObject *other);
+PyObject * Karray_recadd(PyObject *here, PyObject *other);
+PyObject * Karray_pureadd(PyObject *here, PyObject *other);
+PyObject * Karray_matmul_loop(PyObject * self, PyObject * other);
+PyObject * Karray_matmul_loop_transpose(PyObject * here, PyObject * other);
+PyObject * Karray_matmul_regs(PyObject * here, PyObject * other);
 
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));

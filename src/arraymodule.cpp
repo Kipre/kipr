@@ -26,12 +26,18 @@ static PyMethodDef Karray_methods[] = {
      "Return a numpy representtion of the PyKarray."},
     // {"val", (PyCFunction) Karray_val, METH_NOARGS,
     //  "Return the float value of a scalar <kipr.arr>."},
+    {"matmul", (PyCFunction)  Karray_matmul_loop, METH_O,
+     "looping matmul"},
+    {"matmul_t", (PyCFunction)  Karray_matmul_loop_transpose, METH_O,
+     "transpose matmul"},
     {"pureadd", (PyCFunction)  Karray_pureadd, METH_O,
      "pureursive add"},
     {"recadd", (PyCFunction)  Karray_recadd, METH_O,
      "recursive add"},
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
+    {"transpose", (PyCFunction)  Karray_transpose, METH_NOARGS,
+     "Get the transpose of <kipr.arr>."},
     {NULL}  /* Sentinel */
 };
 
@@ -80,7 +86,7 @@ static PyNumberMethods Karray_as_number = {
     .nb_true_divide = Karray_div,
     .nb_inplace_true_divide = Karray_inplace_div,
 
-    // .nb_matrix_multiply = Karray_matmul
+    .nb_matrix_multiply = Karray_matmul
 };
 
 static PyMappingMethods Karray_as_mapping = {
@@ -424,6 +430,326 @@ inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
 
 }
 
+
+Karray loop_matmul(const Karray & rhs, const Karray & lhs) {
+    Shape result_shape = (rhs.shape.nd < lhs.shape.nd) ? lhs.shape : rhs.shape;
+
+    size_t I, J, K, rmat, lmat, wmat = 0, rnb = 1, lnb = 1;
+    int r = rhs.shape.nd - 1, l = lhs.shape.nd - 1;
+
+    K = rhs.shape[r];
+    J = lhs.shape[l];
+    --r; --l;
+
+    // printf("K = %i, J = %i, r = %i, l = %i\n", K, J, r, l);
+    if (r < 0 || l < 0 || K != lhs.shape[l]) {
+        PyErr_Format(Karray_error,
+                     "Matmul not possible with shapes %s ans %s.",
+                     rhs.shape.str(), lhs.shape.str());
+        return Karray();
+    }
+    I = rhs.shape[r];
+    --r; --l;
+
+    result_shape.set(result_shape.nd - 1, J);
+    result_shape.set(result_shape.nd - 2, I);
+
+
+    // printf("K = %i, I = %i, J = %i, r = %i, l = %i\n", K, I, J, r, l);
+    while (r >= 0 && l >= 0 ) {
+        if (rhs.shape[r] != lhs.shape[l]) {
+            PyErr_Format(Karray_error,
+                         "Matmul not possible with shapes %s ans %s.",
+                         rhs.shape.str(), lhs.shape.str());
+            return Karray();
+        }
+        rnb *= rhs.shape[r];
+        lnb *= lhs.shape[l];
+        --r; --l;
+    }
+    while (r >= 0) {
+        rnb *= rhs.shape[r];
+        --r;
+    }
+    while (l >= 0) {
+        lnb *= lhs.shape[l];
+        --l;
+    }
+    // result_shape.print("result_shape");
+    Karray result(result_shape);
+
+    size_t nb_loops = max(rnb, lnb);
+    size_t write = 0;
+    // printf("nb_loops %i\n", nb_loops);
+    for (int m = 0; m < nb_loops; ++m) {
+        rmat = (m % rnb) * I * K;
+        lmat = (m % lnb) * K * J;
+        // printf("rmat %i, lmat %i\n", lmat, rmat);
+        for (int i = 0; i < I; ++i) {
+            for (int j = 0; j < J; ++j) {
+                result.data[write] = 0;
+                for (int k = 0; k < K; ++k) {
+                    // printf("%i <- %i * %i\n", write, rmat + k, lmat + j + k*J);
+                    // printf("%f += %f * %f\n", result.data[write], rhs.data[rmat + k], lhs.data[lmat + j + k*J]);
+                    // printf("i = %i, j = %i, k = %i\n", i, j, k);
+                    result.data[write] += rhs.data[rmat + k] * lhs.data[lmat + j + k * J];
+                }
+                ++write;
+            }
+            rmat += K;
+        }
+    }
+
+    return result;
+}
+
+
+void transpose(float * from, float * to, Positions * pos,
+               Shape & shape, const NDVector& strides, int depth) {
+    if (depth < shape.nd) {
+        for (int k = 0; k < shape[depth]; ++k) {
+            transpose(from, to, pos, shape, strides, depth + 1);
+            pos->left += strides[depth];
+        }
+        pos->left -= shape[depth] * strides[depth];
+    } else {
+        // printf("writing from %i to %i\n", pos->left, pos->write);
+        to[pos->write] = from[pos->left];
+        ++pos->write;
+    }
+}
+
+
+
+Karray loop_transpose_matmul(const Karray & rhs, const Karray & lhs) {
+    Shape result_shape = (rhs.shape.nd < lhs.shape.nd) ? lhs.shape : rhs.shape;
+
+    size_t I, J, K, rmat, lmat, wmat = 0, rnb = 1, lnb = 1;
+    int r = rhs.shape.nd - 1, l = lhs.shape.nd - 1;
+
+    K = rhs.shape[r];
+    J = lhs.shape[l];
+    --r; --l;
+
+    // printf("K = %i, J = %i, r = %i, l = %i\n", K, J, r, l);
+    if (r < 0 || l < 0 || K != lhs.shape[l]) {
+        PyErr_Format(Karray_error,
+                     "Matmul not possible with shapes %s ans %s.",
+                     rhs.shape.str(), lhs.shape.str());
+        return Karray();
+    }
+    I = rhs.shape[r];
+    --r; --l;
+
+    result_shape.set(result_shape.nd - 1, J);
+    result_shape.set(result_shape.nd - 2, I);
+
+
+    // printf("K = %i, I = %i, J = %i, r = %i, l = %i\n", K, I, J, r, l);
+    while (r >= 0 && l >= 0 ) {
+        if (rhs.shape[r] != lhs.shape[l]) {
+            PyErr_Format(Karray_error,
+                         "Matmul not possible with shapes %s ans %s.",
+                         rhs.shape.str(), lhs.shape.str());
+            return Karray();
+        }
+        rnb *= rhs.shape[r];
+        lnb *= lhs.shape[l];
+        --r; --l;
+    }
+    while (r >= 0) {
+        rnb *= rhs.shape[r];
+        --r;
+    }
+    while (l >= 0) {
+        lnb *= lhs.shape[l];
+        --l;
+    }
+    Karray result(result_shape);
+
+    float * trans = new float[rhs.shape.length];
+
+    auto [shape_t, strides_t] = lhs.shape.transpose();
+
+    Positions pos {0, 0, 0};
+    transpose(lhs.data, trans, &pos, shape_t, strides_t, 0);
+
+    // printf("pos %i %i %i\n", pos.write, pos.left, pos.right);
+
+
+    size_t nb_loops = max(rnb, lnb);
+    size_t write = 0;
+    // printf("nb_loops %i\n", nb_loops);
+    for (int m = 0; m < nb_loops; ++m) {
+        rmat = (m % rnb) * I * K;
+        lmat = (m % lnb) * J * K;
+        // printf("rmat %i, lmat %i\n", lmat, rmat);
+        for (int i = 0; i < I; ++i) {
+            for (int j = 0; j < J; ++j) {
+                result.data[write] = 0;
+                for (int k = 0; k < K; ++k) {
+                    // printf("%i <- %i * %i\n", write, rmat + k, lmat + k);
+                    // printf("%f += %f * %f\n", result.data[write], rhs.data[rmat + k], lhs.data[lmat + j + k*J]);
+                    // printf("i = %i, j = %i, k = %i\n", i, j, k);
+                    result.data[write] += rhs.data[rmat + k] * trans[lmat + k];
+                }
+                ++write;
+                lmat += K;
+            }
+            rmat += K;
+            lmat -= K * J;
+        }
+    }
+
+    return result;
+
+}
+
+
+void print_m256(__m256 a, const char * msg = "") {
+    float tmp[8];
+    _mm256_store_ps(tmp, a);
+    printf("__m256 %s %f, %f, %f, %f, %f, %f, %f, %f\n", msg,
+           tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5], tmp[6], tmp[7]);
+}
+
+// template <unsigned u, unsigned v>
+// void matmul(float * c, float * a, float * b, size_t I, size_t J, size_t K) {
+
+//     for (int ii=0; ii < I; ii += u) {
+//         for (int jj=0; jj < J / 8; jj += v) {
+//             __m256 csum[u * v] = {0};
+//             for (int k=0; k < K; ++k) {
+//                 for (int j=0; j < v; ++j) {
+//                     __m256 bb = _mm256_load_ps(&b[k * J + (j + jj) * 8]);
+//                     for (int i=0; i < u; ++i) {
+//                         __m256 aa = _mm256_set1_ps(a[(i + ii) * K + k]);
+//                         csum[i * v + j] = _mm256_fmadd_ps(aa, bb, csum[i * v + j]);
+//                     }
+//                 }
+//             }
+
+//             for (int j=0; j < v; ++j)
+//                 for (int i=0; i < u; ++i)
+//                     _mm256_store_ps(&c[(i + ii) * J + (j + jj) * 8], csum[i * v + j]);
+//         }
+//     }
+
+// }
+
+
+void matmul(float * c, float * a, float * b, size_t I, size_t J, size_t K) {
+
+
+    #pragma omp parallel for num_threads(8)
+    for (int ii = 0; ii < I; ii += 4) {
+        for (int jj = 0; jj < J / 8; jj += 3) {
+            __m256 h00, h01, h02, h03,
+                   h10, h11, h12, h13,
+                   h20, h21, h22, h23,
+                   b0, b1, b2, a0;
+
+            b0 = _mm256_load_ps(&b[(0 + jj) * 8]);
+            b1 = _mm256_load_ps(&b[(1 + jj) * 8]);
+            b2 = _mm256_load_ps(&b[(2 + jj) * 8]);
+
+            a0 = _mm256_set1_ps(a[0 + ii]);
+
+            h00 = _mm256_mul_ps(a0, b0);
+            h10 = _mm256_mul_ps(a0, b1);
+            h20 = _mm256_mul_ps(a0, b2);
+
+            a0 = _mm256_set1_ps(a[1 + ii]);
+
+            h01 = _mm256_mul_ps(a0, b0);
+            h11 = _mm256_mul_ps(a0, b1);
+            h21 = _mm256_mul_ps(a0, b2);
+
+            a0 = _mm256_set1_ps(a[2 + ii]);
+
+            h02 = _mm256_mul_ps(a0, b0);
+            h12 = _mm256_mul_ps(a0, b1);
+            h22 = _mm256_mul_ps(a0, b2);
+
+            a0 = _mm256_set1_ps(a[3 + ii]);
+
+            h03 = _mm256_mul_ps(a0, b0);
+            h13 = _mm256_mul_ps(a0, b1);
+            h23 = _mm256_mul_ps(a0, b2);
+
+
+            for (int k = 1; k < K; ++k) {
+
+                b0 = _mm256_load_ps(&b[k * J + (0 + jj) * 8]);
+                b1 = _mm256_load_ps(&b[k * J + (1 + jj) * 8]);
+                b2 = _mm256_load_ps(&b[k * J + (2 + jj) * 8]);
+
+                a0 = _mm256_set1_ps(a[(0 + ii) * K + k]);
+
+                h00 = _mm256_fmadd_ps(a0, b0, h00);
+                h10 = _mm256_fmadd_ps(a0, b1, h10);
+                h20 = _mm256_fmadd_ps(a0, b2, h20);
+
+                a0 = _mm256_set1_ps(a[(1 + ii) * K + k]);
+
+                h01 = _mm256_fmadd_ps(a0, b0, h01);
+                h11 = _mm256_fmadd_ps(a0, b1, h11);
+                h21 = _mm256_fmadd_ps(a0, b2, h21);
+
+                a0 = _mm256_set1_ps(a[(2 + ii) * K + k]);
+
+                h02 = _mm256_fmadd_ps(a0, b0, h02);
+                h12 = _mm256_fmadd_ps(a0, b1, h12);
+                h22 = _mm256_fmadd_ps(a0, b2, h22);
+
+                a0 = _mm256_set1_ps(a[(3 + ii) * K + k]);
+
+                h03 = _mm256_fmadd_ps(a0, b0, h03);
+                h13 = _mm256_fmadd_ps(a0, b1, h13);
+                h23 = _mm256_fmadd_ps(a0, b2, h23);
+            }
+            float * w = c + ii * J + jj * 8;
+            _mm256_store_ps(w, h00);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h10);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h20);
+            printf("%lli \n", w - c);
+            w = w - 2 * 8 + J;
+            _mm256_store_ps(w, h01);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h11);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h21);
+            printf("%lli \n", w - c);
+            w = w - 2 * 8 + J;
+            _mm256_store_ps(w, h02);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h12);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h22);
+            printf("%lli \n", w - c);
+            w = w - 2 * 8 + J;
+            _mm256_store_ps(w, h03);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h13);
+            printf("%lli \n", w - c);
+            w += 8;
+            _mm256_store_ps(w, h23);
+            printf("%lli \n", w - c);
+        }
+    }
+
+}
+
+
 inline float _add(float a, float b) {
     return a + b;
 }
@@ -481,7 +807,7 @@ void inline
 val_add_kernel(float * dest, float * lhs, float value, ssize_t length) {
     int k = 0;
 #if __AVX__
-    __m256 v_a, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
+    __m256 v_a, constant = _mm256_set1_ps(value);
     for (k = 0; k < length - 8; k += 8) {
         v_a = _mm256_load_ps(&lhs[k]);
         v_a = _mm256_add_ps(v_a, constant);
@@ -499,7 +825,7 @@ void inline
 val_mul_kernel(float * dest, float * lhs, float value, ssize_t length) {
     int k = 0;
 #if __AVX__
-    __m256 v_a, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
+    __m256 v_a, constant = _mm256_set1_ps(value);
     for (k = 0; k < length - 8; k += 8) {
         v_a = _mm256_load_ps(&lhs[k]);
         v_a = _mm256_mul_ps(v_a, constant);
@@ -517,7 +843,7 @@ void inline
 val_max_kernel(float * dest, float * lhs, float value, ssize_t length) {
     int k = 0;
 #if __AVX__
-    __m256 v_a, constant = _mm256_set_ps(value, value, value, value, value, value, value, value);
+    __m256 v_a, constant = _mm256_set1_ps(value);
     for (k = 0; k < length - 8; k += 8) {
         v_a = _mm256_load_ps(&lhs[k]);
         v_a = _mm256_max_ps(v_a, constant);
@@ -1032,13 +1358,13 @@ static std::tuple<Shape, NDVector, NDVector>
 paired_strides(Shape a, Shape b) noexcept {
 	Shape common = Shape(a, b);
 	NDVector astr, bstr;
-    size_t acc = 1, bcc = 1;
-	while((a.nd - b.nd) > 0)
-			b.insert_one(0);
-	while((b.nd - a.nd) > 0)
-			a.insert_one(0);
+	size_t acc = 1, bcc = 1;
+	while ((a.nd - b.nd) > 0)
+		b.insert_one(0);
+	while ((b.nd - a.nd) > 0)
+		a.insert_one(0);
 
-	for (int k = a.nd-1; k >= 0; --k) {
+	for (int k = a.nd - 1; k >= 0; --k) {
 		if (a[k] == common[k]) {
 			astr.buf[k] = acc;
 			acc *= a[k];
@@ -1058,11 +1384,11 @@ paired_strides(Shape a, Shape b) noexcept {
 std::tuple<NDVector, NDVector>
 Shape::paired_strides(Shape b) noexcept {
 	NDVector astr, bstr;
-    size_t acc = 1, bcc = 1;
-	while((nd - b.nd) > 0)
-			b.insert_one(0);
+	size_t acc = 1, bcc = 1;
+	while ((nd - b.nd) > 0)
+		b.insert_one(0);
 
-	for (int k = nd-1; k >= 0; --k) {
+	for (int k = nd - 1; k >= 0; --k) {
 		if (b[k] == buf[k]) {
 			bstr.buf[k] = bcc;
 			bcc *= b[k];
@@ -1073,9 +1399,9 @@ Shape::paired_strides(Shape b) noexcept {
 			acc *= buf[k];
 			bstr.buf[k] = 0;
 		} else {
-			PyErr_Format(Karray_error, 
-				"Shapes %s and %s not compatible for inplace binary op.",
-				str(), b.str());
+			PyErr_Format(Karray_error,
+			             "Shapes %s and %s not compatible for inplace binary op.",
+			             str(), b.str());
 			return {astr, bstr};
 		}
 	}
@@ -1123,6 +1449,33 @@ bool Shape::assert_or_set(size_t value, int dim) {
 	}
 }
 
+// void Shape::set(int i, size_t val) {
+// 	buf[i] = val;
+// }
+
+void Shape::set(int i, size_t val) {
+	if (i < nd) {
+		length /= buf[i];
+		buf[i] = val;
+		length *= val;
+	} else {
+		for (int k=nd; k < i; ++k) {
+			buf[k] = 1;
+		}
+		buf[i] = val;
+		length *= val;
+		nd = i + 1;
+	}
+}
+
+size_t Shape::nbmats() {
+	if (nd == 1)
+		return 0;
+	if (nd == 2)
+		return 1;
+	return length / (buf[nd-1] * buf[nd-2]);
+}
+
 size_t Shape::validate() {
 	int i, new_nd = 0;
 	length = 1;
@@ -1153,7 +1506,7 @@ void Shape::write(size_t * destination) {
 
 
 
-std::string Shape::str() {
+std::string Shape::str() const {
 	std::string result("[");
 	result += std::to_string(buf[0]);
 	for (int i = 1; i < nd; ++i)
@@ -1196,13 +1549,13 @@ size_t Shape::sum() {
 	return result;
 }
 
-size_t Shape::operator[](size_t i) {
+size_t Shape::operator[](size_t i) const {
 	return buf[i];
 }
 
-size_t Shape::pop(int i) {
+size_t Shape::pop(int i) noexcept {
 	if (abs(i) >= nd)
-		KERR_RETURN_VAL("Shape::pop out of range.", 0);
+		throw std::exception("Shape::pop out of range");
 	if (i == -1)
 		i = nd - 1;
 	size_t tmp = buf[i];
@@ -1221,7 +1574,7 @@ size_t Shape::pop(int i) {
 	return tmp;
 }
 
-NDVector Shape::strides(int depth_diff) {
+NDVector Shape::strides(int depth_diff) const {
 	NDVector result;
 	size_t acc = 1;
 	// printf("depth diff %i, nd %i\n", depth_diff, nd);
@@ -1237,7 +1590,7 @@ NDVector Shape::strides(int depth_diff) {
 
 void Shape::insert_one(int i) {
 	if (i < 0 || i > nd)
-		KERR_RETURN("Cannot insert 1 into shape becaise index is out of bounds.");
+		KERR_RETURN("Cannot insert 1 into shape because index is out of bounds.");
 	if (i == 0 && nd == 1 && buf[0] == 1)
 		return;
 	++nd;
@@ -1283,7 +1636,20 @@ bool Shape::compatible_for_matmul(Shape & other) {
 		return false;
 	return true;
 }
-Filter::Filter(Shape& shape) {
+
+std::tuple<Shape, NDVector> Shape::transpose() const {
+	Shape result;
+	result.nd = nd;
+	result.length = length;
+	std::copy(buf, buf + MAX_ND, result.buf);
+	NDVector strides_t = strides();
+	result.buf[nd-1] = buf[nd-2];
+	result.buf[nd-2] = buf[nd-1];
+	size_t tmp = strides_t.buf[nd-1];
+	strides_t.buf[nd-1] = strides_t.buf[nd-2];
+	strides_t.buf[nd-2] = tmp;
+	return {result, strides_t};
+}Filter::Filter(Shape& shape) {
     size_t total = 0;
     int i;
     offset[0] = 0;
@@ -1551,16 +1917,16 @@ fail:
     return -1;
 }
 
-PyObject *
-execute_func(PyObject *self, PyObject * input) {
-    DEBUG_Obj(input, "");
+// PyObject *
+// execute_func(PyObject *self, PyObject * input) {
+//     DEBUG_Obj(input, "");
 
 
-    Shape shape(input, (size_t) 120);
-    shape.print();
+//     Shape shape(input, (size_t) 120);
+//     shape.print();
 
-    Py_RETURN_NONE;
-}
+//     Py_RETURN_NONE;
+// }
 
 PyObject *
 Karray_str(PyKarray * self) {
@@ -1699,6 +2065,17 @@ Karray_mean(PyKarray *here, PyObject *args, PyObject *kwds) {
     return reinterpret_cast<PyObject *>(result);
 }
 
+PyObject *Karray_transpose(PyObject *here, PyObject *Py_UNUSED(ignored)) {
+    PyKarray * self = reinterpret_cast<PyKarray *>(here);
+    auto [shape_t, strides_t] = self->arr.shape.transpose();
+    PyKarray * result = new_PyKarray(shape_t);
+    Positions pos {0, 0, 0};
+    transpose(self->arr.data, result->arr.data, &pos, shape_t, strides_t, 0);
+    return reinterpret_cast<PyObject *>(result);
+}
+
+
+
 
 
 
@@ -1717,7 +2094,7 @@ PyObject *Karray_recadd(PyObject *here, PyObject *other) {
         result = new_PyKarray(common);
         size_t positions[3] = {0};
         rec_binary_op(result->arr.data, self->arr.data, rhs->arr.data,
-            common, a_strides, b_strides, positions, _add, 0);
+                      common, a_strides, b_strides, positions, _add, 0);
     }
     return reinterpret_cast<PyObject *>(result);
 }
@@ -1734,6 +2111,7 @@ PyObject *Karray_pureadd(PyObject *here, PyObject *other) {
     PyKarray * result = new_PyKarray(self->arr.shape);
     size_t length = self->arr.shape.length;
     int k;
+    #pragma omp parallel for num_threads(8)
     for (k = 0; k < length - 8; k += 8) {
         __m256 v_a = _mm256_load_ps(&self->arr.data[k]);
         __m256 v_b = _mm256_load_ps(&rhs->arr.data[k]);
@@ -1777,7 +2155,6 @@ inline PyObject * py_inplace_binary_op(PyObject *here,
 	return here;
 }
 
-
 PyObject *
 Karray_add(PyObject * self, PyObject * other) {
 	return py_binary_op(self, other, add_kernel, _add);
@@ -1819,90 +2196,92 @@ Karray_inplace_div(PyObject * self, PyObject * other) {
 	return py_inplace_binary_op(self, other, div_kernel, _div);
 }
 
-// PyObject *
-// Karray_matmul(PyObject * self, PyObject * other) {
-//     Karray *a, *b, *c;
-//     Py_ssize_t left_dim, mid_dim, right_dim,
-//                nb_mat_a, nb_mat_b,
-//                pos_a = 0, pos_b = 0, pos_c = 0;
-//     Py_ssize_t result_shape[MAX_NDIMS] = {};
 
-//     if (!is_Karray(self) || !is_Karray(other)) {
-//         Py_RETURN_NOTIMPLEMENTED;
-//     }
 
-//     a = reinterpret_cast<Karray *>(self);
-//     b = reinterpret_cast<Karray *>(other);
+PyObject *
+Karray_matmul(PyObject * here, PyObject * other) {
 
-//     if (a->nd < 2 || b->nd < 2) {
-//         PyErr_SetString(PyExc_TypeError,
-//             "MatMul works on at least 2-dimensional arrays.");
-//         PyErr_Print();
-//         goto fail;
-//     }
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
 
-//     if (a->shape[a->nd - 1] != b->shape[b->nd - 2]) {
-//         PyErr_SetString(PyExc_TypeError,
-//             "Arrays not compatible for MatMul.");
-//         PyErr_Print();
-//         goto fail;
-//     }
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
 
-//     left_dim = a->shape[a->nd - 2];
-//     mid_dim = a->shape[a->nd - 1];
-//     right_dim = b->shape[b->nd - 1];
+	if (self->arr.shape.nd < 2 && rhs->arr.shape.nd < 2) {
+		KERR_RETURN_VAL("Both arrays must be at least two-dimensional for matmul.", NULL);
+	}
 
-//     nb_mat_a = product(a->shape, a->nd-2);
-//     nb_mat_b = product(b->shape, b->nd-2);
+	size_t M, N, I, J, K;
+	I = self->arr.shape[0];
+	K = self->arr.shape[1];
+	J = rhs->arr.shape[1];
 
-//     // printf("nb_mat_a, nb_mat_b: %i %i\n", nb_mat_a, nb_mat_b);
+	if (K != rhs->arr.shape[0]) {
+		PyErr_Format(Karray_error,
+		             "Matmul not possible with shapes %s and %s.",
+		             self->arr.shape.str(), rhs->arr.shape.str());
+		return NULL;
+	}
 
-//     if (nb_mat_a == nb_mat_b ||
-//         nb_mat_a == 1 ||
-//         nb_mat_b == 1) {
-//         result_shape[0] = Py_MAX(nb_mat_a, nb_mat_b);
-//         result_shape[1] = left_dim;
-//         result_shape[2] = right_dim;
-//     } else {
-//         PyErr_SetString(PyExc_TypeError,
-//             "Arrays not compatible for MatMul.");
-//         PyErr_Print();
-//         goto fail;
-//     }
-//     c = new_Karray_from_shape(result_shape);
-//     for (int m=0; m < result_shape[0]; ++m) {
-//         pos_a = (m % nb_mat_a) * left_dim*mid_dim;
-//         pos_b = (m % nb_mat_b) * mid_dim*right_dim;
-//         for (int i=0; i < left_dim; ++i) {
-//             for (int j=0; j < right_dim; ++j) {
-//                 c->data[pos_c] = 0;
-//                 for (int k=0; k < mid_dim; ++k) {
-//                     // printf("indexes: %i %i\n", pos_a + k + mid_dim*i, pos_b + j + k*right_dim);
-//                     c->data[pos_c] += a->data[pos_a + k + mid_dim*i] * b->data[pos_b + j + k*right_dim];
-//                 }
-//                 ++pos_c;
-//             }
-//         }
-//     }
-//     // risky
-//     if (nb_mat_a >= nb_mat_b) {
-//         c->nd = a->nd;
-//         set_shape(c, a->shape);
-//         c->shape[c->nd-1] = right_dim;
-//         c->shape[c->nd-2] = left_dim;
-//     } else {
-//         c->nd = b->nd;
-//         set_shape(c, b->shape);
-//         c->shape[c->nd-1] = right_dim;
-//         c->shape[c->nd-2] = left_dim;
-//     }
-//     // Py_INCREF(c);
-//     return reinterpret_cast<PyObject *>(c);
-//     fail:
-//         PyErr_SetString(PyExc_TypeError,
-//             "Failed to mat-mutiply arrays.");
-//         return NULL;
-// }
+	// M = self->arr.shape.nbmats();
+	// N = rhs->arr.shape.nbmats();
+
+	// if (I < 4 || J < 8) {
+	// 	if (I < 4 && J < 8) {
+	// 		for
+	// 	} else if (I == 1) {
+
+	// 	} else if (J == 1) {
+
+	// 	} else {}
+	// }
+
+	// if ()
+
+	Shape new_shape;
+	new_shape.set(0, I);
+	new_shape.set(1, J);
+
+	auto result = new_PyKarray(new_shape);
+
+	matmul(result->arr.data, self->arr.data, rhs->arr.data, I, J, K);
+
+	return reinterpret_cast<PyObject *>(result);
+}
+
+
+PyObject *
+Karray_matmul_loop(PyObject * here, PyObject * other) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	Karray mult = loop_matmul(self->arr, rhs->arr);
+	PYERR_RETURN_VAL(NULL);
+	auto result = new_PyKarray();
+	result->arr.swap(mult);
+	return reinterpret_cast<PyObject *>(result);
+}
+
+
+PyObject *
+Karray_matmul_loop_transpose(PyObject * here, PyObject * other) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+
+	auto self = reinterpret_cast<PyKarray *>(here);
+	auto rhs = reinterpret_cast<PyKarray *>(other);
+	Karray mult = loop_transpose_matmul(self->arr, rhs->arr);
+	PYERR_RETURN_VAL(NULL);
+	auto result = new_PyKarray();
+	result->arr.swap(mult);
+	PyObject * final = reinterpret_cast<PyObject *>(result);
+	return final;
+}
 
 
 inline PyObject *
@@ -1925,23 +2304,72 @@ Karray_negative(PyObject * here) {
 	return inplace_val_binary_op(here, -1.0, val_mul_kernel);
 }
 
-// PyObject *
-// execute_func(PyObject *self, PyObject * input) {
-//     DEBUG_Obj(input);
+PyObject *
+execute_func(PyObject *self, PyObject * input) {
+    int i;
+    for (i = 0; i < 32; i++) {
 
-//     auto values = FastSequence<Int>(input, true);
-//     if (PyErr_Occurred()) {
-//         PyErr_Print();
-//         Py_RETURN_NONE;
-//     }
+        // Variables to hold the contents of the 4 i386 legacy registers
+        int cpu_info[4] = {0};
+
+        __cpuidex(cpu_info, 4, i);
 
 
-//     for(std::vector<Int>::iterator it = values.elements.begin(); it != values.elements.end(); ++it) {
-//      	std::cout << (*it).value << " ";
-// 	}
-// 	std::cout << std::endl;
-//     Py_RETURN_NONE;
-// }
+                // See the page 3-191 of the manual.
+        int cache_type = cpu_info[0] & 0x1F; 
+
+        if (cache_type == 0) // end of valid cache identifiers
+            break;
+
+        char * cache_type_string;
+        switch (cache_type) {
+            case 1: cache_type_string = "Data Cache"; break;
+            case 2: cache_type_string = "Instruction Cache"; break;
+            case 3: cache_type_string = "Unified Cache"; break;
+            default: cache_type_string = "Unknown Type Cache"; break;
+        }
+
+        int cache_level = (cpu_info[0] >>= 5) & 0x7;
+
+        int cache_is_self_initializing = (cpu_info[0] >>= 3) & 0x1; // does not need SW initialization
+        int cache_is_fully_associative = (cpu_info[0] >>= 1) & 0x1;
+
+        // See the page 3-192 of the manual.
+        // cpu_info[1] contains 3 integers of 10, 10 and 12 bits respectively
+        unsigned int cache_sets = cpu_info[2] + 1;
+        unsigned int cache_coherency_line_size = (cpu_info[1] & 0xFFF) + 1;
+        unsigned int cache_physical_line_partitions = ((cpu_info[1] >>= 12) & 0x3FF) + 1;
+        unsigned int cache_ways_of_associativity = ((cpu_info[1] >>= 10) & 0x3FF) + 1;
+
+        // Total cache size is the product
+        size_t cache_total_size = cache_ways_of_associativity * cache_physical_line_partitions * cache_coherency_line_size * cache_sets;
+
+        printf(
+            "Cache ID %d:\n"
+            "- Level: %d\n"
+            "- Type: %s\n"
+            "- Sets: %d\n"
+            "- System Coherency Line Size: %d bytes\n"
+            "- Physical Line partitions: %d\n"
+            "- Ways of associativity: %d\n"
+            "- Total Size: %zu bytes (%zu kb)\n"
+            "- Is fully associative: %s\n"
+            "- Is Self Initializing: %s\n"
+            "\n"
+            , i
+            , cache_level
+            , cache_type_string
+            , cache_sets
+            , cache_coherency_line_size
+            , cache_physical_line_partitions
+            , cache_ways_of_associativity
+            , cache_total_size, cache_total_size >> 10
+            , cache_is_fully_associative ? "true" : "false"
+            , cache_is_self_initializing ? "true" : "false"
+        );
+    }
+    Py_RETURN_NONE;
+}
 
 
 

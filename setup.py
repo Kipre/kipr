@@ -13,11 +13,14 @@ elif platform == "darwin":
 elif platform == "win32":
     extra_args = {
       'extra_compile_args': ['/std:c++latest', "/arch:AVX2", '/Zc:strictStrings-'],
-      'extra_link_args': []
+      'extra_link_args': ['src/matmul.obj']
     }
     if debug:
         extra_args['extra_compile_args'] += ['/Zi', '/Od']
         extra_args['extra_link_args'] += ['/DEBUG']
+    else:
+        extra_args['extra_compile_args'] += ['/openmp', '/O2']
+
 
 # amalgamation 
 with open('src/arraymodule.cpp', 'w') as amalgamation:

@@ -14,7 +14,7 @@
         {
             "name": "Build install to Python",
             "cmd": "python setup.py install --user",
-            "file_regex": "(src\\/[^(]*)\\(([0-9]+)\\):(\\s)([^\n]*)",
+            "file_regex": "([^(]*)\\(([0-9]+)\\):(\\s)([^\n]*)",
             "working_dir": "$folder"
         },
         {
