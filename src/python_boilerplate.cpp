@@ -23,16 +23,6 @@ static PyMethodDef Karray_methods[] = {
      "Return the sum of the array along all or a particular dim."},
     {"numpy", (PyCFunction) Karray_numpy, METH_NOARGS,
      "Return a numpy representtion of the PyKarray."},
-    // {"val", (PyCFunction) Karray_val, METH_NOARGS,
-    //  "Return the float value of a scalar <kipr.arr>."},
-    {"matmul", (PyCFunction)  Karray_matmul_loop, METH_O,
-     "looping matmul"},
-    {"matmul_t", (PyCFunction)  Karray_matmul_loop_transpose, METH_O,
-     "transpose matmul"},
-    {"pureadd", (PyCFunction)  Karray_pureadd, METH_O,
-     "pureursive add"},
-    {"recadd", (PyCFunction)  Karray_recadd, METH_O,
-     "recursive add"},
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
     {"transpose", (PyCFunction)  Karray_transpose, METH_NOARGS,
@@ -58,6 +48,8 @@ static PyMethodDef arraymodule_methods[] = {
      "Softmax function for <kipr.arr> arrays, computes along the last axis."},
     {"log", Karray_log, METH_O,
      "Log function for <kipr.arr> arrays."},
+    {"cache_info", cache_info, METH_NOARGS,
+     "Function to query CPU info about cache configuration."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -127,6 +119,12 @@ PyInit_kipr_array(void)
     Py_INCREF(&KarrayType);
     if (PyModule_AddObject(m, "arr", (PyObject *) &KarrayType) < 0) {
         Py_DECREF(&KarrayType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    if (PyModule_AddObject(m, "KarrayError", Karray_error) < 0) {
+        Py_DECREF(Karray_error);
         Py_DECREF(m);
         return NULL;
     }

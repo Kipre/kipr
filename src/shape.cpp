@@ -14,15 +14,29 @@ Shape::Shape(int ndims...) {
 	va_end(args);
 }
 
-
-template<typename T>
-Shape::Shape(T * input, int size) {
+Shape::Shape(Py_ssize_t * input, int size) {
 	nd = 0;
 	length = 1;
 	size = min(MAX_ND, size);
 	while (nd < size) {
 		length *= (size_t) input[nd];
 		buf[nd] = (size_t) input[nd];
+		++nd;
+	}
+	int i = nd;
+	while (i < MAX_ND) {
+		buf[i++] = 0;
+	}
+}
+
+
+Shape::Shape(size_t * input, int size) {
+	nd = 0;
+	length = 1;
+	size = min(MAX_ND, size);
+	while (nd < size) {
+		length *= input[nd];
+		buf[nd] = input[nd];
 		++nd;
 	}
 	int i = nd;
@@ -39,6 +53,8 @@ Shape::Shape(PyObject * o, size_t target_length) {
 	if (!PyList_Check(o) && !PyTuple_Check(o))
 		KERR_RETURN("Shape must be a list or a tuple.");
 	Py_ssize_t seq_length = PySequence_Length(o);
+	if (seq_length == 0)
+		KERR_RETURN("Shape must be a list or a tuple with at least one element.");
 	PyObject ** items = PySequence_Fast_ITEMS(o);
 	for (int i = 0; i < seq_length; ++i) {
 		value = PyLong_AsSsize_t(items[i]);
@@ -120,9 +136,9 @@ paired_strides(Shape a, Shape b) noexcept {
 	Shape common = Shape(a, b);
 	NDVector astr, bstr;
 	size_t acc = 1, bcc = 1;
-	while ((a.nd - b.nd) > 0)
+	while (a.nd > b.nd)
 		b.insert_one(0);
-	while ((b.nd - a.nd) > 0)
+	while (b.nd > a.nd)
 		a.insert_one(0);
 
 	for (int k = a.nd - 1; k >= 0; --k) {
@@ -275,30 +291,31 @@ std::string Shape::str() const {
 	return result + "]";
 }
 
-Filter Shape::broadcast_to(Shape & other) {
-	Filter filter(other);
+NDVector Shape::broadcast_to(Shape & other) {
+	NDVector result;
 	int dim_diff = other.nd - nd;
-	// printf("dim_diff: %i\n", dim_diff);
-	if (dim_diff < 0) goto fail;
-	for (int i = other.nd - 1; i > dim_diff - 1; --i) {
-		// printf("braodcast dims: %i %i\n", buf[i - dim_diff], other[i]);
+	if (dim_diff < 0) {
+		PyErr_Format(Karray_error,
+		             "Cannot broadcast shape %s to %s.", str(), other.str());
+		return result;
+	}
+	int acc = 1;
+	for (int i = other.nd - 1; i > dim_diff; --i) {
 		if (buf[i - dim_diff] == 1 && other[i] != 1) {
-			filter.set_val_along_axis(i, 0);
+			result.buf[i] = 0;
 		} else if (buf[i - dim_diff] == other[i]) {
-			filter.set_range_along_axis(i);
+			result.buf[i] = acc;
+			acc *= other[i];
 		} else {
-			goto fail;
+		PyErr_Format(Karray_error,
+		             "Cannot broadcast shape %s to %s.", str(), other.str());
+		return result;
 		}
 	}
 	for (int i = 0; i < dim_diff; ++i) {
-		filter.set_val_along_axis(i, 0);
+		result.buf[i] = 0;
 	}
-	return filter;
-
-fail:
-	PyErr_Format(PyExc_ValueError,
-	             "Cannot broadcast shape %s to %s.", str(), other.str());
-	return filter;
+	return result;
 
 }
 
@@ -310,8 +327,14 @@ size_t Shape::sum() {
 	return result;
 }
 
-size_t Shape::operator[](size_t i) const {
-	return buf[i];
+size_t Shape::operator[](int i) const {
+	if (i >= 0 && i < MAX_ND) {
+		return buf[i];
+	} else if (i > - nd - 1 && i < 0) {
+		return buf[nd + i];
+	} else {
+		throw std::exception("index out of range");
+	}
 }
 
 size_t Shape::pop(int i) noexcept {
@@ -352,8 +375,6 @@ NDVector Shape::strides(int depth_diff) const {
 void Shape::insert_one(int i) {
 	if (i < 0 || i > nd)
 		KERR_RETURN("Cannot insert 1 into shape because index is out of bounds.");
-	if (i == 0 && nd == 1 && buf[0] == 1)
-		return;
 	++nd;
 	int k = MAX_ND - 1;
 	while (k > i) {
@@ -390,13 +411,20 @@ size_t Shape::axis(int ax) {
 
 }
 
-bool Shape::compatible_for_matmul(Shape & other) {
-	if (nd < 2 || other.nd < 2)
-		return false;
-	if (buf[nd - 1] != other[other.nd - 2])
-		return false;
-	return true;
-}
+// static compatible_for_matmul(Shape & a, Shape & b) {
+// 	if (a.nd < 2 || b.nd < 2)
+// 		return {};
+// 	if (a[a.nd - 1] != b[b.nd - 2])
+// 		return {};
+// 	Shape result;
+// 	if (a.nd > b.nd)
+// 		result = b
+// 	else 
+// 		result = a;
+
+
+// 	return true;
+// }
 
 std::tuple<Shape, NDVector> Shape::transpose() const {
 	Shape result;

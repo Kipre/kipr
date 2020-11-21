@@ -196,7 +196,7 @@ Karray Karray::subscript(PyObject * key) {
 
 	Karray result;
 	Filter filter;
-	size_t positions[2] = {0, 0};
+	Positions pos {0, 0, 0};
 
 	NDVector strides(shape.strides());
 	Shape new_shape(filter.from_subscript(key, shape));
@@ -206,11 +206,12 @@ Karray Karray::subscript(PyObject * key) {
 	delete[] result.data;
 	result.data = new float[new_shape.length];
 
+	// filter.print();
 	// strides.print();
-	transfer(data, result.data, positions,
+	transfer(data, result.data, &pos,
 	         strides.buf, filter, shape.nd, 0);
 	// printf("positions[0], positions[1]: %i %i\n", positions[0], positions[1]);
-	if (positions[0] != new_shape.length)
+	if (pos.write != new_shape.length)
 		goto fail;
 
 	return result;
@@ -274,40 +275,67 @@ std::string Karray::str() {
 }
 
 
-void Karray::broadcast(Shape new_shape) {
+Karray Karray::matmul(Karray & other) {
+
+	if (shape.nd < 2 && other.shape.nd < 2) {
+		KERR_RETURN_VAL("Both arrays must be at least two-dimensional for matmul.", NULL);
+	}
+
+	size_t M, N, I, J, K;
+	I = shape[-2];
+	K = shape[-1];
+	J = other.shape[-1];
+
+	M = shape.nbmats();
+	N = other.shape.nbmats();
+
+	if (K != other.shape[-2] ||
+		(M % N != 0 && N % M != 0)) {
+		PyErr_Format(Karray_error,
+		             "Matmul not possible with shapes %s and %s.",
+		             shape.str(), other.shape.str());
+		return NULL;
+	}
+
+	Shape new_shape((M > N) ? shape : other.shape);
+	new_shape.set(new_shape.nd - 2, I);
+	new_shape.set(new_shape.nd - 1, J);
+
+	auto result = Karray(new_shape);
+
+	for (int m = 0; m < max(M, N); ++m) {
+		int ia = m % M;
+		int ib = m % N;
+
+		general_matmul(result.data + m * I * J,
+		       data + ia * I * K,
+		       other.data + ib * K * J,
+		       I, J, K);
+	}
+
+	return result;
+}
+
+
+Karray Karray::broadcast(Shape new_shape) {
 	// shortcuts
 	if (shape.length == 1) {
-		float tmp = data[0];
-		delete[] data;
-		data = new float[new_shape.length];
-		std::fill(data, data + new_shape.length, tmp);
-		shape = new_shape;
+		Karray result(new_shape);
+		std::fill(result.data, result.data + new_shape.length, data[0]);
+		return result;
 	} else if (shape.length == new_shape.length) {
-		// do nothing
+		Karray result(*this);
+		result.shape = new_shape;
+		return result;
 	} else {
-		size_t positions[2] = {0, 0};
-		auto buffer = new float[new_shape.length];
+		Positions pos {0, 0, 0};
+		Karray result(new_shape);
 
-		NDVector strides(shape.strides(new_shape.nd - shape.nd));
-		Filter filter(shape.broadcast_to(new_shape));
-		PYERR_PRINT_GOTO_FAIL;
-		// filter.print();
+		NDVector strides = shape.broadcast_to(new_shape);
+		PYERR_RETURN_VAL(result);
+		simple_transfer(data, result.data, &pos, new_shape, strides, 0);
 
-		// strides.print();
-		transfer(data, buffer, positions,
-		         strides.buf,
-		         filter, new_shape.nd, 0);
-
-
-		shape = new_shape;
-		delete[] data;
-		data = buffer;
-		return;
-
-fail:
-		delete[] buffer;
-		PyErr_SetString(PyExc_ValueError, "Failed to broadcast karray.");
-		return;
+		return result;
 	}
 
 }
@@ -357,26 +385,4 @@ Karray Karray::sum(size_t axis, const Karray &weights, bool mean) {
 	Karray result(new_shape, 0.);
 	_sum(data, result.data, weights.data, shape, strides, (weights.shape.length != 1), mean, axis, 0);
 	return result;
-}
-
-void
-inline _sum(float * self_data, float * result_data, float * weights_data,
-            Shape &self_shape, NDVector &strides, bool multiple_weights,
-            bool mean, int axis, int depth) {
-	if (axis != depth) {
-		for (int k = 0; k < self_shape[depth]; ++k) {
-			_sum(self_data + strides[depth]*k, result_data + strides[depth]*k / self_shape[axis],
-			     weights_data, self_shape, strides, multiple_weights, mean, axis, depth + 1);
-		}
-	} else {
-		for (int i = 0; i < self_shape[axis]; ++i) {
-			for (int k = 0; k < strides[axis]; ++k) {
-				// printf("val and result: %f %f %i %i\n", self_data[strides[axis] * i + k], result_data[k], strides[axis] * i + k, i);
-				result_data[k] += self_data[strides[axis] * i + k] * weights_data[multiple_weights * i];
-			}
-		}
-		if (mean)
-			for (int k = 0; k < strides[axis]; ++k)
-				result_data[k] /= (float) self_shape[axis];
-	}
 }

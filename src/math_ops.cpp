@@ -87,74 +87,38 @@ Karray_matmul(PyObject * here, PyObject * other) {
 	}
 
 	size_t M, N, I, J, K;
-	I = self->arr.shape[0];
-	K = self->arr.shape[1];
-	J = rhs->arr.shape[1];
+	I = self->arr.shape[-2];
+	K = self->arr.shape[-1];
+	J = rhs->arr.shape[-1];
 
-	if (K != rhs->arr.shape[0]) {
+	M = self->arr.shape.nbmats();
+	N = rhs->arr.shape.nbmats();
+
+	if (K != rhs->arr.shape[-2] ||
+		(M % N != 0 && N % M != 0)) {
 		PyErr_Format(Karray_error,
 		             "Matmul not possible with shapes %s and %s.",
 		             self->arr.shape.str(), rhs->arr.shape.str());
 		return NULL;
 	}
 
-	// M = self->arr.shape.nbmats();
-	// N = rhs->arr.shape.nbmats();
-
-	// if (I < 4 || J < 8) {
-	// 	if (I < 4 && J < 8) {
-	// 		for
-	// 	} else if (I == 1) {
-
-	// 	} else if (J == 1) {
-
-	// 	} else {}
-	// }
-
-	// if ()
-
-	Shape new_shape;
-	new_shape.set(0, I);
-	new_shape.set(1, J);
+	Shape new_shape((M > N) ? self->arr.shape : rhs->arr.shape);
+	new_shape.set(new_shape.nd - 2, I);
+	new_shape.set(new_shape.nd - 1, J);
 
 	auto result = new_PyKarray(new_shape);
 
-	matmul(result->arr.data, self->arr.data, rhs->arr.data, I, J, K);
+	for (int m = 0; m < max(M, N); ++m) {
+		int ia = m % M;
+		int ib = m % N;
 
-	return reinterpret_cast<PyObject *>(result);
-}
-
-
-PyObject *
-Karray_matmul_loop(PyObject * here, PyObject * other) {
-	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
-		Py_RETURN_NOTIMPLEMENTED;
+		general_matmul(result->arr.data + m * I * J,
+		       self->arr.data + ia * I * K,
+		       rhs->arr.data + ib * K * J,
+		       I, J, K);
 	}
 
-	auto self = reinterpret_cast<PyKarray *>(here);
-	auto rhs = reinterpret_cast<PyKarray *>(other);
-	Karray mult = loop_matmul(self->arr, rhs->arr);
-	PYERR_RETURN_VAL(NULL);
-	auto result = new_PyKarray();
-	result->arr.swap(mult);
 	return reinterpret_cast<PyObject *>(result);
-}
-
-
-PyObject *
-Karray_matmul_loop_transpose(PyObject * here, PyObject * other) {
-	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
-		Py_RETURN_NOTIMPLEMENTED;
-	}
-
-	auto self = reinterpret_cast<PyKarray *>(here);
-	auto rhs = reinterpret_cast<PyKarray *>(other);
-	Karray mult = loop_transpose_matmul(self->arr, rhs->arr);
-	PYERR_RETURN_VAL(NULL);
-	auto result = new_PyKarray();
-	result->arr.swap(mult);
-	PyObject * final = reinterpret_cast<PyObject *>(result);
-	return final;
 }
 
 

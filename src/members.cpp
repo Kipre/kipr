@@ -1,7 +1,6 @@
 
 
-void
-Karray_dealloc(PyKarray *self) {
+void Karray_dealloc(PyKarray *self) {
     // printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
     self->arr.~Karray();
     Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
@@ -56,6 +55,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
         PYERR_PRINT_GOTO_FAIL;
     }
 
+    Py_INCREF(input);
     switch (py_type(input)) {
     case (KARRAY): {
         // printf("initializin from karray\n");
@@ -84,7 +84,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
         PYERR_PRINT_GOTO_FAIL;
         candidate = nest.to_Karray();
         if (shape) {
-            candidate.broadcast(proposed_shape);
+            candidate = candidate.broadcast(proposed_shape);
         }
     }
     break;
@@ -108,17 +108,6 @@ fail:
     return -1;
 }
 
-// PyObject *
-// execute_func(PyObject *self, PyObject * input) {
-//     DEBUG_Obj(input, "");
-
-
-//     Shape shape(input, (size_t) 120);
-//     shape.print();
-
-//     Py_RETURN_NONE;
-// }
-
 PyObject *
 Karray_str(PyKarray * self) {
     return PyUnicode_FromString(self->arr.str().c_str());
@@ -141,16 +130,18 @@ Karray_subscript(PyObject *here, PyObject * key) {
 fail:
     Py_DECREF(key);
     PyErr_SetString(PyExc_ValueError, "Failed to apply subscript.");
-    return reinterpret_cast<PyObject *>(result);
+    return NULL;
 }
 
 PyObject *
 Karray_reshape(PyKarray * self, PyObject * shape) {
-    Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape, self->arr.shape.length);
     PYERR_RETURN_VAL(NULL);
     self->arr.shape = new_shape;
-    return reinterpret_cast<PyObject *>(self);
+
+    auto result = reinterpret_cast<PyObject *>(self);
+    Py_INCREF(result);
+    return result;
 }
 
 PyObject *
@@ -188,8 +179,9 @@ Karray_broadcast(PyKarray * self, PyObject * shape) {
     Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape);
     PYERR_RETURN_VAL(NULL);
-    self->arr.broadcast(new_shape);
-    return reinterpret_cast<PyObject *>(self);
+    auto result = new_PyKarray(self->arr.broadcast(new_shape));
+    PYERR_RETURN_VAL(NULL);
+    return reinterpret_cast<PyObject *>(result);
 }
 
 
@@ -261,58 +253,6 @@ PyObject *Karray_transpose(PyObject *here, PyObject *Py_UNUSED(ignored)) {
     auto [shape_t, strides_t] = self->arr.shape.transpose();
     PyKarray * result = new_PyKarray(shape_t);
     Positions pos {0, 0, 0};
-    transpose(self->arr.data, result->arr.data, &pos, shape_t, strides_t, 0);
-    return reinterpret_cast<PyObject *>(result);
-}
-
-
-
-
-
-
-PyObject *Karray_recadd(PyObject *here, PyObject *other) {
-    PyKarray * self = reinterpret_cast<PyKarray *>(here);
-    PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
-    PyKarray * result;
-    size_t length = self->arr.shape.length;
-    if (length == rhs->arr.shape.length) {
-        result = new_PyKarray(self->arr.shape);
-        add_kernel(result->arr.data, self->arr.data, rhs->arr.data, length);
-    } else {
-        auto [common, a_strides, b_strides] =
-            paired_strides(self->arr.shape, rhs->arr.shape);
-        PYERR_RETURN_VAL(NULL);
-        result = new_PyKarray(common);
-        size_t positions[3] = {0};
-        rec_binary_op(result->arr.data, self->arr.data, rhs->arr.data,
-                      common, a_strides, b_strides, positions, _add, 0);
-    }
-    return reinterpret_cast<PyObject *>(result);
-}
-
-
-
-
-
-
-
-PyObject *Karray_pureadd(PyObject *here, PyObject *other) {
-    PyKarray * self = reinterpret_cast<PyKarray *>(here);
-    PyKarray * rhs = reinterpret_cast<PyKarray *>(other);
-    PyKarray * result = new_PyKarray(self->arr.shape);
-    size_t length = self->arr.shape.length;
-    int k;
-    #pragma omp parallel for num_threads(8)
-    for (k = 0; k < length - 8; k += 8) {
-        __m256 v_a = _mm256_load_ps(&self->arr.data[k]);
-        __m256 v_b = _mm256_load_ps(&rhs->arr.data[k]);
-        v_a = _mm256_add_ps(v_a, v_b);
-        _mm256_store_ps(&rhs->arr.data[k], v_a);
-    }
-    while (k < length) {
-        rhs->arr.data[k] = self->arr.data[k] + rhs->arr.data[k];
-        k++;
-    }
-
+    simple_transfer(self->arr.data, result->arr.data, &pos, shape_t, strides_t, 0);
     return reinterpret_cast<PyObject *>(result);
 }

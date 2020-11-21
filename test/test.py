@@ -2,33 +2,45 @@ import unittest
 import kipr as kp
 import numpy as np
 
-max_nd = kp.max_nd()
+max_nd = 8
 nb_random_checks = 5
+
+def rand_shape(nd=None):
+    if not nd:
+        nd = np.random.randint(1, max_nd + 1)
+    shape = np.random.randint(1,5, size=(nd))
+    return shape.tolist()
+
+def rand_shape_and_size(nd=None):
+    if not nd:
+        nd = np.random.randint(1, max_nd + 1)
+    shape = np.random.randint(1,5, size=(nd))
+    return shape.tolist(), int(shape.prod())
+
 
 
 
 class TestKarrayInternals(unittest.TestCase):
 
     def test_internals(self):
-        self.assertTrue(kp.internal())
+        print('test_internals')
+        self.assertTrue(kp.internal_test())
 
 class TestModuleFunctions(unittest.TestCase):
 
     def test_relu(self):
-
+        print('test_relu')
 
         for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(2,5, size=(nd))
-            print(f'reshape to {shape}')
+            shape = rand_shape()
 
-            ka = kp.arr('random', shape=shape)
+            ka = kp.arr('rand', shape=shape)
             na = ka.numpy()
 
-            
             np.testing.assert_almost_equal(
                 kp.relu(ka).numpy(), 
-                na * (na > 0)
+                na * (na > 0),
+                err_msg=f"{shape = }"
             )
 
 
@@ -37,6 +49,7 @@ class TestModuleFunctions(unittest.TestCase):
 class TestKarrayObject(unittest.TestCase):
 
     def test_init(self):
+        print('test_init')
 
         # at least one argument
         with self.assertRaises(TypeError):
@@ -54,7 +67,6 @@ class TestKarrayObject(unittest.TestCase):
         with self.assertRaises(TypeError):
             kp.arr(1, shape=[0, 1])
         
-
         # shape len must be > 1
         with self.assertRaises(TypeError):
             kp.arr(1, shape=[])
@@ -70,66 +82,70 @@ class TestKarrayObject(unittest.TestCase):
         # BUG
         # self.assertTrue(kp.arr(1, shape=(1)))
         
+        # sanity check
         self.assertTrue(kp.arr(1))
         
         np.testing.assert_almost_equal(
             kp.arr(1).numpy(), 
-            np.array([1])
+            np.array([1]),
+            err_msg="simple 1"
         )
 
         np.testing.assert_almost_equal(
             kp.arr(range(2), shape=[1, 1, 1, 2]).numpy(), 
-            np.arange(2).reshape([1, 1, 1, 2])
+            np.arange(2).reshape([1, 1, 1, 2]),
+            err_msg="simple 2"
         )
 
 
         for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(1,5, size=(nd))
-            print(f'{shape = }')
+            shape = rand_shape()
 
             np.testing.assert_almost_equal(
-                kp.arr(range(shape.prod()), shape=shape).numpy(), 
-                np.array(range(shape.prod())).reshape(shape)
+                kp.arr('range', shape=shape).numpy(), 
+                np.array(range(np.array(shape).prod())).reshape(shape),
+                err_msg=f'{shape = }'
             )
 
         for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(1,5, size=(nd))
+            shape = rand_shape()
+
             a = np.random.rand(*shape)
             np.testing.assert_almost_equal(
                 kp.arr(a).numpy(), 
-                a
+                a,
+                err_msg=f'{shape = }'
             )
 
     def test_reshape(self):
+        print('test_reshape')
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1).reshape([2])
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1).reshape([])
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1).reshape(np.array([]))
 
         for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(2,5, size=(nd))
-            print(f'reshape to {shape}')
-
+            shape, size = rand_shape_and_size()
             np.testing.assert_almost_equal(
-                kp.arr(range(shape.prod())).reshape(shape).numpy(), 
-                np.array(range(shape.prod())).reshape(shape)
+                kp.arr('range', shape=[size]).reshape(shape).numpy(), 
+                np.array(range(size)).reshape(shape),
+                err_msg=f'reshape to {shape}'
             )
 
     def test_print(self):
+
+        print('test_print')
         print(kp.arr(1, shape=[2, 3]))
 
     def test_shape_attr(self):
+        print('test_shape_attr')
 
         shape = [3, 4, 5]
-        print(kp.arr(1, shape=shape))
 
         
         with self.assertRaises(AttributeError):
@@ -142,32 +158,31 @@ class TestKarrayObject(unittest.TestCase):
 
 
     def test_subscript(self):
+        print('test_subscript')
 
-        a = kp.arr(range(5**5), shape=[5, 5, 5, 5, 5])
+        a = kp.arr('range', shape=[5, 5, 5, 5, 5])
         b = a.numpy()
 
         
-        with self.assertRaises(IndexError):
+        with self.assertRaises(ValueError):
             a[..., ...]
 
-        with self.assertRaises(IndexError):
-            a[5]
+        # with self.assertRaises(ValueError):
+        #     a[5]
 
-        with self.assertRaises(IndexError):
+        with self.assertRaises(ValueError):
             a[1.3]
 
-        with self.assertRaises(IndexError):
-            print(a[-7])
+        # with self.assertRaises(ValueError):
+        #     print(a[-7])
 
-        with self.assertRaises(IndexError):
+        with self.assertRaises(ValueError):
             a[..., 5]
 
-        with self.assertRaises(IndexError):
+        with self.assertRaises(ValueError):
             a[..., 5]
 
         a[1:1]
-
-        print(kp.arr(1)[:])
 
         c = kp.arr([1, 2])
         c[[1, 0]]
@@ -188,13 +203,15 @@ class TestKarrayObject(unittest.TestCase):
                       (0, 1, 2, 3, 4)]
 
         for subscript in subscripts:
-            print(f"{subscript = }")
             np.testing.assert_almost_equal(
                 a[subscript].numpy(), 
-                b[subscript]
+                b[subscript],
+                err_msg=f"error occured with {subscript = }"
             )
 
     def test_broadcast(self):
+
+        print('test_broadcast')
         a = kp.arr('range', shape=[1, 4])
         np.testing.assert_almost_equal(
             a.broadcast([3, 4]).numpy(), 
@@ -235,6 +252,8 @@ class TestKarrayMath(unittest.TestCase):
 
     def test_add(self):
 
+        print('test_add')
+
         with self.assertRaises(TypeError):
             kp.arr(1) + ''
 
@@ -254,16 +273,15 @@ class TestKarrayMath(unittest.TestCase):
         )
 
         for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(1, 5, size=(nd))
+            shape = rand_shape()
+
             a = np.random.rand(*shape)
             b = np.random.rand(*shape)
-
-            print(a.shape)
             
             np.testing.assert_almost_equal(
                 (kp.arr(a) + kp.arr(b)).numpy(), 
-                a + b
+                a + b,
+                err_msg=f"{shape = }"
             )
 
         for sa, sb in self.pair_shapes:
@@ -275,15 +293,19 @@ class TestKarrayMath(unittest.TestCase):
 
             np.testing.assert_almost_equal(
                 (a + b).numpy(), 
-                na + nb
+                na + nb,
+                err_msg=f"{sa = }, {sb = }"
             )
 
             np.testing.assert_almost_equal(
                 (b + a).numpy(), 
-                na + nb
+                na + nb,
+                err_msg=f"{sb = }, {sa = }"
             )
 
     def test_inplace_add(self):
+
+        print('test_inplace_add')
 
         ka = kp.arr(1)
 
@@ -294,14 +316,12 @@ class TestKarrayMath(unittest.TestCase):
         )
 
         for k in range(nb_random_checks):
-            nd = np.random.randint(1, max_nd + 1)
-            shape = np.random.randint(1, 5, size=(nd))
+            shape = rand_shape()
+
             a = np.random.rand(*shape).astype(np.float32)
             b = np.random.rand(*shape).astype(np.float32)
 
             ka = kp.arr(a)
-            print(a.shape)
-
             ka += kp.arr(b)
 
             np.testing.assert_almost_equal(
@@ -316,15 +336,16 @@ class TestKarrayMath(unittest.TestCase):
             a = kp.arr(na)
             b = kp.arr(nb)
 
-            print(a, b)
-
             b += a
             np.testing.assert_almost_equal(
                 b.numpy(), 
-                na + nb
+                na + nb,
+                err_msg=f"{sa = }, {sb = }"
             )
 
     def test_sub(self):
+
+        print('test_sub')
 
         np.testing.assert_almost_equal(
             (kp.arr(2) - kp.arr(3)).numpy(), 
@@ -332,6 +353,8 @@ class TestKarrayMath(unittest.TestCase):
         )
 
     def test_inplace_sub(self):
+
+        print('test_inplace_sub')
 
         a = kp.arr(2);
         a -= kp.arr(1)
@@ -343,12 +366,16 @@ class TestKarrayMath(unittest.TestCase):
 
     def test_mul(self):
 
+        print('test_mul')
+
         np.testing.assert_almost_equal(
             (kp.arr(2) * kp.arr(3)).numpy(), 
             [6]
         )
 
     def test_inplace_mul(self):
+
+        print('test_inplace_mul')
 
         a = kp.arr(2);
         a *= kp.arr(1.5)
@@ -360,12 +387,16 @@ class TestKarrayMath(unittest.TestCase):
 
     def test_div(self):
 
+        print('test_div')
+
         np.testing.assert_almost_equal(
             (kp.arr(2) / kp.arr(3)).numpy(), 
             [0.6666666666666]
         )
 
     def test_inplace_div(self):
+
+        print('test_inplace_div')
 
         a = kp.arr(2);
         a /= kp.arr(1.5)
@@ -376,6 +407,8 @@ class TestKarrayMath(unittest.TestCase):
         )
 
     def test_matmul(self):
+
+        print('test_matmul')
         a = kp.arr('range', shape=[3, 3]).reshape([1, 3, 3]).broadcast([2, 3, 3])
         b = kp.arr('range', shape=[3, 2])
 
@@ -390,6 +423,8 @@ class TestKarrayMath(unittest.TestCase):
         )
 
     def test_mean(self):
+
+        print('test_mean')
 
         a = np.random.rand(2, 3, 4).astype(np.float32)
         ka = kp.arr(a)
@@ -435,7 +470,7 @@ class TestKarrayMath(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-    # TestKarray().test_init()
+    # TestKarray().test_init()
     # TestKarray().test_subscript()
     # TestKarrayObject().test_init()
     # TestKarrayInternals().test_internals()

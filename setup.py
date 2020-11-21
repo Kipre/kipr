@@ -13,7 +13,7 @@ elif platform == "darwin":
 elif platform == "win32":
     extra_args = {
       'extra_compile_args': ['/std:c++latest', "/arch:AVX2", '/Zc:strictStrings-'],
-      'extra_link_args': ['src/matmul.obj']
+      'extra_link_args': []
     }
     if debug:
         extra_args['extra_compile_args'] += ['/Zi', '/Od']
@@ -30,7 +30,7 @@ with open('src/arraymodule.cpp', 'w') as amalgamation:
     # include allcode 
     for src_file in ['src/python_boilerplate.cpp', 'src/utils.cpp', 'src/kernels.cpp',
                      'src/karray.cpp', 'src/shape.cpp', 'src/filter.cpp',
-                     'src/members.cpp',
+                     'src/members.cpp', 'src/other.cpp',
                      'src/math_ops.cpp', 'src/module_functions.cpp']:
         with open(src_file, 'r') as src:
             amalgamation.write(src.read())

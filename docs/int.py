@@ -17,34 +17,6 @@ def f(x, W1, W2, b, y):
     # loss = -sum(y*log(x))
     return x
 
-a = [2, 4, 1, 5]
-b = [5, 2, 4, 4, 5]
-
-def get_strides(shape):
-    acc = 1
-    result = []
-    for k in shape[-1::-1]:
-        result.insert(0, acc)
-        acc *= k
-    return result
-
-def pos(index, strides):
-    assert(len(index) == len(strides))
-    result = [i * s for i, s in zip(index, strides)]
-    return sum(result)
-
-def view_pos(index, strides):
-    assert(len(index) == len(strides))
-    result = [i * s for i, s in zip(index, strides)]
-    return sum(result)
-
-a_strides = get_strides(a)
-b_strides = get_strides(b)
-c = pos((2, 0, 2, 3, 3),  [0, 20, 5, 5, 1])
-pos((0, 2, 0, 3), a_strides), c, c // 20
-
-ar = kp.arr('range', shape=a)
-
 def computation_graph(f):
     G = nx.DiGraph()
     bytecode = dis.Bytecode(f)

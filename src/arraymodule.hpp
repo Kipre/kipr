@@ -113,23 +113,22 @@ public:
 
     Shape();
     Shape(int ndims...);
-    template<typename T>
-    Shape(T * input, int size = 8);
-    // Shape(size_t * input, int size = 8);
+    Shape(size_t * input, int size = 8);
+    Shape(Py_ssize_t * input, int size);
     Shape(PyObject * o, size_t target_length = 0);
     Shape(Shape a, Shape b) noexcept;
     void swap(Shape &other);
     void print(const char * message = "") const;
     void set(int i, size_t val);
     bool assert_or_set(size_t value, int dim);
-    size_t operator[](size_t i) const;
+    size_t operator[](int i) const;
     bool operator==(Shape &other);
     size_t validate();
     void write(size_t * destination);
     std::string str() const;
     size_t sum();
     NDVector strides(int depth_diff = 0) const;
-    Filter broadcast_to(Shape& other);
+    NDVector broadcast_to(Shape & other);
     void push_back(size_t dim);
     void insert_one(int i);
     size_t pop(int i = -1) noexcept;
@@ -196,8 +195,9 @@ public:
     void from_numpy(PyObject * o) noexcept;
     void print(const char * message = "");
     std::string str();
-    void broadcast(Shape new_shape);
+    Karray broadcast(Shape new_shape);
     Karray subscript(PyObject * key);
+    Karray matmul(Karray & other);
     Karray flat_sum(bool mean = false);
     Karray sum(size_t axis, const Karray &weights, bool mean = false);
     Karray elementwise_binary_op(const Karray &other, binary_kernel kernel, binary_op op);
@@ -226,7 +226,7 @@ public:
 class NDVector
 {
 public:
-    size_t buf[MAX_ND] = {};
+    size_t buf[MAX_ND] = {0};
 
     NDVector(size_t value) : buf{value} {};
     NDVector() {};
@@ -275,8 +275,6 @@ static std::tuple<Shape, NDVector, NDVector> paired_strides(Shape a, Shape b) no
 void transpose(float * from, float * to, Positions * pos,
                Shape & shape, const NDVector& strides, int depth);
 
-// extern "C" void __cdecl matmul(float*, float*, float*, unsigned long, unsigned long, unsigned long);
-
 // members
 void Karray_dealloc(PyKarray *self);
 int Karray_init(PyKarray *self, PyObject *args, PyObject *kwds);
@@ -309,22 +307,17 @@ PyObject * Karray_inplace_div(PyObject * self, PyObject * other);
 PyObject * Karray_matmul(PyObject * self, PyObject * other);
 PyObject * Karray_negative(PyObject * self);
 
-PyObject * Karray_recadd(PyObject *here, PyObject *other);
-PyObject * Karray_pureadd(PyObject *here, PyObject *other);
-PyObject * Karray_matmul_loop(PyObject * self, PyObject * other);
-PyObject * Karray_matmul_loop_transpose(PyObject * here, PyObject * other);
-PyObject * Karray_matmul_regs(PyObject * here, PyObject * other);
-
 // module functions
 PyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * function_decorator(PyObject *self, PyObject *func);
-// PyObject * max_nd(PyObject *self, PyObject *Py_UNUSED(ignored));
 PyObject * Karray_relu(PyObject *self, PyObject * o);
 PyObject * Karray_exp(PyObject *self, PyObject * o);
-PyObject *Karray_softmax(PyObject *module, PyObject *const *args, Py_ssize_t nargs);
+PyObject * Karray_softmax(PyObject *module, PyObject *const *args, Py_ssize_t nargs);
 PyObject * Karray_log(PyObject *self, PyObject * o);
 
+// other
+PyObject * cache_info(PyObject *self, PyObject * input);
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
 
