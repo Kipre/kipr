@@ -200,7 +200,7 @@ Karray Karray::subscript(PyObject * key) {
 
 	NDVector strides(shape.strides());
 	Shape new_shape(filter.from_subscript(key, shape));
-	PYERR_PRINT_GOTO_FAIL;
+	IF_ERROR_RETURN({});
 
 	result.shape = new_shape;
 	delete[] result.data;
@@ -379,8 +379,10 @@ Karray Karray::sum(size_t axis, const Karray &weights, bool mean) {
 	Shape new_shape = shape;
 	size_t reduction = new_shape.pop((int) axis);
 	if (weights.shape.length != 1 &&
-	        weights.shape.length != reduction)
-		KERR_RETURN_VAL("Weights do not correspond to sum reduction.", Karray{});
+	        weights.shape.length != reduction) {
+		PyErr_SetString(Karray_error, "Weights do not correspond to sum reduction.");
+		return Karray {};
+	}
 	NDVector strides = shape.strides();
 	Karray result(new_shape, 0.);
 	_sum(data, result.data, weights.data, shape, strides, (weights.shape.length != 1), mean, axis, 0);

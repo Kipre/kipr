@@ -83,7 +83,8 @@ Karray_matmul(PyObject * here, PyObject * other) {
 	auto rhs = reinterpret_cast<PyKarray *>(other);
 
 	if (self->arr.shape.nd < 2 && rhs->arr.shape.nd < 2) {
-		KERR_RETURN_VAL("Both arrays must be at least two-dimensional for matmul.", NULL);
+		PyErr_SetString(Karray_error, "Both arrays must be at least two-dimensional for matmul.");
+		return NULL;
 	}
 
 	size_t M, N, I, J, K;

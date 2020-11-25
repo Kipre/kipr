@@ -50,24 +50,36 @@ Shape::Shape(PyObject * o, size_t target_length) {
 	length = 1;
 	int wildcard = -1;
 	Py_ssize_t value;
-	if (!PyList_Check(o) && !PyTuple_Check(o))
-		KERR_RETURN("Shape must be a list or a tuple.");
+	if (!PyList_Check(o) && !PyTuple_Check(o)) {
+		PyErr_SetString(Karray_error,
+		                "Shape must be a tuple or a list.");
+		return;
+	}
 	Py_ssize_t seq_length = PySequence_Length(o);
-	if (seq_length == 0)
-		KERR_RETURN("Shape must be a list or a tuple with at least one element.");
+	if (seq_length == 0) {
+		PyErr_SetString(Karray_error,
+		                "Shape must be a list or a tuple with at least one element.");
+		return;
+	}
 	PyObject ** items = PySequence_Fast_ITEMS(o);
 	for (int i = 0; i < seq_length; ++i) {
 		value = PyLong_AsSsize_t(items[i]);
+		if (PyErr_Occurred()) {
+			PyErr_SetString(Karray_error, "Shape must be a sequence of integers.");
+			return;
+		}
 
-		PYERR_SET_RETURN("Shape must be a sequence of integers.");
 		if (value == 0 || value < -1) {
 			PyErr_Format(Karray_error,
-			             "Proposed shape is invalid with value %I64i at %i", value, nd);
+			             "Proposed shape is invalid with value %I64i at %i.", value, nd);
 			return;
 		}
 		if (value == -1) {
-			if (wildcard != -1)
-				KERR_RETURN("Can't have more than one wildcard (-1) in the shape.");
+			if (wildcard != -1) {
+				PyErr_SetString(Karray_error,
+				                "Can't have more than one wildcard (-1) in the shape.");
+				return;
+			}
 			wildcard = nd;
 		} else {
 			buf[nd] = value;
@@ -81,15 +93,24 @@ Shape::Shape(PyObject * o, size_t target_length) {
 		++i;
 	}
 	if (wildcard >= 0) {
-		if (!target_length)
-			KERR_RETURN("Wildcard (-1) not allowed here.");
-		if (target_length % length != 0)
-			KERR_RETURN("Proposed shape cannot be adapted to data.");
+		if (!target_length) {
+			PyErr_SetString(Karray_error,
+			                "Wildcard (-1) not allowed here.");
+			return;
+		}
+		if (target_length % length != 0) {
+			PyErr_SetString(Karray_error,
+			                "Proposed shape cannot be adapted to data.");
+			return;
+		}
 		buf[wildcard] = target_length / length;
 		length = target_length;
 	} else if (target_length) {
-		if (target_length != length)
-			KERR_RETURN("Proposed shape doesn't align with data.");
+		if (target_length != length) {
+			PyErr_SetString(Karray_error,
+			                "Proposed shape doesn't align with data.");
+			return;
+		}
 
 	}
 	return;
@@ -236,7 +257,7 @@ void Shape::set(int i, size_t val) {
 		buf[i] = val;
 		length *= val;
 	} else {
-		for (int k=nd; k < i; ++k) {
+		for (int k = nd; k < i; ++k) {
 			buf[k] = 1;
 		}
 		buf[i] = val;
@@ -250,7 +271,7 @@ size_t Shape::nbmats() {
 		return 0;
 	if (nd == 2)
 		return 1;
-	return length / (buf[nd-1] * buf[nd-2]);
+	return length / (buf[nd - 1] * buf[nd - 2]);
 }
 
 size_t Shape::validate() {
@@ -307,9 +328,9 @@ NDVector Shape::broadcast_to(Shape & other) {
 			result.buf[i] = acc;
 			acc *= other[i];
 		} else {
-		PyErr_Format(Karray_error,
-		             "Cannot broadcast shape %s to %s.", str(), other.str());
-		return result;
+			PyErr_Format(Karray_error,
+			             "Cannot broadcast shape %s to %s.", str(), other.str());
+			return result;
 		}
 	}
 	for (int i = 0; i < dim_diff; ++i) {
@@ -374,7 +395,7 @@ NDVector Shape::strides(int depth_diff) const {
 
 void Shape::insert_one(int i) {
 	if (i < 0 || i > nd)
-		KERR_RETURN("Cannot insert 1 into shape because index is out of bounds.");
+		throw std::exception("cannot instert one because out of range");
 	++nd;
 	int k = MAX_ND - 1;
 	while (k > i) {
@@ -395,18 +416,27 @@ void Shape::push_back(size_t dim) {
 }
 
 size_t Shape::axis(PyObject * o) {
-	if (!PyIndex_Check(o))
-		KERR_RETURN_VAL("Axis is invalid.", 9);
+	if (!PyIndex_Check(o)) {
+		PyErr_Format(Karray_error, "Axis %s is invalid.",
+		             PyUnicode_AsUTF8(PyObject_Str(o)));
+		return 9;
+	}
 	Py_ssize_t value = PyLong_AsSsize_t(o);
-	if (abs(value) > nd - 1)
-		KERR_RETURN_VAL("Axis is out of range.", 9);
+	if (abs(value) > nd - 1) {
+		PyErr_Format(Karray_error, "Axis %I64i is out of range with ndim = %i.",
+		             value, nd);
+		return 9;
+	}
 	return (size_t) (value % nd + nd) % nd;
 
 }
 
 size_t Shape::axis(int ax) {
-	if (abs(ax) > nd - 1)
-		KERR_RETURN_VAL("Axis is out of range.", 9);
+	if (abs(ax) > nd - 1) {
+		PyErr_Format(Karray_error, "Axis %i is out of range with ndim = %i.",
+		             ax, nd);
+		return 9;
+	}
 	return (size_t) (ax % nd + nd) % nd;
 
 }
@@ -419,7 +449,7 @@ size_t Shape::axis(int ax) {
 // 	Shape result;
 // 	if (a.nd > b.nd)
 // 		result = b
-// 	else 
+// 	else
 // 		result = a;
 
 
@@ -432,16 +462,16 @@ std::tuple<Shape, NDVector> Shape::transpose() const {
 	result.length = length;
 	std::copy(buf, buf + MAX_ND, result.buf);
 	NDVector strides_t = strides();
-	result.buf[nd-1] = buf[nd-2];
-	result.buf[nd-2] = buf[nd-1];
-	size_t tmp = strides_t.buf[nd-1];
-	strides_t.buf[nd-1] = strides_t.buf[nd-2];
-	strides_t.buf[nd-2] = tmp;
+	result.buf[nd - 1] = buf[nd - 2];
+	result.buf[nd - 2] = buf[nd - 1];
+	size_t tmp = strides_t.buf[nd - 1];
+	strides_t.buf[nd - 1] = strides_t.buf[nd - 2];
+	strides_t.buf[nd - 2] = tmp;
 	return {result, strides_t};
 }
 
 int Shape::last_axis() {
-	int i = nd-1;
+	int i = nd - 1;
 	while (buf[i] == 1 && i > 0)
 		--i;
 	return i;

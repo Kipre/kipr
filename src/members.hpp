@@ -52,7 +52,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     if (shape) {
         Py_INCREF(shape);
         proposed_shape = Shape(shape);
-        PYERR_PRINT_GOTO_FAIL;
+        IF_ERROR_RETURN(-1);
     }
 
     Py_INCREF(input);
@@ -66,7 +66,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     }
     case (STRING): {
         auto mode = read_mode(input);
-        PYERR_PRINT_GOTO_FAIL;
+        IF_ERROR_RETURN(-1);
         candidate.from_mode(proposed_shape, mode);
         break;
     }
@@ -81,7 +81,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     case (NUMBER):
     case (SEQUENCE): {
         NestedSequence<float> nest(input);
-        PYERR_PRINT_GOTO_FAIL;
+        IF_ERROR_RETURN(-1);
         candidate = nest.to_Karray();
         if (shape) {
             candidate = candidate.broadcast(proposed_shape);
@@ -92,7 +92,7 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
         PyErr_SetString(PyExc_TypeError,
                         "Input object not understood.");
     }
-    PYERR_PRINT_GOTO_FAIL;
+    IF_ERROR_RETURN(-1);
 
     self->arr.swap(candidate);
 
@@ -100,12 +100,12 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     Py_XDECREF(shape);
     return 0;
 
-fail:
-    Py_DECREF(input);
-    Py_XDECREF(shape);
-    PyErr_SetString(PyExc_TypeError,
-                    "Failed to initialize kipr.arr.");
-    return -1;
+// fail:
+//     Py_DECREF(input);
+//     Py_XDECREF(shape);
+//     PyErr_SetString(PyExc_TypeError,
+//                     "Failed to initialize kipr.arr.");
+//     return -1;
 }
 
 PyObject *
@@ -123,14 +123,9 @@ Karray_subscript(PyObject *here, PyObject * key) {
 
     auto result = new_PyKarray();
     result->arr = self->arr.subscript(key);
-    PYERR_PRINT_GOTO_FAIL;
+    IF_ERROR_RETURN(NULL);
     Py_DECREF(key);
     return reinterpret_cast<PyObject *>(result);
-
-fail:
-    Py_DECREF(key);
-    PyErr_SetString(PyExc_ValueError, "Failed to apply subscript.");
-    return NULL;
 }
 
 PyObject *

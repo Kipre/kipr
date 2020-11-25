@@ -7,8 +7,8 @@ public:
 
 	virtual void execute(std::vector<Karray *> & instance, size_t pos) {};
 
-	void add_child(int i) {
-		children.push_back(i);
+	void add_child(size_t i) {
+		children.push_back((int) i);
 	};
 
 	std::string str() {

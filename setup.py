@@ -23,6 +23,10 @@ elif platform == "win32":
 else:
     raise Exception(f'Unknown platform {platform}.')
 
+with open('src/arraymodule.cpp', 'w') as f:
+    f.write(f'// {np.random.randn}\n')
+    f.write('#include "arraymodule.hpp"\n')
+
 
 arrays = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],

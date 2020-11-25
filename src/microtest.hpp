@@ -3,12 +3,7 @@
 //
 // URL: https://github.com/torpedro/microtest.h
 //
-#include <vector>
-#include <iostream>
 
-////////////////
-// Assertions //
-////////////////
 
 #define ASSERT(cond)\
   ASSERT_TRUE(cond);

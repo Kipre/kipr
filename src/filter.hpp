@@ -71,7 +71,7 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
     int rest;
 
     std::vector<PyObject *> subs = full_subscript(key, current_shape);
-    PYERR_PRINT_GOTO_FAIL;
+    IF_ERROR_RETURN({});
     for (int i = 0; i < subs.size(); ++i) {
         switch (subscript_type(subs[i])) {
         case (NUMBER):
@@ -95,10 +95,10 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
         case (SEQUENCE): {
             Py_ssize_t length = PySequence_Length(subs[i]);
             PyObject ** items = PySequence_Fast_ITEMS(subs[i]);
-            printf("seq length: %i\n", length);
+            // printf("seq length: %i\n", length);
             for (int k = 0; k < length; ++k) {
                 ind = align_index(PyLong_AsSsize_t(items[k]), current_shape[i]);
-                PYERR_PRINT_GOTO_FAIL;
+                IF_ERROR_RETURN({});
                 push_back(ind, i);
             }
             new_shape.push_back(length);
@@ -113,10 +113,6 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
     }
     return new_shape;
 
-
-fail:
-    PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
-    return new_shape;
 }
 
 std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
@@ -127,7 +123,9 @@ std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
     int missing_dims;
 
     if (tup_length > current_shape.nd) {
-        VALERR_PRINT_GOTO_FAIL("Subscript has too much elements.");
+        PyErr_SetString(Karray_error,
+                        "Subscript has too much elements.");
+        return {};
     } else {
 
         PyObject * full_slice = PySlice_New(NULL, NULL, NULL);
@@ -140,7 +138,8 @@ std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
                     elements.push_back(full_slice);
                 found_ellipsis = true;
             } else if (items[i] == Py_Ellipsis && found_ellipsis) {
-                VALERR_PRINT_GOTO_FAIL("Ellipsis cannot appear twice in subscript.");
+                PyErr_SetString(Karray_error, "Ellipsis cannot appear twice in subscript.");
+                return {};
             } else {
                 // Py_INCREF(items[i]);
                 elements.push_back(items[i]);
@@ -152,8 +151,4 @@ std::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape) {
 
         return elements;
     }
-
-fail:
-    PyErr_SetString(PyExc_ValueError, "Failed to understand subscript.");
-    return elements;
 }

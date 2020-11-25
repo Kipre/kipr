@@ -229,13 +229,6 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	Py_DECREF(function);
 	Py_XDECREF(trainable);
 	return 0;
-
-fail:
-	Py_DECREF(function);
-	Py_XDECREF(trainable);
-	PyErr_SetString(PyExc_TypeError,
-	                "Failed to initialize <kipr.graph>.");
-	return -1;
 }
 
 

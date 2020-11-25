@@ -29,8 +29,10 @@ Karray_relu(PyObject *module, PyObject * o) {
 PyObject *Karray_softmax(PyObject *module,
                            PyObject *const *args,
                            Py_ssize_t nargs) {
-	if (nargs == 0 || nargs > 2)
-		KERR_RETURN_VAL("Wrong number of arguments", NULL);
+	if (nargs == 0 || nargs > 2) {
+		PyErr_Format(Karray_error, "Wrong number of arguments, got %I64i but expecting exactly 1 or 2.", nargs);
+		return NULL;
+	}
 	if (py_type(args[0]) != KARRAY) {
 		Py_RETURN_NOTIMPLEMENTED;
 	}

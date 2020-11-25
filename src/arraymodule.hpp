@@ -40,66 +40,9 @@ const int STR_OFFSET = 10;
 
 PyObject* Karray_error;
 
-#define PYERR_PRINT_GOTO_FAIL \
-    if (PyErr_Occurred()) { \
-        PyErr_Print(); \
-        goto fail; \
-    }
-
-#define PYERR_CLEAR_GOTO_FAIL \
-    if (PyErr_Occurred()) { \
-        PyErr_Clear(); \
-        goto fail; \
-    }
-
-#define PYERR_CLEAR_CONTINUE \
-    if (PyErr_Occurred()) { \
-        PyErr_Clear(); \
-    }
-
-#define VALERR_PRINT_GOTO_FAIL(msg) \
-    PyErr_SetString(PyExc_ValueError, msg);\
-    PyErr_Print();\
-    goto fail;\
-
-#define KERR_GOTO_FAIL(msg) \
-    {PyErr_SetString(Karray_errorr, msg);\
-    goto fail;}
-
-#define KERR_RETURN(msg) \
-    {PyErr_SetString(Karray_error, msg);\
-    return;}
-
-
-#define KERR_FORMAT_RETURN(...) \
-    {PyErr_Format(Karray_error, __VA_ARGS__);\
-    return;}
-
-#define KERR_RETURN_VAL(msg, val) \
-    {PyErr_SetString(Karray_error, msg);\
-    return val;}
-
-#define PYERR_GOTO_FAIL \
-    if (PyErr_Occurred()) \
-        goto fail;
-
-#define PYERR_RETURN \
-    if (PyErr_Occurred()) \
-        return;
-
-#define PYERR_SET_RETURN(msg) \
-    if (PyErr_Occurred()) {\
-        PyErr_Print(); \
-        PyErr_SetString(Karray_error, msg);\
-        return;}
-
 #define IF_ERROR_RETURN(...) \
     if (PyErr_Occurred()) \
         return __VA_ARGS__;
-
-// #define IF_ERROR_RETURN() \
-//     if (PyErr_Occurred()) \
-//         return;
 
 
 typedef float(*binary_op)(float, float);

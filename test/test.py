@@ -64,19 +64,19 @@ class TestKarrayObject(unittest.TestCase):
             kp.arr(['a', 'b'])
         
         # shouldn't be any zeros in shape
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1, shape=[0, 1])
         
         # shape len must be > 1
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1, shape=[])
         
         # shape must be a sequence
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1, shape=2)
         
         # shape must be a sequence
-        with self.assertRaises(TypeError):
+        with self.assertRaises(kp.KarrayError):
             kp.arr(1, shape=np.array([]))
 
         # BUG
@@ -164,23 +164,21 @@ class TestKarrayObject(unittest.TestCase):
         b = a.numpy()
 
         
-        with self.assertRaises(ValueError):
+        with self.assertRaises(kp.KarrayError):
             a[..., ...]
 
-        # with self.assertRaises(ValueError):
-        #     a[5]
-
         with self.assertRaises(ValueError):
+            a[5]
+
+        with self.assertRaises(TypeError):
             a[1.3]
 
-        # with self.assertRaises(ValueError):
-        #     print(a[-7])
+        with self.assertRaises(ValueError):
+            print(a[-7])
 
         with self.assertRaises(ValueError):
             a[..., 5]
 
-        with self.assertRaises(ValueError):
-            a[..., 5]
 
         a[1:1]
 
