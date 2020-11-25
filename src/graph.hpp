@@ -41,16 +41,12 @@ std::vector<std::string> fast_to_vector<std::string>(PyObject * o) {
 	return result;
 }
 
-const int KIPR_MODULE = -2;
-const int RELU_FUNCTION = -12;
-const int SOFTMAX_FUNCTION = -13;
-
 int karray_function_code(std::string & name) {
 	if (name == "relu")
 		return RELU_FUNCTION;
 	if (name == "softmax")
 		return SOFTMAX_FUNCTION;
-	return 0;
+	return ERROR_CODE;
 }
 
 void print(std::stack<int> s) {
@@ -171,8 +167,8 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 				PyErr_SetString(Karray_error, "At the moment, only one argument per function call is supported.");
 				return -1;
 			}
-			int argument = stack.top(); stack.pop();
-			int function = stack.top(); stack.pop();
+			size_t argument = stack.top(); stack.pop();
+			size_t function = stack.top(); stack.pop();
 			Op oper = func_to_op(function);
 			oper.operands.push_back(argument);
 			g->ops[argument].add_child(g->ops.size());
@@ -183,8 +179,8 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 
 		case (BINARY_MATRIX_MULTIPLY):
 		case (BINARY_ADD): {
-			int a = stack.top(); stack.pop();
-			int b = stack.top(); stack.pop();
+			size_t a = stack.top(); stack.pop();
+			size_t b = stack.top(); stack.pop();
 			Op oper = func_to_op(op);
 			oper.operands.push_back(a);
 			oper.operands.push_back(b);
@@ -196,7 +192,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		break;
 
 		case (UNARY_NEGATIVE): {
-			int a = stack.top(); stack.pop();
+			size_t a = stack.top(); stack.pop();
 			Op oper = func_to_op(op);
 			oper.operands.push_back(a);
 			g->ops[a].add_child(g->ops.size());

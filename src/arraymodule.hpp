@@ -45,6 +45,7 @@ PyObject* Karray_error;
         return __VA_ARGS__;
 
 
+
 typedef float(*binary_op)(float, float);
 typedef void(*binary_kernel)(float *, float *, float *, ssize_t);
 typedef void(*binary_val_kernel)(float *, float *, float, ssize_t);
@@ -96,20 +97,6 @@ private:
     size_t buf[MAX_ND];
 };
 
-const size_t ERROR_MODE = 0;
-const size_t RANDOM_UNIFORM = 1;
-const size_t RANDOM_NORMAL = 2;
-const size_t RANGE = 3;
-
-const int NO_AXIS = 9;
-
-
-const size_t NUMPY_ARRAY = 3;
-const size_t STRING = 5;
-const size_t NUMBER = 7;
-const size_t SEQUENCE = 11;
-const size_t SLICE = 13;
-const size_t KARRAY = 17;
 
 class Karray
 {

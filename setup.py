@@ -1,6 +1,7 @@
 import setuptools
 import numpy as np
 from sys import platform
+import opcodes
 
 extra_args = {}
 
@@ -24,11 +25,11 @@ else:
     raise Exception(f'Unknown platform {platform}.')
 
 with open('src/arraymodule.cpp', 'w') as f:
-    f.write(f'// {np.random.randn}\n')
+    f.write(f'// {np.random.randn()}\n')
     f.write('#include "arraymodule.hpp"\n')
 
 
-arrays = setuptools.Extension(name='kipr_array',
+karray = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],
                               include_dirs=[np.get_include()],
                               library_dirs=['C:\\Program Files\\Python39\\libs'],
@@ -39,4 +40,4 @@ setuptools.setup(name='kipr',
                  author='Cyprien', 
                  description='Personal toolbox',
                  packages=['kipr'],
-                 ext_modules=[arrays])
+                 ext_modules=[karray])

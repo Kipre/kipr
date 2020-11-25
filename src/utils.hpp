@@ -81,7 +81,7 @@ void simple_transfer(float * from, float * to, Positions * pos,
 
 size_t read_mode(PyObject * o) {
 	if (!PyUnicode_Check(o))
-		return ERROR_MODE;
+		return ERROR_CODE;
 	if (PyUnicode_Compare(o, PyUnicode_FromString("rand")) == 0 ||
 	        PyUnicode_Compare(o, PyUnicode_FromString("random")) == 0) {
 		return RANDOM_UNIFORM;
@@ -94,7 +94,7 @@ size_t read_mode(PyObject * o) {
 	}
 	PyErr_Format(PyExc_ValueError,
 	             "String magic %s not understood.", PyUnicode_AsUTF8(o));
-	return ERROR_MODE;
+	return ERROR_CODE;
 }
 
 size_t py_type(PyObject * o) {
@@ -110,7 +110,7 @@ size_t py_type(PyObject * o) {
 		return SEQUENCE;
 	if (PySlice_Check(o))
 		return SLICE;
-	return 0;
+	return ERROR_CODE;
 }
 
 size_t subscript_type(PyObject * o) {
@@ -120,18 +120,18 @@ size_t subscript_type(PyObject * o) {
 		return SLICE;
 	if (PySequence_Check(o))
 		return SEQUENCE;
-	return 0;
+	return ERROR_CODE;
 }
 
 size_t align_index(Py_ssize_t i, size_t dim_length) {
-	if (abs(i) >= dim_length) {
+	if (abs(i) >= (int) dim_length) {
 		PyErr_Format(PyExc_ValueError,
 		             "Index %i out of range on axis with length %i.",
 		             i, dim_length);
 		return 0;
 	} else {
-		int result = (i + dim_length) % dim_length;
-		return (size_t) result;
+		size_t result = (i + dim_length) % dim_length;
+		return result;
 	}
 }
 
