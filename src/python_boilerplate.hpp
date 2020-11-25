@@ -33,6 +33,8 @@ static PyMethodDef Karray_methods[] = {
 
 
 static PyMethodDef Graph_methods[] = {
+    {"compile", (PyCFunction)  Graph_prepare,  METH_FASTCALL,
+     "Compile graph."},
     {NULL}  /* Sentinel */
 };
 

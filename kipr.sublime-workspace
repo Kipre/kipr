@@ -4,6 +4,30 @@
 		"selected_items":
 		[
 			[
+				"Py",
+				"PyKarray"
+			],
+			[
+				"p",
+				"print"
+			],
+			[
+				"func",
+				"func_to_op"
+			],
+			[
+				"K",
+				"KIPR_MODULE"
+			],
+			[
+				"push",
+				"push_back"
+			],
+			[
+				"for",
+				"for\tFor Loop"
+			],
+			[
 				"Ka",
 				"Karray"
 			],
@@ -48,10 +72,6 @@
 				"_mm256_set1_ps"
 			],
 			[
-				"Py",
-				"PyObject"
-			],
-			[
 				"new",
 				"new_shape"
 			],
@@ -72,10 +92,6 @@
 				"Karray"
 			],
 			[
-				"K",
-				"Karray_error"
-			],
-			[
 				"PyE",
 				"PyErr_Format"
 			],
@@ -94,10 +110,6 @@
 			[
 				"insert",
 				"insert_one"
-			],
-			[
-				"p",
-				"positions"
 			],
 			[
 				"other",
@@ -332,10 +344,6 @@
 				"target_nd"
 			],
 			[
-				"for",
-				"forv\tVector For Loop"
-			],
-			[
 				"filt",
 				"filter_size"
 			],
@@ -506,33 +514,41 @@
 			[
 				"DEBUG_print_",
 				"DEBUG_print_int_carr"
-			],
-			[
-				"DEB",
-				"DEBUG_P"
-			],
-			[
-				"rea",
-				"read_position"
 			]
 		]
 	},
 	"buffers":
 	[
 		{
+			"contents": "#define PY_SSIZE_T_CLEAN\n#include <Python.h>\n#include \"structmember.h\"\n#include <numpy/arrayobject.h>\n\n#include <immintrin.h>\n#include <iostream>\n#include <vector>\n#include <string>\n#include <algorithm>\n#include <sstream>\n#include <random>\n#include <numeric>\n#include <map>\n#include <tuple>\n#include <stack>\n\n// debugging bullshit\n#ifdef _WIN32\n#include <windows.h>\n#include <debugapi.h>\n#endif\n\n#include \"internal_test.hpp\"\n#include \"kernels.hpp\"\n#include \"opcodes.hpp\"\n\n\n// To avoid c++ mixed designated initializers error\n#define Karray_HEAD_INIT \\\n    .ob_base={.ob_base={1, NULL }, .ob_size=0},\n\nconst int MAX_ND = 8;\nconst char * KARRAY_NAME = \"kipr.arr\";\n\nconst int MAX_PRINT_SIZE = 100;\nconst int STR_OFFSET = 10;\n\nPyObject* Karray_error;\n\n#define PYERR_PRINT_GOTO_FAIL \\\n    if (PyErr_Occurred()) { \\\n        PyErr_Print(); \\\n        goto fail; \\\n    }\n\n#define PYERR_CLEAR_GOTO_FAIL \\\n    if (PyErr_Occurred()) { \\\n        PyErr_Clear(); \\\n        goto fail; \\\n    }\n\n#define PYERR_CLEAR_CONTINUE \\\n    if (PyErr_Occurred()) { \\\n        PyErr_Clear(); \\\n    }\n\n#define VALERR_PRINT_GOTO_FAIL(msg) \\\n    PyErr_SetString(PyExc_ValueError, msg);\\\n    PyErr_Print();\\\n    goto fail;\\\n\n#define KERR_GOTO_FAIL(msg) \\\n    {PyErr_SetString(Karray_errorr, msg);\\\n    goto fail;}\n\n#define KERR_RETURN(msg) \\\n    {PyErr_SetString(Karray_error, msg);\\\n    return;}\n\n\n#define KERR_FORMAT_RETURN(...) \\\n    {PyErr_Format(Karray_error, __VA_ARGS__);\\\n    return;}\n\n#define KERR_RETURN_VAL(msg, val) \\\n    {PyErr_SetString(Karray_error, msg);\\\n    return val;}\n\n#define PYERR_GOTO_FAIL \\\n    if (PyErr_Occurred()) \\\n        goto fail;\n\n#define PYERR_RETURN \\\n    if (PyErr_Occurred()) \\\n        return;\n\n#define PYERR_SET_RETURN(msg) \\\n    if (PyErr_Occurred()) {\\\n        PyErr_Print(); \\\n        PyErr_SetString(Karray_error, msg);\\\n        return;}\n\n#define PYERR_RETURN_VAL(val) \\\n    if (PyErr_Occurred()) \\\n        return val;\n\n\ntypedef float(*binary_op)(float, float);\ntypedef void(*binary_kernel)(float *, float *, float *, ssize_t);\ntypedef void(*binary_val_kernel)(float *, float *, float, ssize_t);\ntypedef void(*unary_kernel)(float *, float *, ssize_t);\n\n\n\nclass Filter;\nclass NDVector;\n\n\nclass Shape\n{\npublic:\n    bool def = true;\n    int nd;\n    size_t length;\n\n    Shape();\n    Shape(int ndims...);\n    Shape(size_t * input, int size = 8);\n    Shape(Py_ssize_t * input, int size);\n    Shape(PyObject * o, size_t target_length = 0);\n    Shape(Shape a, Shape b) noexcept;\n    void swap(Shape &other);\n    void print(const char * message = \"\") const;\n    void set(int i, size_t val);\n    bool assert_or_set(size_t value, int dim);\n    size_t operator[](int i) const;\n    bool operator==(Shape &other);\n    size_t validate();\n    void write(size_t * destination);\n    std::string str() const;\n    size_t sum();\n    NDVector strides(int depth_diff = 0) const;\n    NDVector broadcast_to(Shape & other);\n    void push_back(size_t dim);\n    void insert_one(int i);\n    size_t pop(int i = -1) noexcept;\n    size_t axis(PyObject * o);\n    size_t axis(int ax);\n    bool compatible_for_matmul(Shape & other);\n    std::tuple<NDVector, NDVector> paired_strides(Shape b) noexcept;\n    std::tuple<Shape, NDVector> transpose() const;\n    size_t nbmats();\n    int last_axis();\n\nprivate:\n    size_t buf[MAX_ND];\n};\n\nconst size_t ERROR_MODE = 0;\nconst size_t RANDOM_UNIFORM = 1;\nconst size_t RANDOM_NORMAL = 2;\nconst size_t RANGE = 3;\n\nconst int NO_AXIS = 9;\n\n\nconst size_t NUMPY_ARRAY = 3;\nconst size_t STRING = 5;\nconst size_t NUMBER = 7;\nconst size_t SEQUENCE = 11;\nconst size_t SLICE = 13;\nconst size_t KARRAY = 17;\n\nclass Karray\n{\npublic:\n    int seed;\n    Shape shape;\n    float * data = nullptr;\n\n    // structor\n    Karray();\n    Karray(float value);\n    Karray(Shape new_shape, std::vector<float> vec);\n    Karray(Shape new_shape, float * new_data);\n    Karray(Shape new_shape, float value);\n    Karray(Shape new_shape);\n    ~Karray() noexcept;\n\n    // copy and move\n    Karray(const Karray& other);\n    Karray& operator=(const Karray&);\n    Karray(Karray&& other);\n    Karray& operator=(Karray&&);\n    void swap(Karray& other);\n\n    // math\n    Karray& operator+=(const Karray& other);\n    Karray& operator/=(const Karray& other);\n    Karray& operator*=(const Karray& other);\n    Karray& operator-=(const Karray& other);\n    Karray operator+(const Karray& rhs);\n    Karray operator/(const Karray& rhs);\n    Karray operator-(const Karray& rhs);\n    Karray operator*(const Karray& rhs);\n\n    void from_mode(Shape new_shape, size_t mode) noexcept;\n    void from_numpy(PyObject * o) noexcept;\n    void print(const char * message = \"\");\n    std::string str();\n    Karray broadcast(Shape new_shape);\n    Karray subscript(PyObject * key);\n    Karray matmul(Karray & other);\n    Karray flat_sum(bool mean = false);\n    Karray sum(size_t axis, const Karray &weights, bool mean = false);\n    Karray elementwise_binary_op(const Karray &other, binary_kernel kernel, binary_op op);\n    void inplace_binary_op(const Karray  &rhs, binary_kernel kernel, binary_op op);\n};\n\nclass Filter\n{\npublic:\n    size_t offset[MAX_ND + 1];\n    std::vector<size_t> vec;\n\n    Filter() {\n        offset[0] = 0;\n    };\n    Filter(Shape& shape);\n    void set_range_along_axis(int axis);\n    void set_val_along_axis(int axis, size_t value);\n    void print(const char * message = \"\");\n    Filter& operator=(Filter && other) noexcept;\n    Filter(Filter&& other) noexcept;\n    Shape from_subscript(PyObject * subscript, Shape &current_shape);\n    void push_back(size_t number, int index);\n};\n\nclass NDVector\n{\npublic:\n    size_t buf[MAX_ND] = {0};\n\n    NDVector(size_t value) : buf{value} {};\n    NDVector() {};\n\n    size_t operator[](size_t i) const {\n        return buf[i];\n    };\n\n    void print(const char * message = \"\") {\n        std::cout << \"NDVector \" << message\n                  << \" \" << str() << \"\\n\";\n    };\n\n    std::string str() {\n        std::ostringstream ss;\n        for (int k = 0; k < MAX_ND; ++k) {\n            ss << buf[k] << \", \";\n        }\n        return ss.str();\n    };\n\n    // ~NDVector() {\n    //     // printf(\"destroying ndvector %s\\n\", str().c_str());\n    // };\n};\n\ntypedef struct {\n    PyObject_HEAD\n    Karray arr;\n} PyKarray;\n\n\n\n#include \"ops.hpp\"\n\nclass Graph {\npublic:\n\n    std::vector<int> inputs;\n    std::vector<Op> ops;\n    std::vector<Karray *> instance;\n\n    Graph() : ops {}, instance {}, inputs {} {};\n\n    void print(const char * msg = \"\");\n    std::string str() const;\n};\n\ntypedef struct {\n    PyObject_HEAD\n    Graph g;\n} PyGraph;\n\n\nstruct Positions {\n    size_t write;\n    size_t left;\n    size_t right;\n};\n\n// utils\nsize_t read_mode(PyObject * o);\nstd::vector<PyObject *> full_subscript(PyObject * tuple, Shape& current_shape);\nvoid _sum(float * self_data, float * result_data, float * weights_data,\n          Shape &self_shape, NDVector &strides, bool multiple_weights,\n          bool mean, int axis, int depth);\nstatic std::tuple<Shape, NDVector, NDVector> paired_strides(Shape a, Shape b) noexcept;\nvoid transpose(float * from, float * to, Positions * pos,\n               Shape & shape, const NDVector& strides, int depth);\n\n// members\nvoid Karray_dealloc(PyKarray *self);\nint Karray_init(PyKarray *self, PyObject *args, PyObject *kwds);\nPyObject * Karray_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\nPyObject * Karray_str(PyKarray * self);\nPyObject * Karray_subscript(PyObject *o, PyObject *key);\n\n// getters and setters\nPyObject * Karray_getshape(PyKarray *self, void *closure);\nPyObject * Karray_getrefcnt(PyKarray *self, void *closure);\n\n// member functions\nPyObject * Karray_numpy(PyKarray *self, PyObject *Py_UNUSED(ignored));\n// PyObject * Karray_val(PyKarray *self, PyObject *Py_UNUSED(ignored));\nPyObject * Karray_reshape(PyKarray *self, PyObject *shape);\nPyObject * Karray_broadcast(PyKarray *self, PyObject *o);\nPyObject * Karray_mean(PyKarray *self, PyObject *args, PyObject *kwds);\nPyObject * Karray_sum(PyKarray *self, PyObject *args, PyObject *kwds);\nPyObject * Karray_transpose(PyObject *here, PyObject *Py_UNUSED(ignored));\n\n// math\nPyObject * Karray_add(PyObject * self, PyObject * other);\nPyObject * Karray_inplace_add(PyObject * self, PyObject * other);\nPyObject * Karray_sub(PyObject * self, PyObject * other);\nPyObject * Karray_inplace_sub(PyObject * self, PyObject * other);\nPyObject * Karray_mul(PyObject * self, PyObject * other);\nPyObject * Karray_inplace_mul(PyObject * self, PyObject * other);\nPyObject * Karray_div(PyObject * self, PyObject * other);\nPyObject * Karray_inplace_div(PyObject * self, PyObject * other);\nPyObject * Karray_matmul(PyObject * self, PyObject * other);\nPyObject * Karray_negative(PyObject * self);\n\n// module functions\nPyObject * internal_test(PyObject *self, PyObject *Py_UNUSED(ignored));\nPyObject * execute_func(PyObject *self, PyObject *Py_UNUSED(ignored));\nPyObject * function_decorator(PyObject *self, PyObject *func);\nPyObject * Karray_relu(PyObject *self, PyObject * o);\nPyObject * Karray_exp(PyObject *self, PyObject * o);\nPyObject * Karray_softmax(PyObject *module, PyObject *const *args, Py_ssize_t nargs);\nPyObject * Karray_log(PyObject *self, PyObject * o);\n\n// other\nPyObject * cache_info(PyObject *self, PyObject * input);\n\n\n// graph \n\nvoid Graph_dealloc(PyGraph *self);\nint Graph_init(PyGraph *self, PyObject *args, PyObject *kwds);\nPyObject * Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds);\nPyObject * Graph_str(PyGraph * self);\nPyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs);\n\n#define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf(\"\\n\");\n\n\n#include \"py_types.hpp\"",
 			"file": "src/arraymodule.hpp",
+			"file_size": 10003,
+			"file_write_time": 132508024063653468,
 			"settings":
 			{
-				"buffer_size": 9496,
+				"buffer_size": 9644,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
+			}
+		},
+		{
+			"contents": "\nclass Op {\npublic:\n\tstd::string name = \"op\";\n\tstd::vector<int> children;\n\tstd::vector<int> operands;\n\n\tvirtual void execute(std::vector<Karray *> & instance, size_t pos) {};\n\n\tvoid add_child(int i) {\n\t\tchildren.push_back(i);\n\t};\n\n\tstd::string str() {\n\t\tstd::ostringstream ss;\n\t\tss << '[';\n\t\tfor (auto a : operands)\n\t\t\tss << a << \", \";\n\t\tss << \"] -> \" << name << \" -> [\";\n\t\tfor (auto a : children)\n\t\t\tss << a << \", \";\n\t\tss << \"]\";\n\t\treturn ss.str();\n\t};\n};\n\nclass ElementwiseBinaryOp: public Op {\npublic:\n\tbinary_kernel kernel;\n\tsize_t length;\n\n\tElementwiseBinaryOp(binary_kernel ker, std::string opname = \"binary op\") :\n\t\tlength {0}, kernel {ker} {\n\t\tname = opname;\n\t};\n\n\tvoid execute(std::vector<Karray *> & instance, size_t pos) {\n\t\tkernel(instance[pos]->data,\n\t\t       instance[operands[0]]->data,\n\t\t       instance[operands[1]]->data,\n\t\t       length);\n\t};\n};\n\nclass ElementwiseUnaryOp: public Op {\npublic:\n\tunary_kernel kernel;\n\tsize_t length;\n\n\tElementwiseUnaryOp(unary_kernel ker, std::string opname = \"unary op\") :\n\t\tlength {0}, kernel {ker} {\n\t\tname = opname;\n\t};\n\n\tvoid execute(std::vector<Karray *> & instance, size_t pos) {\n\t\tkernel(instance[pos]->data,\n\t\t       instance[operands[0]]->data,\n\t\t       length);\n\t};\n};\n\nclass SoftmaxOp: public Op {\npublic:\n\tsize_t length;\n\n\tSoftmaxOp() :\n\t\tlength{0} {\n\t\tname = \"softmax\";\n\t};\n\n\tvoid execute(std::vector<Karray *> & instance, size_t pos) {\n\t\tint ax = instance[operands[0]]->shape.last_axis();\n\t\texp_kernel(instance[pos]->data, instance[operands[0]]->data, length);\n\t\tKarray summed_exp = instance[pos]->sum(ax, Karray(1.), false);\n\t\tsummed_exp.shape.insert_one(ax);\n\t\tinstance[operands[0]]->operator/=(summed_exp);\n\t};\n};\n\nclass MatMulOp: public Op {\npublic:\n\tsize_t M;\n\tsize_t N;\n\tsize_t I;\n\tsize_t J;\n\tsize_t K;\n\n\tMatMulOp() :\n\t\tM{0}, N{0}, I{0}, J{0}, K{0} {\n\t\tname = \"matmul\";\n\t};\n};\n\nclass LoadGlobal: public Op {\npublic:\n\n\tLoadGlobal(std::string & inp) {\n\t\tname = inp;\n\t};\n};\n\nclass LoadInput: public Op {\npublic:\n\n\tLoadInput(std::string & inp) {\n\t\tname = inp;\n\t};\n};",
+			"file": "src/ops.hpp",
+			"file_size": 2140,
+			"file_write_time": 132507776417344660,
+			"settings":
+			{
+				"buffer_size": 2033,
+				"encoding": "UTF-8",
+				"line_ending": "Windows",
+				"name": "ops.hpp"
 			}
 		},
 		{
 			"file": "src/utils.cpp",
 			"settings":
 			{
-				"buffer_size": 2373,
+				"buffer_size": 4262,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "utils.cpp"
@@ -548,6 +564,17 @@
 			}
 		},
 		{
+			"contents": "\nconst int POP_TOP = 1;\nconst int ROT_TWO = 2;\nconst int ROT_THREE = 3;\nconst int DUP_TOP = 4;\nconst int DUP_TOP_TWO = 5;\nconst int ROT_FOUR = 6;\nconst int NOP = 9;\nconst int UNARY_POSITIVE = 10;\nconst int UNARY_NEGATIVE = 11;\nconst int UNARY_NOT = 12;\nconst int UNARY_INVERT = 15;\nconst int BINARY_MATRIX_MULTIPLY = 16;\nconst int INPLACE_MATRIX_MULTIPLY = 17;\nconst int BINARY_POWER = 19;\nconst int BINARY_MULTIPLY = 20;\nconst int BINARY_MODULO = 22;\nconst int BINARY_ADD = 23;\nconst int BINARY_SUBTRACT = 24;\nconst int BINARY_SUBSCR = 25;\nconst int BINARY_FLOOR_DIVIDE = 26;\nconst int BINARY_TRUE_DIVIDE = 27;\nconst int INPLACE_FLOOR_DIVIDE = 28;\nconst int INPLACE_TRUE_DIVIDE = 29;\nconst int RERAISE = 48;\nconst int WITH_EXCEPT_START = 49;\nconst int GET_AITER = 50;\nconst int GET_ANEXT = 51;\nconst int BEFORE_ASYNC_WITH = 52;\nconst int END_ASYNC_FOR = 54;\nconst int INPLACE_ADD = 55;\nconst int INPLACE_SUBTRACT = 56;\nconst int INPLACE_MULTIPLY = 57;\nconst int INPLACE_MODULO = 59;\nconst int STORE_SUBSCR = 60;\nconst int DELETE_SUBSCR = 61;\nconst int BINARY_LSHIFT = 62;\nconst int BINARY_RSHIFT = 63;\nconst int BINARY_AND = 64;\nconst int BINARY_XOR = 65;\nconst int BINARY_OR = 66;\nconst int INPLACE_POWER = 67;\nconst int GET_ITER = 68;\nconst int GET_YIELD_FROM_ITER = 69;\nconst int PRINT_EXPR = 70;\nconst int LOAD_BUILD_CLASS = 71;\nconst int YIELD_FROM = 72;\nconst int GET_AWAITABLE = 73;\nconst int LOAD_ASSERTION_ERROR = 74;\nconst int INPLACE_LSHIFT = 75;\nconst int INPLACE_RSHIFT = 76;\nconst int INPLACE_AND = 77;\nconst int INPLACE_XOR = 78;\nconst int INPLACE_OR = 79;\nconst int LIST_TO_TUPLE = 82;\nconst int RETURN_VALUE = 83;\nconst int IMPORT_STAR = 84;\nconst int SETUP_ANNOTATIONS = 85;\nconst int YIELD_VALUE = 86;\nconst int POP_BLOCK = 87;\nconst int POP_EXCEPT = 89;\nconst int STORE_NAME = 90;\nconst int DELETE_NAME = 91;\nconst int UNPACK_SEQUENCE = 92;\nconst int FOR_ITER = 93;\nconst int UNPACK_EX = 94;\nconst int STORE_ATTR = 95;\nconst int DELETE_ATTR = 96;\nconst int STORE_GLOBAL = 97;\nconst int DELETE_GLOBAL = 98;\nconst int LOAD_CONST = 100;\nconst int LOAD_NAME = 101;\nconst int BUILD_TUPLE = 102;\nconst int BUILD_LIST = 103;\nconst int BUILD_SET = 104;\nconst int BUILD_MAP = 105;\nconst int LOAD_ATTR = 106;\nconst int COMPARE_OP = 107;\nconst int IMPORT_NAME = 108;\nconst int IMPORT_FROM = 109;\nconst int JUMP_FORWARD = 110;\nconst int JUMP_IF_FALSE_OR_POP = 111;\nconst int JUMP_IF_TRUE_OR_POP = 112;\nconst int JUMP_ABSOLUTE = 113;\nconst int POP_JUMP_IF_FALSE = 114;\nconst int POP_JUMP_IF_TRUE = 115;\nconst int LOAD_GLOBAL = 116;\nconst int IS_OP = 117;\nconst int CONTAINS_OP = 118;\nconst int JUMP_IF_NOT_EXC_MATCH = 121;\nconst int SETUP_FINALLY = 122;\nconst int LOAD_FAST = 124;\nconst int STORE_FAST = 125;\nconst int DELETE_FAST = 126;\nconst int RAISE_VARARGS = 130;\nconst int CALL_FUNCTION = 131;\nconst int MAKE_FUNCTION = 132;\nconst int BUILD_SLICE = 133;\nconst int LOAD_CLOSURE = 135;\nconst int LOAD_DEREF = 136;\nconst int STORE_DEREF = 137;\nconst int DELETE_DEREF = 138;\nconst int CALL_FUNCTION_KW = 141;\nconst int CALL_FUNCTION_EX = 142;\nconst int SETUP_WITH = 143;\nconst int LIST_APPEND = 145;\nconst int SET_ADD = 146;\nconst int MAP_ADD = 147;\nconst int LOAD_CLASSDEREF = 148;\nconst int EXTENDED_ARG = 144;\nconst int SETUP_ASYNC_WITH = 154;\nconst int FORMAT_VALUE = 155;\nconst int BUILD_CONST_KEY_MAP = 156;\nconst int BUILD_STRING = 157;\nconst int LOAD_METHOD = 160;\nconst int CALL_METHOD = 161;\nconst int LIST_EXTEND = 162;\nconst int SET_UPDATE = 163;\nconst int DICT_MERGE = 164;\nconst int DICT_UPDATE = 165;\n",
+			"file": "src/opcodes.hpp",
+			"file_size": 3646,
+			"file_write_time": 132508024159427000,
+			"settings":
+			{
+				"buffer_size": 3526,
+				"line_ending": "Windows"
+			}
+		},
+		{
 			"file": "src/members.cpp",
 			"settings":
 			{
@@ -557,10 +584,19 @@
 			}
 		},
 		{
+			"contents": "py\nimport kipr as kp\nW1 = kp.arr(1)\nW2 = kp.arr(1)\nb = kp.arr(2)\n\ndef f(x, p):\n    y = kp.relu(W1 @ x + b)\n    y = kp.softmax(W2 @ x + p + y)\n    return y\n\ng = kp.graph(f)\ng.compile(kp.arr(3), kp.arr(2))",
+			"settings":
+			{
+				"buffer_size": 203,
+				"line_ending": "Windows",
+				"name": "py"
+			}
+		},
+		{
 			"file": "src/python_boilerplate.cpp",
 			"settings":
 			{
-				"buffer_size": 5103,
+				"buffer_size": 5263,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -578,24 +614,19 @@
 			"file": "setup.py",
 			"settings":
 			{
-				"buffer_size": 1766,
+				"buffer_size": 1708,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/arraymodule.cpp",
+			"contents": "\n\nvoid inline\nadd_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, v_b;\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_b = _mm256_load_ps(&rhs[k]);\n        v_a = _mm256_add_ps(v_a, v_b);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = lhs[k] + rhs[k];\n        ++k;\n    }\n}\n\n\nvoid inline\nsub_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, v_b;\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_b = _mm256_load_ps(&rhs[k]);\n        v_a = _mm256_sub_ps(v_a, v_b);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = lhs[k] - rhs[k];\n        ++k;\n    }\n}\n\n\nvoid inline\nmul_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, v_b;\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_b = _mm256_load_ps(&rhs[k]);\n        v_a = _mm256_mul_ps(v_a, v_b);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = lhs[k] * rhs[k];\n        ++k;\n    }\n}\n\n\nvoid inline\ndiv_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, v_b;\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_b = _mm256_load_ps(&rhs[k]);\n        v_a = _mm256_div_ps(v_a, v_b);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = lhs[k] / rhs[k];\n        ++k;\n    }\n}\n\nvoid print_m256(__m256 a, const char * msg = \"\") {\n    float tmp[8];\n    _mm256_store_ps(tmp, a);\n    printf(\"__m256 %s %f, %f, %f, %f, %f, %f, %f, %f\\n\", msg,\n           tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5], tmp[6], tmp[7]);\n}\n\ninline void general_matmul(float * c, float * a, float * b, size_t I, size_t J, size_t K) {\n\n    int i, j;\n    // #pragma omp parallel for num_threads(4)\n    for (i = 0; i < (int) I - 3; i += 4) {\n        for (j = 0; j < (int) J - 23; j += 24) {\n            __m256 h00, h01, h02, h03,\n                   h10, h11, h12, h13,\n                   h20, h21, h22, h23,\n                   b0, b1, b2, a0;\n\n            b0 = _mm256_load_ps(&b[j]);\n            b1 = _mm256_load_ps(&b[j + 8]);\n            b2 = _mm256_load_ps(&b[j + 16]);\n\n            a0 = _mm256_set1_ps(a[(0 + i) * K]);\n\n            h00 = _mm256_mul_ps(a0, b0);\n            h10 = _mm256_mul_ps(a0, b1);\n            h20 = _mm256_mul_ps(a0, b2);\n\n            a0 = _mm256_set1_ps(a[(1 + i) * K]);\n\n            h01 = _mm256_mul_ps(a0, b0);\n            h11 = _mm256_mul_ps(a0, b1);\n            h21 = _mm256_mul_ps(a0, b2);\n\n            a0 = _mm256_set1_ps(a[(2 + i) * K]);\n\n            h02 = _mm256_mul_ps(a0, b0);\n            h12 = _mm256_mul_ps(a0, b1);\n            h22 = _mm256_mul_ps(a0, b2);\n\n            a0 = _mm256_set1_ps(a[(3 + i) * K]);\n\n            h03 = _mm256_mul_ps(a0, b0);\n            h13 = _mm256_mul_ps(a0, b1);\n            h23 = _mm256_mul_ps(a0, b2);\n\n            for (int k = 1; k < K; ++k) {\n\n                b0 = _mm256_load_ps(&b[k * J + j]);\n                b1 = _mm256_load_ps(&b[k * J + j + 8]);\n                b2 = _mm256_load_ps(&b[k * J + j + 16]);\n\n                a0 = _mm256_set1_ps(a[(0 + i) * K + k]);\n\n                h00 = _mm256_fmadd_ps(a0, b0, h00);\n                h10 = _mm256_fmadd_ps(a0, b1, h10);\n                h20 = _mm256_fmadd_ps(a0, b2, h20);\n\n                a0 = _mm256_set1_ps(a[(1 + i) * K + k]);\n\n                h01 = _mm256_fmadd_ps(a0, b0, h01);\n                h11 = _mm256_fmadd_ps(a0, b1, h11);\n                h21 = _mm256_fmadd_ps(a0, b2, h21);\n\n                a0 = _mm256_set1_ps(a[(2 + i) * K + k]);\n\n                h02 = _mm256_fmadd_ps(a0, b0, h02);\n                h12 = _mm256_fmadd_ps(a0, b1, h12);\n                h22 = _mm256_fmadd_ps(a0, b2, h22);\n\n                a0 = _mm256_set1_ps(a[(3 + i) * K + k]);\n\n                h03 = _mm256_fmadd_ps(a0, b0, h03);\n                h13 = _mm256_fmadd_ps(a0, b1, h13);\n                h23 = _mm256_fmadd_ps(a0, b2, h23);\n            }\n            float * w = c + i * J + j;\n            _mm256_store_ps(w, h00);\n            w += 8;\n            _mm256_store_ps(w, h10);\n            w += 8;\n            _mm256_store_ps(w, h20);\n            w = w - 2 * 8 + J;\n            _mm256_store_ps(w, h01);\n            w += 8;\n            _mm256_store_ps(w, h11);\n            w += 8;\n            _mm256_store_ps(w, h21);\n            w = w - 2 * 8 + J;\n            _mm256_store_ps(w, h02);\n            w += 8;\n            _mm256_store_ps(w, h12);\n            w += 8;\n            _mm256_store_ps(w, h22);\n            w = w - 2 * 8 + J;\n            _mm256_store_ps(w, h03);\n            w += 8;\n            _mm256_store_ps(w, h13);\n            w += 8;\n            _mm256_store_ps(w, h23);\n        }\n    }\n\n\n    for (; j < (int)J - 7; j += 8) {\n        for (int ii = 0; ii < i; ii += 4) {\n            __m256 h0, h1, h2, h3,\n                   b0, a0;\n\n\n            b0 = _mm256_load_ps(&b[j]);\n\n            a0 = _mm256_set1_ps(a[(0 + ii) * K]);\n            h0 = _mm256_mul_ps(a0, b0);\n\n            a0 = _mm256_set1_ps(a[(1 + ii) * K]);\n            h1 = _mm256_mul_ps(a0, b0);\n\n            a0 = _mm256_set1_ps(a[(2 + ii) * K]);\n            h2 = _mm256_mul_ps(a0, b0);\n\n            a0 = _mm256_set1_ps(a[(3 + ii) * K]);\n            h3 = _mm256_mul_ps(a0, b0);\n\n\n            for (int k = 0; k < K; ++k) {\n                b0 = _mm256_load_ps(&b[k * J + j]);\n\n                a0 = _mm256_set1_ps(a[(0 + ii) * K + k]);\n                h0 = _mm256_fmadd_ps(a0, b0, h0);\n\n                a0 = _mm256_set1_ps(a[(1 + ii) * K + k]);\n                h1 = _mm256_fmadd_ps(a0, b0, h1);\n\n                a0 = _mm256_set1_ps(a[(2 + ii) * K + k]);\n                h2 = _mm256_fmadd_ps(a0, b0, h2);\n\n                a0 = _mm256_set1_ps(a[(3 + ii) * K + k]);\n                h3 = _mm256_fmadd_ps(a0, b0, h3);\n            }\n            \n            float * w = c + ii * J + j;\n            _mm256_store_ps(w, h0);\n            w += J;\n            _mm256_store_ps(w, h1);\n            w += J;\n            _mm256_store_ps(w, h2);\n            w += J;\n            _mm256_store_ps(w, h3);\n        }\n    }\n\n    // #pragma omp parallel for num_threads(4)\n    for (; j < J; ++j) {\n        for (int ii = 0; ii < i; ++ii) {\n            float acc = 0;\n            for (int k = 0; k < K; ++k) {\n                acc += a[ii * K + k] * b[k * J + j];\n            }\n            c[ii * J + j] = acc;\n        }\n    }\n\n    // #pragma omp parallel for num_threads(4)\n    for (; i < I; ++i) {\n        for (j = 0; j < J; ++j) {\n            float acc = 0;\n            for (int k = 0; k < K; ++k) {\n                acc += a[i * K + k] * b[k * J + j];\n            }\n            c[i * J + j] = acc;\n        }\n    }\n\n}\n\n\n\n\ninline float _add(float a, float b) {\n    return a + b;\n}\n\ninline float _mul(float a, float b) {\n    return a * b;\n}\n\ninline float _sub(float a, float b) {\n    return a - b;\n}\n\ninline float _div(float a, float b) {\n    return a / b;\n}\n\n\nvoid\nexp_kernel(float * dest, float * src, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a;\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&src[k]);\n        v_a = _mm256_exp_ps(v_a);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = exp(src[k]);\n        ++k;\n    }\n}\n\n\nvoid\nlog_kernel(float * dest, float * src, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a;\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&src[k]);\n        v_a = _mm256_log_ps(v_a);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = log(src[k]);\n        ++k;\n    }\n}\n\n\nvoid inline\nval_add_kernel(float * dest, float * lhs, float value, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, constant = _mm256_set1_ps(value);\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_a = _mm256_add_ps(v_a, constant);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = lhs[k] + value;\n        ++k;\n    }\n}\n\n\nvoid inline\nval_mul_kernel(float * dest, float * lhs, float value, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, constant = _mm256_set1_ps(value);\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_a = _mm256_mul_ps(v_a, constant);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = lhs[k] * value;\n        ++k;\n    }\n}\n\n\nvoid inline\nval_max_kernel(float * dest, float * lhs, float value, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, constant = _mm256_set1_ps(value);\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_a = _mm256_max_ps(v_a, constant);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = max(lhs[k], value);\n        ++k;\n    }\n}\n\n\nvoid inline\nrelu_kernel(float * dest, float * lhs, ssize_t length) {\n    int k = 0;\n#if __AVX__\n    __m256 v_a, constant = _mm256_set1_ps(0);\n    for (k = 0; k < length - 8; k += 8) {\n        v_a = _mm256_load_ps(&lhs[k]);\n        v_a = _mm256_max_ps(v_a, constant);\n        _mm256_store_ps(&dest[k], v_a);\n    }\n#endif\n    while (k < length) {\n        dest[k] = max(lhs[k], 0);\n        ++k;\n    }\n}\n\n",
+			"file": "src/kernels.hpp",
+			"file_size": 9951,
+			"file_write_time": 132507774888900401,
 			"settings":
 			{
-				"buffer_size": 63806,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/kernels.cpp",
-			"settings":
-			{
-				"buffer_size": 11058,
+				"buffer_size": 9571,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -622,10 +653,18 @@
 			"file": "src/graph.cpp",
 			"settings":
 			{
-				"buffer_size": 1967,
+				"buffer_size": 7812,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "graph.cpp"
+			}
+		},
+		{
+			"file": "src/arraymodule.cpp",
+			"settings":
+			{
+				"buffer_size": 56850,
+				"line_ending": "Windows"
 			}
 		},
 		{
@@ -638,17 +677,23 @@
 			}
 		},
 		{
+			"contents": "import dis\n\ndef generate_opcodes():\n\tresult = \"\\n\"\n\tfor name, code in dis.opmap.items():\n\t\tresult += f\"const int {name} = {code};\\n\"\n\treturn result\n\nwith open('opcodes.hpp', 'w') as f:\n\tf.write(generate_opcodes())\n",
 			"file": "src/opcodes.py",
+			"file_size": 224,
+			"file_write_time": 132508024030626242,
 			"settings":
 			{
-				"buffer_size": 217,
+				"buffer_size": 214,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "opcodes.py"
 			}
 		},
 		{
+			"contents": "\n\ntemplate<typename T>\nclass FastSequence\n{\npublic:\n\tstd::vector<T> elements;\n\tFastSequence(PyObject * o, bool accept_singleton = false);\n\t~FastSequence() = default;\n\tShape to_shape() {\n\t\tauto shape = Shape(elements.data(), elements.size());\n\t\tshape.validate();\n\t\treturn shape;\n\t}\n};\n\ntemplate<typename T>\nFastSequence<T>::FastSequence(PyObject * o, bool accept_singleton) {\n\tif (accept_singleton) {\n\t\tT value = (T) PyLong_AsSsize_t(o);\n\t\tif (!PyErr_Occurred()) {\n\t\t\telements.push_back(value);\n\t\t\treturn;\n\t\t} else {\n\t\t\tPyErr_Clear();\n\t\t}\n\t}\n\tif (!PyList_Check(o) &&\n\t        !PyTuple_Check(o))\n\t\tgoto fail;\n\tPy_ssize_t length = PySequence_Length(o);\n\telements.reserve(length);\n\tPyObject ** items = PySequence_Fast_ITEMS(o);\n\tfor (int i = 0; i < length; ++i) {\n\t\telements.push_back((T) PyLong_AsSsize_t(items[i]));\n\t\tPYERR_CLEAR_GOTO_FAIL;\n\t}\n\n\treturn;\nfail:\n\tPyErr_Format(PyExc_TypeError,\n\t             \"Input must be a list or a tuple of %s.\",\n\t             typeid(T).name());\n\treturn;\n}\n\nclass Int\n{\npublic:\n\tint value;\n\tInt(PyObject * o) {\n\t\tif (!PyIndex_Check(o))\n\t\t\tgoto fail;\n\n\t\tvalue = PyLong_AsSsize_t(o);\n\t\treturn;\nfail:\n\t\tPyErr_SetString(PyExc_ValueError, \"\");\n\t\treturn;\n\t};\n\n};\n\nclass Float\n{\npublic:\n\tfloat value;\n\tFloat(PyObject * o) {\n\t\tif (!PyNumber_Check(o))\n\t\t\tgoto fail;\n\n\t\tvalue = (float) PyFloat_AsDouble(o);\n\t\treturn;\nfail:\n\t\tPyErr_SetString(PyExc_ValueError, \"Failed to read a Float\");\n\t\treturn;\n\t};\n\n\tvoid print() {\n\t\tstd::cout << value << \", \";\n\t}\n\n};\n\nclass Axis\n{\npublic:\n\tPy_ssize_t value;\n\tAxis(int nd, PyObject * o, Py_ssize_t default_value = -1) {\n\t\tif (o) {\n\t\t\tvalue = Int(o).value;\n\t\t\tif (Py_ABS(value) > nd - 1) {\n\t\t\t\tPyErr_SetString(PyExc_ValueError, \"Axis out of range.\");\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tvalue = (value % nd + nd) % nd;\n\t\t} else {\n\t\t\tvalue = default_value;\n\t\t}\n\t};\n\t~Axis() = default;\n};\n\ntemplate<class T>\nclass NestedSequence {\npublic:\n\tstd::vector<T> data;\n\tShape shape;\n\n\t// NestedSequence();\n\tNestedSequence(PyObject * o);\n\t~NestedSequence() = default;\n\n\tbool parse_data(PyObject * o, int depth = 0);\n\n\tKarray to_Karray() {\n\t\treturn Karray(shape, data);\n\t};\n\n\tvoid print() {\n\t\tstd::cout << \"Printing NestedSequence\\n\\t\";\n\t\tshape.print();\n\t\tstd::cout << '\\n';\n\t\tfor ( auto &i : data ) {\n\t\t\tstd::cout << i << \", \";\n\t\t}\n\t\tstd::cout << '\\n';\n\t};\n};\n\ntemplate<class T>\nbool NestedSequence<T>::parse_data(PyObject * o, int depth) {\n\tif (PySequence_Check(o) && depth < MAX_ND) {\n\t\tPy_ssize_t length = PySequence_Length(o);\n\t\tfor (int i = 0; i < length; ++i) {\n\t\t\tPyObject * item = PySequence_GetItem(o, i);\n\t\t\tif (!NestedSequence<T>::parse_data(item, depth + 1))\n\t\t\t\tgoto fail;\n\t\t\tPy_DECREF(item);\n\t\t}\n\t\treturn shape.assert_or_set((size_t) length, depth);\n\t} else if (PyNumber_Check(o)) {\n\t\tdata.push_back((T) PyFloat_AsDouble(o));\n\t\treturn true;\n\t}\nfail:\n\tPyErr_SetString(PyExc_TypeError, \"Failed to parse input value.\");\n\treturn false;\n\n}\n\n\ntemplate<class T>\nNestedSequence<T>::NestedSequence(PyObject * o) {\n\tsize_t length;\n\tNestedSequence<T>::parse_data(o, 0);\n\tPYERR_PRINT_GOTO_FAIL;\n\tlength = shape.validate();\n\tPYERR_PRINT_GOTO_FAIL;\n\tif (data.size() !=  length)\n\t\tgoto fail;\n\treturn;\nfail:\n\tPyErr_SetString(PyExc_TypeError, \"Failed to build a NestedSequence.\");\n\treturn;\n}\n\n\n\n",
 			"file": "src/py_types.hpp",
+			"file_size": 3391,
+			"file_write_time": 132496304296721683,
 			"settings":
 			{
 				"buffer_size": 3222,
@@ -660,14 +705,17 @@
 			"file": "src/shape.cpp",
 			"settings":
 			{
-				"buffer_size": 8840,
+				"buffer_size": 8931,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "shape.cpp"
 			}
 		},
 		{
+			"contents": "\nPyObject *\ninternal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {\n\n\tTEST(ShapePop) {\n\t\tShape shape1(5, 3, 5, 6, 7, 3);\n\t\tShape shape2(4, 3, 5, 6, 7);\n\t\tShape shape3(3, 3, 6, 7);\n\t\tShape shape4(2, 6, 7);\n\n\t\tASSERT(3 == shape1.pop());\n\t\tASSERT_SHAPE_EQ(shape1, shape2);\n\n\t\tASSERT(5 == shape1.pop(1));\n\t\tASSERT_SHAPE_EQ(shape1, shape3);\n\n\t\tASSERT(3 == shape1.pop(0));\n\t\tASSERT_SHAPE_EQ(shape1, shape4);\n\t};\n\n\tTEST(ShapeAxis) {\n\t\tShape shape1(3, 4, 5, 2);\n\t\tPyObject * zero = Py_BuildValue(\"i\", 0);\n\t\tPyObject * one = Py_BuildValue(\"i\", 1);\n\t\tPyObject * two = Py_BuildValue(\"i\", 2);\n\t\tPyObject * three = Py_BuildValue(\"i\", 3);\n\t\tPyObject * minusone = Py_BuildValue(\"i\", -1);\n\t\tPyObject * fl = Py_BuildValue(\"f\", 1.0);\n\n\t\tASSERT(shape1.axis(zero) == 0);\n\t\tASSERT(shape1.axis(one) == 1);\n\t\tASSERT(shape1.axis(minusone) == 2);\n\t\tASSERT(shape1.axis(two) == 2);\n\t\tASSERT_ERROR(shape1.axis(three));\n\t\tASSERT_ERROR(shape1.axis(fl));\n\t};\n\n\tTEST(ShapeSet) {\n\t\tShape shape1;\n\t\tShape expected;\n\n\t\tshape1.set(0, 2);\n\t\texpected = Shape(1, 2, 0);\n\t\tASSERT_SHAPE_EQ(expected, shape1);\n\n\t\tshape1.set(3, 4);\n\t\tASSERT_SHAPE_EQ(Shape(4, 2, 1, 1, 4), shape1);\n\n\t\tshape1.set(2, 6);\n\t\tASSERT_SHAPE_EQ(Shape(4, 2, 1, 6, 4), shape1);\n\t};\n\n\t// TEST(ShapeInsertOne) {\n\t// \tShape shape1(2, 3, 5);\n\t// \tShape shape2(3, 3, 5, 1);\n\t// \tShape shape3(4, 1, 3, 5, 1);\n\t// \tShape shape4(5, 1, 3, 1, 5, 1);\n\n\t// \tASSERT_SHAPE_EQ(shape1.insert_one(2), shape2);\n\t// \tASSERT_SHAPE_EQ(shape1.insert_one(0), shape3);\n\t// \tASSERT_SHAPE_EQ(shape1.insert_one(2), shape2);\n\t// };\n\n\n    RUN_KTEST;\n}\n\n",
 			"file": "src/test.hpp",
+			"file_size": 1627,
+			"file_write_time": 132500800456677455,
 			"settings":
 			{
 				"buffer_size": 1560,
@@ -685,7 +733,10 @@
 			}
 		},
 		{
+			"contents": "//\n// microtest inspired from:\n//\n// URL: https://github.com/torpedro/microtest.h\n//\n#include <vector>\n#include <iostream>\n#include <algorithm>\n#include <functional>\n\n////////////////\n// Assertions //\n////////////////\n\n#define ASSERT(cond)\\\n  ASSERT_TRUE(cond);\n\n#define ASSERT_TRUE(cond)\\\n  if (!(cond))  K_TEST_FAILED(#cond, __FILE__, __LINE__);\n\n#define ASSERT_FALSE(cond)\\\n  if (cond) K_TEST_FAILED(#cond, __FILE__, __LINE__);\n\n#define ASSERT_NULL(value)\\\n  ASSERT_TRUE(value == NULL);\n\n#define ASSERT_NULL_AND_ERROR(value)\\\n  if (!(value == NULL && PyErr_Occurred())) {\\\n    K_TEST_FAILED(#value, __FILE__, __LINE__);\\\n  }\\\n  PyErr_Clear();\\\n\n#define ASSERT_ERROR(value)\\\n  value;\\\n  if (!(PyErr_Occurred())) {\\\n    K_TEST_FAILED(\"Error not raised by \" #value, __FILE__, __LINE__);\\\n  }\\\n  PyErr_Clear();\\\n\n#define ASSERT_NO_ERROR(value) \\\nvalue ;\\\nif (PyErr_Occurred()) {\\\n  PyErr_Print();PyErr_Format(PyExc_AssertionError, \\\n\"Error occured for %s at line %i.\", #value, __LINE__);\\\n  return;\\\n}\n\n// #define ASSERT_NOTNULL(value)\\\n//   ASSERT_TRUE(value != NULL);\n\n// #define ASSERT_STREQ(a, b)\\\n//   if (std::string(a).compare(std::string(b)) != 0) {\\\n//     printf(\"%s{    info} %s\", mt::yellow(), mt::def());\\\n//     std::cout << \"Actual values: \" << a << \" != \" << b << std::endl;\\\n//     throw mt::AssertFailedException(#a \" == \" #b, __FILE__, __LINE__);\\\n//   }\n\n// #define ASSERT_STRNEQ(a, b)\\\n//   if (std::string(a).compare(std::string(b)) !== 0) {\\\n//     printf(\"%s{    info} %s\", mt::yellow(), mt::def());\\\n//     std::cout << \"Actual values: \" << a << \" == \" << b << std::endl;\\\n//     throw mt::AssertFailedException(#a \" != \" #b, __FILE__, __LINE__);\\\n//   }\n\n#define ASSERT_SHAPE_EQ(a, b) \\\n  if (!(a == b)) {\\\n    printf(\"%s{    info} %s\", mt::yellow(), mt::def());\\\n    a.print(#a);\\\n    b.print(#b);\\\n    K_TEST_FAILED( #a \" == \" #b, __FILE__, __LINE__);\\\n  }\n\n#define ASSERT_EQ(a, b)\\\n  if (a != b) {\\\n    printf(\"%s{    info} %s\", mt::yellow(), mt::def());\\\n    std::cout << \"Actual values: \" << a << \" != \" << b << std::endl;\\\n  }\\\n  ASSERT(a == b);\n\n// #define ASSERT_NEQ(a, b)\\\n//   if (a == b) {\\\n//     printf(\"%s{    info} %s\", mt::yellow(), mt::def());\\\n//     std::cout << \"Actual values: \" << a << \" == \" << b << std::endl;\\\n//   }\\\n//   ASSERT(a != b);\n\n\n////////////////\n// Unit Tests //\n////////////////\n\n#define TEST(name) \\\n  std::function<void (void)> name;\\\n  mt::TestsManager::AddTest(&name, #name);\\\n  name = []()\n\n\n///////////////\n// Framework //\n///////////////\n\n#define K_TEST_FAILED(condstr, file, line) {\\\n    PyErr_Format(PyExc_AssertionError, \\\n\"Assertion failed for %s at line %i.\", condstr, line); \\\nreturn; }\n\n#define __KTEST_SETUP_ERR\\\n    { PyErr_SetString(PyExc_SystemError, \"Could not make colored output.\");\\\n      Py_RETURN_FALSE; }\n\n\n#if defined _WIN32\n#define SETUP_KTEST \\\n    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);\\\n    if (hOut == INVALID_HANDLE_VALUE) __KTEST_SETUP_ERR;\\\n    DWORD dwMode = 0;\\\n    if (!GetConsoleMode(hOut, &dwMode)) __KTEST_SETUP_ERR;\\\n    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;\\\n    if (!SetConsoleMode(hOut, dwMode)) __KTEST_SETUP_ERR;\n#else /*__WIN32__*/\n#define SETUP_KTEST\n#endif /*__WIN32__*/\n\n#define RUN_KTEST \\\n    SETUP_KTEST\\\n    size_t num_failed = mt::TestsManager::RunAllTests(stdout);\\\n    if (num_failed == 0) {\\\n      fprintf(stdout, \"%s{ summary} All tests succeeded!%s\\n\", mt::green(), mt::def());\\\n      Py_RETURN_TRUE;\\\n    } else {\\\n      double percentage = 100.0 * num_failed / mt::TestsManager::tests().size();\\\n      fprintf(stderr, \"%s{ summary} %lu tests failed (%.2f%%)%s\\n\", mt::red(), num_failed, percentage, mt::def());\\\n      Py_RETURN_FALSE;\\\n    };\n\nnamespace mt {\n\ninline const char* red() {\n  return \"\\x1b[1;31m\";\n}\n\ninline const char* green() {\n  return \"\\x1b[0;32m\";\n}\n\ninline const char* yellow() {\n  return \"\\x1b[0;33m\";\n}\n\ninline const char* def() {\n  return \"\\x1b[0m\";\n}\n\ninline void printRunning(const char* message, FILE* file = stdout) {\n  fprintf(file, \"%s{ running}%s %s\\n\", green(), def(), message);\n}\n\ninline void printOk(const char* message, FILE* file = stdout) {\n  fprintf(file, \"%s{      ok}%s %s\\n\", green(), def(), message);\n}\n\ninline void printFailed(const char* message, FILE* file = stdout) {\n  fprintf(file, \"%s{  failed} %s%s\\n\", red(), message, def());\n}\n\nclass TestsManager {\n  // Note: static initialization fiasco\n  // http://www.parashift.com/c++-faq-lite/static-init-order.html\n  // http://www.parashift.com/c++-faq-lite/static-init-order-on-first-use.html\npublic:\n  struct Test {\n    const char* name;\n    std::function<void (void)> * fn;\n  };\n\n  static std::vector<Test>& tests() {\n    static std::vector<Test> tests_;\n    return tests_;\n  }\n\n  // Adds a new test to the current set of tests.\n  // Returns false if a test with the same name already exists.\n  inline static bool AddTest(std::function<void (void)> * fn, const char* name) {\n    tests().push_back({ name, fn });\n    return true;\n  }\n\n  // Run all tests that are registered.\n  // Returns the number of tests that failed.\n  inline static size_t RunAllTests(FILE* file = stdout) {\n    size_t num_failed = 0;\n\n    for (const Test& test : tests()) {\n      // Run the test.\n      // If an AsserFailedException is thrown, the test has failed.\n      printRunning(test.name, file);\n\n      (*test.fn)();\n      if (PyErr_Occurred()) {\n        PyErr_Print();\n        ++num_failed;\n        printFailed(test.name, file);\n      } else {\n        printOk(test.name, file);\n      }\n\n    }\n\n    int return_code = (num_failed > 0) ? 1 : 0;\n    return return_code;\n  }\n};\n};\n",
 			"file": "src/internal_test.hpp",
+			"file_size": 5800,
+			"file_write_time": 132498213141876177,
 			"settings":
 			{
 				"buffer_size": 5587,
@@ -844,9 +895,11 @@
 	"file_history":
 	[
 		"/C/Users/kipr/repos/kipr/src/opcodes.cpp",
+		"/C/Users/kipr/repos/kipr/docs/opcodes.hpp",
+		"/C/Users/kipr/repos/kipr//src/kernels.hpp",
+		"/C/Users/kipr/repos/kipr/src/arraymodule.cpp",
 		"/C/Users/kipr/repos/perso/documents/cover.md",
 		"/C/Users/kipr/repos/kipr/kipr/__init__.py",
-		"/C/Users/kipr/repos/kipr/src/arraymodule.cpp",
 		"/C/Users/kipr/repos/kipr/test/test.py",
 		"/C/Users/kipr/repos/kipr/src/other.cpp",
 		"/C/Users/kipr/repos/kipr/src/members.cpp",
@@ -940,6 +993,23 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"OP_",
+			"STR_OFFSET",
+			"KARRAY_NAME",
+			"Karray",
+			"std::cout",
+			"char",
+			"stack",
+			"'",
+			"op",
+			"eration",
+			"place",
+			"std::vector<std::string>",
+			"code_ob",
+			"bytes",
+			"std::string",
+			"Global",
+			");\n",
 			"LanguageWire",
 			"([A-z ]+)",
 			"\t",
@@ -1050,24 +1120,7 @@
 			"self",
 			"self.",
 			"self",
-			"self.",
-			"b",
-			"other",
-			"here",
-			"k++",
-			"exp",
-			"add",
-			"_mm256_add_ps",
-			"float",
-			"int",
-			"here",
-			"print",
-			"rec",
-			"1",
-			"0",
-			"depth",
-			"positions[0]",
-			"positions[2]"
+			"self."
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -1094,15 +1147,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 9496,
+						"buffer_size": 9644,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								6199,
-								6199
+								705,
+								715
 							]
 						],
 						"settings":
@@ -1112,27 +1165,57 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 3271.33333333,
+						"translation.y": 1723.33333333,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
 					"buffer": 1,
-					"file": "src/utils.cpp",
+					"file": "src/ops.hpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2373,
+						"buffer_size": 2033,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2373,
-								2373
+								1673,
+								1673
+							]
+						],
+						"settings":
+						{
+							"auto_name": "ops.hpp",
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 10,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "src/utils.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4262,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1889,
+								1889
 							]
 						],
 						"settings":
@@ -1142,14 +1225,14 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 976.0,
+						"translation.y": 24.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 14,
 					"type": "text"
 				},
 				{
-					"buffer": 2,
+					"buffer": 3,
 					"file": "src/math_ops.cpp",
 					"semi_transient": false,
 					"settings":
@@ -1171,14 +1254,42 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 773.333333333,
+						"translation.y": 1046.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
-					"buffer": 3,
+					"buffer": 4,
+					"file": "src/opcodes.hpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3526,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2276,
+								2276
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
 					"file": "src/members.cpp",
 					"semi_transient": false,
 					"settings":
@@ -1190,8 +1301,8 @@
 						"selection":
 						[
 							[
-								2493,
-								2493
+								2848,
+								2746
 							]
 						],
 						"settings":
@@ -1201,27 +1312,55 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1421.33333333,
+						"translation.y": 1112.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 17,
 					"type": "text"
 				},
 				{
-					"buffer": 4,
-					"file": "src/python_boilerplate.cpp",
+					"buffer": 6,
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 5103,
+						"buffer_size": 203,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4467,
-								4467
+								203,
+								0
+							]
+						],
+						"settings":
+						{
+							"auto_name": "py",
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 11,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "src/python_boilerplate.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5263,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1318,
+								1318
 							]
 						],
 						"settings":
@@ -1231,14 +1370,14 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1664.0,
+						"translation.y": 702.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 11,
+					"stack_index": 12,
 					"type": "text"
 				},
 				{
-					"buffer": 5,
+					"buffer": 8,
 					"file": "src/module_functions.cpp",
 					"semi_transient": false,
 					"settings":
@@ -1250,8 +1389,8 @@
 						"selection":
 						[
 							[
-								2015,
-								1913
+								615,
+								1390
 							]
 						],
 						"settings":
@@ -1260,27 +1399,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 202.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 13,
 					"type": "text"
 				},
 				{
-					"buffer": 6,
+					"buffer": 9,
 					"file": "setup.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1766,
+						"buffer_size": 1708,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								806,
-								806
+								1002,
+								1023
 							]
 						],
 						"settings":
@@ -1289,64 +1428,34 @@
 							"tab_size": 2,
 							"translate_tabs_to_spaces": true
 						},
-						"translation.x": 86.0,
-						"translation.y": 73.3333333333,
+						"translation.x": 47.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"file": "src/arraymodule.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 63806,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								55891,
-								55891
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 31332.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 3,
+					"stack_index": 7,
 					"type": "text"
 				}
 			]
 		},
 		{
-			"selected": 3,
+			"selected": 7,
 			"sheets":
 			[
 				{
-					"buffer": 8,
-					"file": "src/kernels.cpp",
+					"buffer": 10,
+					"file": "src/kernels.hpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 11058,
+						"buffer_size": 9571,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								3584,
-								3584
+								1695,
+								1695
 							]
 						],
 						"settings":
@@ -1356,14 +1465,14 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 144.0,
+						"translation.y": 732.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 14,
+					"stack_index": 9,
 					"type": "text"
 				},
 				{
-					"buffer": 9,
+					"buffer": 11,
 					"file": "test/test.py",
 					"semi_transient": false,
 					"settings":
@@ -1386,14 +1495,14 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 2638.0,
+						"translation.y": 1624.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 13,
+					"stack_index": 15,
 					"type": "text"
 				},
 				{
-					"buffer": 10,
+					"buffer": 12,
 					"file": "test/nn.py",
 					"semi_transient": false,
 					"settings":
@@ -1419,24 +1528,68 @@
 						"translation.y": 371.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 12,
+					"stack_index": 19,
 					"type": "text"
 				},
 				{
-					"buffer": 11,
+					"buffer": 13,
 					"file": "src/graph.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1967,
+						"buffer_size": 7812,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1,
-								1
+								1661,
+								1661
+							],
+							[
+								1739,
+								1739
+							],
+							[
+								1801,
+								1801
+							],
+							[
+								3053,
+								3053
+							],
+							[
+								3267,
+								3267
+							],
+							[
+								4208,
+								4208
+							],
+							[
+								4444,
+								4444
+							],
+							[
+								4888,
+								4888
+							],
+							[
+								4921,
+								4921
+							],
+							[
+								5258,
+								5258
+							],
+							[
+								5492,
+								5492
+							],
+							[
+								5566,
+								5566
 							]
 						],
 						"settings":
@@ -1446,14 +1599,44 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 119.333333333,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 14,
+					"file": "src/arraymodule.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 56850,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								53764,
+								53764
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 9.33333333333,
 						"zoom_level": 1.0
 					},
 					"stack_index": 1,
 					"type": "text"
 				},
 				{
-					"buffer": 12,
+					"buffer": 15,
 					"file": "src/filter.cpp",
 					"semi_transient": false,
 					"settings":
@@ -1478,24 +1661,24 @@
 						"translation.y": 928.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 9,
+					"stack_index": 20,
 					"type": "text"
 				},
 				{
-					"buffer": 13,
+					"buffer": 16,
 					"file": "src/opcodes.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 217,
+						"buffer_size": 214,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								50,
-								50
+								214,
+								214
 							]
 						],
 						"settings":
@@ -1507,11 +1690,11 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 8,
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
-					"buffer": 14,
+					"buffer": 17,
 					"file": "src/py_types.hpp",
 					"semi_transient": false,
 					"settings":
@@ -1523,8 +1706,8 @@
 						"selection":
 						[
 							[
-								280,
-								280
+								493,
+								493
 							]
 						],
 						"settings":
@@ -1536,24 +1719,24 @@
 						"translation.y": 6.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
-					"buffer": 15,
+					"buffer": 18,
 					"file": "src/shape.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 8840,
+						"buffer_size": 8931,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2988,
-								2988
+								3397,
+								3397
 							]
 						],
 						"settings":
@@ -1563,14 +1746,14 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1667.0,
+						"translation.y": 1950.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 17,
+					"stack_index": 16,
 					"type": "text"
 				},
 				{
-					"buffer": 16,
+					"buffer": 19,
 					"file": "src/test.hpp",
 					"semi_transient": false,
 					"settings":
@@ -1598,7 +1781,7 @@
 					"type": "text"
 				},
 				{
-					"buffer": 17,
+					"buffer": 20,
 					"file": "src/karray.cpp",
 					"semi_transient": false,
 					"settings":
@@ -1610,8 +1793,8 @@
 						"selection":
 						[
 							[
-								6167,
-								6167
+								681,
+								681
 							]
 						],
 						"settings":
@@ -1620,27 +1803,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 2886.0,
+						"translation.y": 195.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 16,
+					"stack_index": 8,
 					"type": "text"
 				},
 				{
-					"buffer": 1,
+					"buffer": 2,
 					"file": "src/utils.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2373,
+						"buffer_size": 4262,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2340,
-								2340
+								4229,
+								4229
 							]
 						],
 						"settings":
@@ -1653,11 +1836,11 @@
 						"translation.y": 824.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 15,
+					"stack_index": 21,
 					"type": "text"
 				},
 				{
-					"buffer": 18,
+					"buffer": 21,
 					"file": "src/internal_test.hpp",
 					"semi_transient": false,
 					"settings":
@@ -1683,7 +1866,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 19,
+					"stack_index": 22,
 					"type": "text"
 				}
 			]
@@ -1717,7 +1900,7 @@
 		"cols":
 		[
 			0.0,
-			0.485937499999,
+			0.346740402622,
 			1.0
 		],
 		"rows":
@@ -1773,14 +1956,14 @@
 		],
 		"width": 0.0
 	},
-	"selected_group": 0,
+	"selected_group": 1,
 	"settings":
 	{
 	},
 	"show_minimap": true,
 	"show_open_files": false,
 	"show_tabs": true,
-	"side_bar_visible": false,
+	"side_bar_visible": true,
 	"side_bar_width": 212.0,
 	"status_bar_visible": true,
 	"template_settings":

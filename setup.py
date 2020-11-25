@@ -6,7 +6,7 @@ extra_args = {}
 
 debug = True
 
-if platform == "linux" or platform == "linux2":
+if platform in ["linux", "linux2"]:
     extra_args = {}
 elif platform == "darwin":
     pass
@@ -20,23 +20,9 @@ elif platform == "win32":
         extra_args['extra_link_args'] += ['/DEBUG']
     else:
         extra_args['extra_compile_args'] += ['/openmp', '/O2']
+else:
+    raise Exception(f'Unknown platform {platform}.')
 
-# amalgamation 
-with open('src/arraymodule.cpp', 'w') as amalgamation:
-    # include real header
-    amalgamation.write('#include "arraymodule.hpp" \n')
-
-    # include allcode 
-    for src_file in ['src/python_boilerplate.cpp', 'src/opcodes.cpp',
-                     'src/utils.cpp', 'src/kernels.cpp',
-                     'src/karray.cpp', 'src/shape.cpp', 'src/filter.cpp',
-                     'src/members.cpp', 'src/other.cpp', 'src/graph.cpp',
-                     'src/math_ops.cpp', 'src/module_functions.cpp']:
-        with open(src_file, 'r') as src:
-            amalgamation.write(src.read())
-
-    # include test suite
-    amalgamation.write('#include "test.hpp" \n')
 
 arrays = setuptools.Extension(name='kipr_array',
                               sources=['src/arraymodule.cpp'],

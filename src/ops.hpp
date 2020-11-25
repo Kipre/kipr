@@ -67,6 +67,14 @@ public:
 		length{0} {
 		name = "softmax";
 	};
+
+	// void execute(std::vector<Karray *> & instance, size_t pos) {
+	// 	int ax = instance[operands[0]]->shape.last_axis();
+	// 	exp_kernel(instance[pos]->data, instance[operands[0]]->data, length);
+	// 	Karray summed_exp = instance[pos]->sum(ax, Karray(1.), false);
+	// 	summed_exp.shape.insert_one(ax);
+	// 	instance[operands[0]]->operator/=(summed_exp);
+	// };
 };
 
 class MatMulOp: public Op {

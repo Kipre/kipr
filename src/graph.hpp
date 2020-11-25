@@ -67,13 +67,12 @@ Op func_to_op(int function) {
 		return ElementwiseUnaryOp(relu_kernel, "relu");
 	if (function == SOFTMAX_FUNCTION)
 		return ElementwiseUnaryOp(exp_kernel, "softmax");
-	if (function == OP_BINARY_ADD)
+	if (function == BINARY_ADD)
 		return ElementwiseBinaryOp(add_kernel, "add");
-	if (function == OP_BINARY_MATRIX_MULTIPLY)
+	if (function == BINARY_MATRIX_MULTIPLY)
 		return MatMulOp();
-	if (function == OP_UNARY_NEGATIVE)
+	if (function == UNARY_NEGATIVE)
 		return ElementwiseUnaryOp(exp_kernel, "negative");
-
 	return Op();
 }
 
@@ -118,15 +117,16 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		// printf("opcode %i, arg %i\n", op, arg);
 		switch (op) {
 
-		case (OP_LOAD_FAST):
+		case (LOAD_FAST):
 			if (!local.contains(arg)) {
 				local[arg] = g->ops.size();
+				g->inputs.push_back(g->ops.size());
 				g->ops.push_back(LoadInput(varnames[arg]));
 			}
 			stack.push(local[arg]);
 			break;
 
-		case (OP_LOAD_GLOBAL): {
+		case (LOAD_GLOBAL): {
 			PyObject * var = PyDict_GetItemString(globals, names[arg].c_str());
 			if (var == 0) {
 				PyErr_Format(Karray_error,
@@ -157,7 +157,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		}
 		break;
 
-		case (OP_LOAD_METHOD):
+		case (LOAD_METHOD):
 			if (stack.top() != KIPR_MODULE) {
 				PyErr_SetString(Karray_error, "Expected stack to have KIPR_MODULE on top.");
 				return -1;
@@ -166,7 +166,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 			stack.push(karray_function_code(names[arg]));
 			break;
 
-		case (OP_CALL_METHOD): {
+		case (CALL_METHOD): {
 			if (arg != 1) {
 				PyErr_SetString(Karray_error, "At the moment, only one argument per function call is supported.");
 				return -1;
@@ -181,8 +181,8 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		}
 		break;
 
-		case (OP_BINARY_MATRIX_MULTIPLY):
-		case (OP_BINARY_ADD): {
+		case (BINARY_MATRIX_MULTIPLY):
+		case (BINARY_ADD): {
 			int a = stack.top(); stack.pop();
 			int b = stack.top(); stack.pop();
 			Op oper = func_to_op(op);
@@ -195,7 +195,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		}
 		break;
 
-		case (OP_UNARY_NEGATIVE): {
+		case (UNARY_NEGATIVE): {
 			int a = stack.top(); stack.pop();
 			Op oper = func_to_op(op);
 			oper.operands.push_back(a);
@@ -205,12 +205,15 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		}
 		break;
 
-		case (OP_STORE_FAST):
+		case (STORE_FAST):
 			local[arg] = stack.top(); stack.pop();
 			break;
 
-		case (OP_RETURN_VALUE):
-			g->ret = stack.top(); stack.pop();
+		case (RETURN_VALUE):
+			if (stack.top() != g->ops.size() - 1) {
+				PyErr_SetString(Karray_error, "Expected the last line to compute the return value.");
+				return -1;
+			}
 			break;
 
 		default:
@@ -220,6 +223,8 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		// print(stack);
 
 	}
+
+	g->instance = std::vector<Karray *>(g->ops.size());
 
 	Py_DECREF(function);
 	Py_XDECREF(trainable);
@@ -237,5 +242,54 @@ fail:
 
 PyObject *
 Graph_str(PyGraph * self) {
-    return PyUnicode_FromString(self->g.str().c_str());
+	return PyUnicode_FromString(self->g.str().c_str());
+}
+
+
+// PyObject * Graph_call(PyGraph *self, PyObject *args, PyObject *kwds) {
+// 	char *kwlist[] = {"a", "b", "c", "d", "e", "f", NULL};
+// 	PyKarray *a = NULL, *b = NULL, *c = NULL,
+// 	         *d = NULL, *e = NULL, *f = NULL;
+
+// 	Graph * g = &self->g;
+
+// 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|O!O!O!O!O!", kwlist,
+// 	                                 &KarrayType, &a,
+// 	                                 &KarrayType, &b,
+// 	                                 &KarrayType, &c,
+// 	                                 &KarrayType, &d,
+// 	                                 &KarrayType, &e,
+// 	                                 &KarrayType, &f))
+// 		return NULL;
+
+//     std::vector<PyKarray *> inputs = {a, b, c, d, e, f, g};
+
+//     int i = 0;
+// 	for (auto v : g->inputs) {
+//         g->instance[v] = &inputs[i++]->arr;
+//     }
+
+//     for (i=0; i < g->ops.size(); ++i) {
+//     	g->ops[i].execute(g->instance, i);
+//     }
+// 	return reinterpret_cast<PyObject *>(g->instance[g->instance.size() - 1]);
+// }
+
+PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
+	Graph * g = &self->g;
+	if (nargs != g->inputs.size()) {
+		PyErr_Format(Karray_error,
+		             "Wrong number of arguments, expecting %i but got %i.",
+		             g->inputs.size(), nargs);
+		return NULL;
+	}
+	for (int k = 0; k < nargs; ++k) {
+		if (py_type(args[k]) != KARRAY) {
+			PyErr_SetString(Karray_error,
+			             "Only kipr.arr is a valid input.");
+			return NULL;
+		}
+		g->instance[g->inputs[k]] = &reinterpret_cast<PyKarray *>(args[k])->arr;
+	}
+	Py_RETURN_NONE;
 }

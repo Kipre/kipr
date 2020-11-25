@@ -136,7 +136,7 @@ fail:
 PyObject *
 Karray_reshape(PyKarray * self, PyObject * shape) {
     Shape new_shape(shape, self->arr.shape.length);
-    PYERR_RETURN_VAL(NULL);
+    IF_ERROR_RETURN(NULL);
     self->arr.shape = new_shape;
 
     auto result = reinterpret_cast<PyObject *>(self);
@@ -178,9 +178,9 @@ PyObject *
 Karray_broadcast(PyKarray * self, PyObject * shape) {
     Py_INCREF(reinterpret_cast<PyObject *>(self));
     Shape new_shape(shape);
-    PYERR_RETURN_VAL(NULL);
+    IF_ERROR_RETURN(NULL);
     auto result = new_PyKarray(self->arr.broadcast(new_shape));
-    PYERR_RETURN_VAL(NULL);
+    IF_ERROR_RETURN(NULL);
     return reinterpret_cast<PyObject *>(result);
 }
 
@@ -204,12 +204,12 @@ Karray_sum(PyKarray *here, PyObject *args, PyObject *kwds) {
         result->arr = self->arr.flat_sum();
     } else {
         size_t ax = self->arr.shape.axis(axis);
-        PYERR_RETURN_VAL(NULL);
+        IF_ERROR_RETURN(NULL);
         if (weights_obj == NULL) {
             result->arr = self->arr.sum(ax, Karray(Shape(), 1.0));
         } else {
             result->arr = self->arr.sum(ax, weights_obj->arr);
-            PYERR_RETURN_VAL(NULL);
+            IF_ERROR_RETURN(NULL);
         }
     }
 
@@ -236,12 +236,12 @@ Karray_mean(PyKarray *here, PyObject *args, PyObject *kwds) {
         result->arr = self->arr.flat_sum(true);
     } else {
         size_t ax = self->arr.shape.axis(axis);
-        PYERR_RETURN_VAL(NULL);
+        IF_ERROR_RETURN(NULL);
         if (weights_obj == NULL) {
             result->arr = self->arr.sum(ax, Karray(Shape(), 1.0), true);
         } else {
             result->arr = self->arr.sum(ax, weights_obj->arr, true);
-            PYERR_RETURN_VAL(NULL);
+            IF_ERROR_RETURN(NULL);
         }
     }
 

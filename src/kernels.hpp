@@ -75,52 +75,6 @@ div_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
     }
 }
 
-
-inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
-                          NDVector &l_strides, NDVector &r_strides, size_t * positions,
-                          binary_op op, int depth) {
-    if (depth < shape.nd - 1) {
-        for (int k = 0; k < shape[depth]; ++k) {
-            rec_binary_op(dest, lhs, rhs, shape, l_strides, r_strides, positions, op, depth + 1);
-            positions[1] += l_strides[depth];
-            positions[2] += r_strides[depth];
-        }
-        positions[1] -= l_strides[depth] * shape[depth];
-        positions[2] -= r_strides[depth] * shape[depth];
-    } else {
-        for (int k = 0; k < shape[depth]; ++k) {
-            dest[positions[0]] = op(lhs[positions[1] + l_strides[depth] * k],
-                                    rhs[positions[2] + r_strides[depth] * k]);
-            ++positions[0];
-        }
-    }
-
-}
-
-
-
-void
-inline _sum(float * self_data, float * result_data, float * weights_data,
-            Shape &self_shape, NDVector &strides, bool multiple_weights,
-            bool mean, int axis, int depth) {
-    if (axis != depth) {
-        for (int k = 0; k < self_shape[depth]; ++k) {
-            _sum(self_data + strides[depth]*k, result_data + strides[depth]*k / self_shape[axis],
-                 weights_data, self_shape, strides, multiple_weights, mean, axis, depth + 1);
-        }
-    } else {
-        for (int i = 0; i < self_shape[axis]; ++i) {
-            for (int k = 0; k < strides[axis]; ++k) {
-                // printf("val and result: %f %f %i %i\n", self_data[strides[axis] * i + k], result_data[k], strides[axis] * i + k, i);
-                result_data[k] += self_data[strides[axis] * i + k] * weights_data[multiple_weights * i];
-            }
-        }
-        if (mean)
-            for (int k = 0; k < strides[axis]; ++k)
-                result_data[k] /= (float) self_shape[axis];
-    }
-}
-
 void print_m256(__m256 a, const char * msg = "") {
     float tmp[8];
     _mm256_store_ps(tmp, a);

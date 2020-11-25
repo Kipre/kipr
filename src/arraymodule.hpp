@@ -14,6 +14,8 @@
 #include <map>
 #include <tuple>
 #include <stack>
+#include <algorithm>
+#include <functional>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -21,7 +23,9 @@
 #include <debugapi.h>
 #endif
 
-#include "internal_test.hpp"
+#include "microtest.hpp"
+#include "kernels.hpp"
+#include "opcodes.hpp"
 
 
 // To avoid c++ mixed designated initializers error
@@ -89,9 +93,13 @@ PyObject* Karray_error;
         PyErr_SetString(Karray_error, msg);\
         return;}
 
-#define PYERR_RETURN_VAL(val) \
+#define IF_ERROR_RETURN(...) \
     if (PyErr_Occurred()) \
-        return val;
+        return __VA_ARGS__;
+
+// #define IF_ERROR_RETURN() \
+//     if (PyErr_Occurred()) \
+//         return;
 
 
 typedef float(*binary_op)(float, float);
@@ -184,14 +192,14 @@ public:
     void swap(Karray& other);
 
     // math
-    Karray& operator+=(const Karray& other);
-    Karray& operator/=(const Karray& other);
-    Karray& operator*=(const Karray& other);
-    Karray& operator-=(const Karray& other);
-    Karray operator+(const Karray& rhs);
-    Karray operator/(const Karray& rhs);
-    Karray operator-(const Karray& rhs);
-    Karray operator*(const Karray& rhs);
+    // Karray& operator+=(const Karray& other);
+    // Karray& operator/=(const Karray& other);
+    // Karray& operator*=(const Karray& other);
+    // Karray& operator-=(const Karray& other);
+    // Karray operator+(const Karray& rhs);
+    // Karray operator/(const Karray& rhs);
+    // Karray operator-(const Karray& rhs);
+    // Karray operator*(const Karray& rhs);
 
     void from_mode(Shape new_shape, size_t mode) noexcept;
     void from_numpy(PyObject * o) noexcept;
@@ -199,7 +207,7 @@ public:
     std::string str();
     Karray broadcast(Shape new_shape);
     Karray subscript(PyObject * key);
-    Karray matmul(Karray & other);
+    // Karray matmul(Karray & other);
     Karray flat_sum(bool mean = false);
     Karray sum(size_t axis, const Karray &weights, bool mean = false);
     Karray elementwise_binary_op(const Karray &other, binary_kernel kernel, binary_op op);
@@ -267,11 +275,11 @@ typedef struct {
 class Graph {
 public:
 
-    int ret;
+    std::vector<int> inputs;
     std::vector<Op> ops;
     std::vector<Karray *> instance;
 
-    Graph() : ops {}, instance {}, ret {0} {};
+    Graph() : ops {}, instance {}, inputs {} {};
 
     void print(const char * msg = "");
     std::string str() const;
@@ -350,8 +358,21 @@ void Graph_dealloc(PyGraph *self);
 int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds);
 PyObject * Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Graph_str(PyGraph * self);
+PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs);
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
 
 
 #include "py_types.hpp"
+#include "python_boilerplate.hpp"
+#include "utils.hpp"
+#include "filter.hpp"
+#include "karray.hpp"
+#include "shape.hpp"
+#include "members.hpp"
+#include "other.hpp"
+#include "graph.hpp"
+#include "math_ops.hpp"
+#include "module_functions.hpp"
+
+#include "test.hpp"

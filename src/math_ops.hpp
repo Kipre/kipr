@@ -11,7 +11,7 @@ inline PyObject * py_binary_op(PyObject *here,
 	auto rhs = reinterpret_cast<PyKarray *>(other);
 	auto result = new_PyKarray();
 	result->arr = self->arr.elementwise_binary_op(rhs->arr, kernel, op);
-	PYERR_RETURN_VAL(NULL);
+	IF_ERROR_RETURN(NULL);
 	return reinterpret_cast<PyObject *>(result);
 }
 

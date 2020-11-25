@@ -9,7 +9,7 @@ Karray Karray::elementwise_binary_op(const Karray &other,
 	} else {
 		auto [common, a_strides, b_strides] =
 		    paired_strides(shape, other.shape);
-		PYERR_RETURN_VAL(Karray());
+		IF_ERROR_RETURN(Karray());
 		Karray result(common);
 		size_t positions[3] = {0};
 		rec_binary_op(result.data, data, other.data,
@@ -26,7 +26,7 @@ void Karray::inplace_binary_op(const Karray  &rhs,
 	} else {
 		auto [a_strides, b_strides] =
 		    shape.paired_strides(rhs.shape);
-		PYERR_RETURN;
+		IF_ERROR_RETURN();
 		size_t positions[3] = {0};
 		rec_binary_op(data, data, rhs.data, shape,
 		              a_strides, b_strides, positions, op, 0);
@@ -102,41 +102,41 @@ Karray& Karray::operator=(Karray&& other) {
 	return *this;
 }
 
-Karray& Karray::operator+=(const Karray& other) {
-	inplace_binary_op(other, add_kernel, _add);
-	return *this;
-}
+// Karray& Karray::operator+=(const Karray& other) {
+// 	inplace_binary_op(other, add_kernel, _add);
+// 	return *this;
+// }
 
-Karray& Karray::operator/=(const Karray& other) {
-	inplace_binary_op(other, div_kernel, _div);
-	return *this;
-}
+// Karray& Karray::operator/=(const Karray& other) {
+// 	inplace_binary_op(other, div_kernel, _div);
+// 	return *this;
+// }
 
-Karray& Karray::operator-=(const Karray& other) {
-	inplace_binary_op(other, sub_kernel, _sub);
-	return *this;
-}
+// Karray& Karray::operator-=(const Karray& other) {
+// 	inplace_binary_op(other, sub_kernel, _sub);
+// 	return *this;
+// }
 
-Karray& Karray::operator*=(const Karray& other) {
-	inplace_binary_op(other, mul_kernel, _mul);
-	return *this;
-}
+// Karray& Karray::operator*=(const Karray& other) {
+// 	inplace_binary_op(other, mul_kernel, _mul);
+// 	return *this;
+// }
 
-Karray Karray::operator-(const Karray& rhs) {
-	return elementwise_binary_op(rhs, sub_kernel, _sub);
-}
+// Karray Karray::operator-(const Karray& rhs) {
+// 	return elementwise_binary_op(rhs, sub_kernel, _sub);
+// }
 
-Karray Karray::operator*(const Karray& rhs) {
-	return elementwise_binary_op(rhs, mul_kernel, _mul);
-}
+// Karray Karray::operator*(const Karray& rhs) {
+// 	return elementwise_binary_op(rhs, mul_kernel, _mul);
+// }
 
-Karray Karray::operator+(const Karray& rhs) {
-	return elementwise_binary_op(rhs, add_kernel, _add);
-}
+// Karray Karray::operator+(const Karray& rhs) {
+// 	return elementwise_binary_op(rhs, add_kernel, _add);
+// }
 
-Karray Karray::operator/(const Karray& rhs) {
-	return elementwise_binary_op(rhs, div_kernel, _div);
-}
+// Karray Karray::operator/(const Karray& rhs) {
+// 	return elementwise_binary_op(rhs, div_kernel, _div);
+// }
 
 // Karray Karray::matmul(const Karray& rhs) {
 // 	if (!shape.compatible_for_matmul(rhs.shape))
@@ -275,46 +275,46 @@ std::string Karray::str() {
 }
 
 
-Karray Karray::matmul(Karray & other) {
+// Karray Karray::matmul(Karray & other) {
 
-	if (shape.nd < 2 && other.shape.nd < 2) {
-		KERR_RETURN_VAL("Both arrays must be at least two-dimensional for matmul.", NULL);
-	}
+// 	if (shape.nd < 2 && other.shape.nd < 2) {
+// 		KERR_RETURN_VAL("Both arrays must be at least two-dimensional for matmul.", NULL);
+// 	}
 
-	size_t M, N, I, J, K;
-	I = shape[-2];
-	K = shape[-1];
-	J = other.shape[-1];
+// 	size_t M, N, I, J, K;
+// 	I = shape[-2];
+// 	K = shape[-1];
+// 	J = other.shape[-1];
 
-	M = shape.nbmats();
-	N = other.shape.nbmats();
+// 	M = shape.nbmats();
+// 	N = other.shape.nbmats();
 
-	if (K != other.shape[-2] ||
-		(M % N != 0 && N % M != 0)) {
-		PyErr_Format(Karray_error,
-		             "Matmul not possible with shapes %s and %s.",
-		             shape.str(), other.shape.str());
-		return NULL;
-	}
+// 	if (K != other.shape[-2] ||
+// 		(M % N != 0 && N % M != 0)) {
+// 		PyErr_Format(Karray_error,
+// 		             "Matmul not possible with shapes %s and %s.",
+// 		             shape.str(), other.shape.str());
+// 		return NULL;
+// 	}
 
-	Shape new_shape((M > N) ? shape : other.shape);
-	new_shape.set(new_shape.nd - 2, I);
-	new_shape.set(new_shape.nd - 1, J);
+// 	Shape new_shape((M > N) ? shape : other.shape);
+// 	new_shape.set(new_shape.nd - 2, I);
+// 	new_shape.set(new_shape.nd - 1, J);
 
-	auto result = Karray(new_shape);
+// 	auto result = Karray(new_shape);
 
-	for (int m = 0; m < max(M, N); ++m) {
-		int ia = m % M;
-		int ib = m % N;
+// 	for (int m = 0; m < max(M, N); ++m) {
+// 		int ia = m % M;
+// 		int ib = m % N;
 
-		general_matmul(result.data + m * I * J,
-		       data + ia * I * K,
-		       other.data + ib * K * J,
-		       I, J, K);
-	}
+// 		general_matmul(result.data + m * I * J,
+// 		       data + ia * I * K,
+// 		       other.data + ib * K * J,
+// 		       I, J, K);
+// 	}
 
-	return result;
-}
+// 	return result;
+// }
 
 
 Karray Karray::broadcast(Shape new_shape) {
@@ -332,7 +332,7 @@ Karray Karray::broadcast(Shape new_shape) {
 		Karray result(new_shape);
 
 		NDVector strides = shape.broadcast_to(new_shape);
-		PYERR_RETURN_VAL(result);
+		IF_ERROR_RETURN(result);
 		simple_transfer(data, result.data, &pos, new_shape, strides, 0);
 
 		return result;

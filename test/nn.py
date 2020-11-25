@@ -27,9 +27,9 @@ class LinNN:
         self.i = i
         self.h = h
         self.o = o
-        self.W1 = kp.arr('random', shape=[h, i]) - kp.arr(0.5)
-        self.b = kp.arr('random', shape=[h, 1]) - kp.arr(0.5)
-        self.W2 = kp.arr('random', shape=[o, h]) - kp.arr(0.5)
+        self.W1 = kp.arr('rand', shape=[h, i]) - kp.arr(0.5)
+        self.b = kp.arr('rand', shape=[h, 1]) - kp.arr(0.5)
+        self.W2 = kp.arr('rand', shape=[o, h]) - kp.arr(0.5)
 
     def step(self, x_batch, y_batch):
         
