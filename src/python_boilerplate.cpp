@@ -31,6 +31,22 @@ static PyMethodDef Karray_methods[] = {
 };
 
 
+
+static PyMethodDef Graph_methods[] = {
+    {NULL}  /* Sentinel */
+};
+
+
+static PyGetSetDef Graph_getsetters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef Graph_members[] = {
+    // {"attr", T_INT, offsetof(PyKarray, attr), 0,
+    //  "Arbitrary attribute."},
+    {NULL}  /* Sentinel */
+};
+
 static PyMethodDef arraymodule_methods[] = {
     // {"max_nd", max_nd, METH_NOARGS,
     //  "Get maximum number of dimensions for a kipr.arr() array."},
@@ -103,6 +119,24 @@ static PyTypeObject KarrayType = {
     .tp_new = Karray_new,
 };
 
+
+
+static PyTypeObject GraphType = {
+    Karray_HEAD_INIT
+    .tp_name = "kipr.graph",
+    .tp_basicsize = sizeof(PyGraph),
+    .tp_dealloc = (destructor) Graph_dealloc,
+    .tp_repr = (reprfunc) Graph_str, 
+    .tp_str = (reprfunc) Graph_str,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc = "Graph object from kipr",
+    .tp_methods = Graph_methods,
+    .tp_members = Graph_members,
+    .tp_getset = Graph_getsetters,
+    .tp_init = (initproc) Graph_init,
+    .tp_new = Graph_new,
+};
+
 PyMODINIT_FUNC
 PyInit_kipr_array(void)
 {
@@ -110,6 +144,8 @@ PyInit_kipr_array(void)
     import_array();
     PyObject *m;
     if (PyType_Ready(&KarrayType) < 0)
+        return NULL;
+    if (PyType_Ready(&GraphType) < 0)
         return NULL;
 
     m = PyModule_Create(&arraymodule);
@@ -119,6 +155,13 @@ PyInit_kipr_array(void)
     Py_INCREF(&KarrayType);
     if (PyModule_AddObject(m, "arr", (PyObject *) &KarrayType) < 0) {
         Py_DECREF(&KarrayType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    Py_INCREF(&GraphType);
+    if (PyModule_AddObject(m, "graph", (PyObject *) &GraphType) < 0) {
+        Py_DECREF(&GraphType);
         Py_DECREF(m);
         return NULL;
     }

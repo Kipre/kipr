@@ -439,3 +439,10 @@ std::tuple<Shape, NDVector> Shape::transpose() const {
 	strides_t.buf[nd-2] = tmp;
 	return {result, strides_t};
 }
+
+int Shape::last_axis() {
+	int i = nd-1;
+	while (buf[i] == 1 && i > 0)
+		--i;
+	return i;
+}

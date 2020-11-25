@@ -88,3 +88,4 @@ size_t align_index(Py_ssize_t i, size_t dim_length) {
 		return (size_t) result;
 	}
 }
+

@@ -86,19 +86,33 @@ class simd:
     def __init__(self, arr=None):
         if arr is not None:
             arr = np.array(arr)
-            assert(len(arr.shape) == 1 and len(arr) == 8)
+            assert(len(arr.shape) == 1 and len(arr) == self.width)
             self.data = arr
         else:
-            self.data = np.random.randn(8)
+            self.data = np.random.randn(self.width)
 
-    def load(self, arr, index):
-        self.data = arr[index:index + 8]
+    def _load(self, arr, index):
+        self.data = np.zeros(self.width)
+        for k in range(self.width):
+            self.data[k] = arr[index + k]
+        return self
 
-    def set1(self, val):
+    def _set1(self, val):
         self.data[:] = val
+        return self
+
+    @staticmethod
+    def set1(val):
+        result = simd()
+        return result._set1(val)
+
+    @staticmethod
+    def load(arr, index):
+        result = simd()
+        return result._load(arr, index)
 
     def store(self, arr, index):
-        arr[index: index+8] = self.data
+        arr[index: index+self.width] = self.data
 
     def __add__(self, other):
         return simd(self.data + other.data)
@@ -108,34 +122,41 @@ class simd:
 
     def __str__(self):
         result = "simd "
-        for k in range(8):
+        for k in range(self.width):
             result += str(self.data[k]) + ", "
         return result
 
     __repr__ = __str__
 
-    def fma(self, other, c):
-        return self * other + c
+    @staticmethod
+    def fma(a, b, c):
+        return a * b + c
 
-regsA, regsB = 3, 4          # bocksizes
-I, K, J = regsA * 3, 10, regsB * 3
+regsA, regsB = 3, 4          # blocksizes
+I, K, J = regsA * 3, 10, regsB * 3 * simd.width
 
-# a = np.random.randn(I * K)
-# b = np.random.randn(K * J)
-a = np.arange(I * K)
-b = np.arange(K * J)
+a = np.random.randn(I * K)
+b = np.random.randn(K * J)
 
 c = np.zeros((I * J))
 for ii in range(0, I, regsA):
-    for jj in range (0, J, regsB):
-        csum = [[0 for u in range(regsB)] for v in range(regsA)]
+    for jj in range (0, J // simd.width, regsB):
+        csum = [[simd.set1(0) for u in range(regsB)] for v in range(regsA)]
         # print(f"{ii = }, {jj = }")
         for k in range(K):
-            for i in range(ii, ii + regsA):
-                for j in range(jj, jj + regsB):
+            for j in range(regsB):
+                bb = simd.load(b, k * J + (j + jj) * simd.width)
+                # print(f"{bb = }")
+                for i in range(regsA):
+                    aa = simd.set1(a[(i + ii) * K + k])
+                    # print(f"{aa = }")
                     # print(i, j, k)
-                    c[i * J + j] += a[i * K + k] * b[k * J + j]
+                    csum[i][j] = simd.fma(aa, bb, csum[i][j])
                     # print(i * J + j, " <- ", i * K + k, k * J + j)
+
+        for j in range(regsB):
+            for i in range(regsA):
+                csum[i][j].store(c, (i + ii) * J + (j + jj) * simd.width)
 
 c.reshape(I, J)
 

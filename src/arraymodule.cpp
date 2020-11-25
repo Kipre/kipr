@@ -32,6 +32,22 @@ static PyMethodDef Karray_methods[] = {
 };
 
 
+
+static PyMethodDef Graph_methods[] = {
+    {NULL}  /* Sentinel */
+};
+
+
+static PyGetSetDef Graph_getsetters[] = {
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef Graph_members[] = {
+    // {"attr", T_INT, offsetof(PyKarray, attr), 0,
+    //  "Arbitrary attribute."},
+    {NULL}  /* Sentinel */
+};
+
 static PyMethodDef arraymodule_methods[] = {
     // {"max_nd", max_nd, METH_NOARGS,
     //  "Get maximum number of dimensions for a kipr.arr() array."},
@@ -104,6 +120,24 @@ static PyTypeObject KarrayType = {
     .tp_new = Karray_new,
 };
 
+
+
+static PyTypeObject GraphType = {
+    Karray_HEAD_INIT
+    .tp_name = "kipr.graph",
+    .tp_basicsize = sizeof(PyGraph),
+    .tp_dealloc = (destructor) Graph_dealloc,
+    .tp_repr = (reprfunc) Graph_str, 
+    .tp_str = (reprfunc) Graph_str,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc = "Graph object from kipr",
+    .tp_methods = Graph_methods,
+    .tp_members = Graph_members,
+    .tp_getset = Graph_getsetters,
+    .tp_init = (initproc) Graph_init,
+    .tp_new = Graph_new,
+};
+
 PyMODINIT_FUNC
 PyInit_kipr_array(void)
 {
@@ -111,6 +145,8 @@ PyInit_kipr_array(void)
     import_array();
     PyObject *m;
     if (PyType_Ready(&KarrayType) < 0)
+        return NULL;
+    if (PyType_Ready(&GraphType) < 0)
         return NULL;
 
     m = PyModule_Create(&arraymodule);
@@ -124,6 +160,13 @@ PyInit_kipr_array(void)
         return NULL;
     }
 
+    Py_INCREF(&GraphType);
+    if (PyModule_AddObject(m, "graph", (PyObject *) &GraphType) < 0) {
+        Py_DECREF(&GraphType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
     if (PyModule_AddObject(m, "KarrayError", Karray_error) < 0) {
         Py_DECREF(Karray_error);
         Py_DECREF(m);
@@ -132,6 +175,126 @@ PyInit_kipr_array(void)
 
     return m;
 }
+const int OP_POP_TOP = 1;
+const int OP_ROT_TWO = 2;
+const int OP_ROT_THREE = 3;
+const int OP_DUP_TOP = 4;
+const int OP_DUP_TOP_TWO = 5;
+const int OP_ROT_FOUR = 6;
+const int OP_NOP = 9;
+const int OP_UNARY_POSITIVE = 10;
+const int OP_UNARY_NEGATIVE = 11;
+const int OP_UNARY_NOT = 12;
+const int OP_UNARY_INVERT = 15;
+const int OP_BINARY_MATRIX_MULTIPLY = 16;
+const int OP_INPLACE_MATRIX_MULTIPLY = 17;
+const int OP_BINARY_POWER = 19;
+const int OP_BINARY_MULTIPLY = 20;
+const int OP_BINARY_MODULO = 22;
+const int OP_BINARY_ADD = 23;
+const int OP_BINARY_SUBTRACT = 24;
+const int OP_BINARY_SUBSCR = 25;
+const int OP_BINARY_FLOOR_DIVIDE = 26;
+const int OP_BINARY_TRUE_DIVIDE = 27;
+const int OP_INPLACE_FLOOR_DIVIDE = 28;
+const int OP_INPLACE_TRUE_DIVIDE = 29;
+const int OP_RERAISE = 48;
+const int OP_WITH_EXCEPT_START = 49;
+const int OP_GET_AITER = 50;
+const int OP_GET_ANEXT = 51;
+const int OP_BEFORE_ASYNC_WITH = 52;
+const int OP_END_ASYNC_FOR = 54;
+const int OP_INPLACE_ADD = 55;
+const int OP_INPLACE_SUBTRACT = 56;
+const int OP_INPLACE_MULTIPLY = 57;
+const int OP_INPLACE_MODULO = 59;
+const int OP_STORE_SUBSCR = 60;
+const int OP_DELETE_SUBSCR = 61;
+const int OP_BINARY_LSHIFT = 62;
+const int OP_BINARY_RSHIFT = 63;
+const int OP_BINARY_AND = 64;
+const int OP_BINARY_XOR = 65;
+const int OP_BINARY_OR = 66;
+const int OP_INPLACE_POWER = 67;
+const int OP_GET_ITER = 68;
+const int OP_GET_YIELD_FROM_ITER = 69;
+const int OP_PRINT_EXPR = 70;
+const int OP_LOAD_BUILD_CLASS = 71;
+const int OP_YIELD_FROM = 72;
+const int OP_GET_AWAITABLE = 73;
+const int OP_LOAD_ASSERTION_ERROR = 74;
+const int OP_INPLACE_LSHIFT = 75;
+const int OP_INPLACE_RSHIFT = 76;
+const int OP_INPLACE_AND = 77;
+const int OP_INPLACE_XOR = 78;
+const int OP_INPLACE_OR = 79;
+const int OP_LIST_TO_TUPLE = 82;
+const int OP_RETURN_VALUE = 83;
+const int OP_IMPORT_STAR = 84;
+const int OP_SETUP_ANNOTATIONS = 85;
+const int OP_YIELD_VALUE = 86;
+const int OP_POP_BLOCK = 87;
+const int OP_POP_EXCEPT = 89;
+const int OP_STORE_NAME = 90;
+const int OP_DELETE_NAME = 91;
+const int OP_UNPACK_SEQUENCE = 92;
+const int OP_FOR_ITER = 93;
+const int OP_UNPACK_EX = 94;
+const int OP_STORE_ATTR = 95;
+const int OP_DELETE_ATTR = 96;
+const int OP_STORE_GLOBAL = 97;
+const int OP_DELETE_GLOBAL = 98;
+const int OP_LOAD_CONST = 100;
+const int OP_LOAD_NAME = 101;
+const int OP_BUILD_TUPLE = 102;
+const int OP_BUILD_LIST = 103;
+const int OP_BUILD_SET = 104;
+const int OP_BUILD_MAP = 105;
+const int OP_LOAD_ATTR = 106;
+const int OP_COMPARE_OP = 107;
+const int OP_IMPORT_NAME = 108;
+const int OP_IMPORT_FROM = 109;
+const int OP_JUMP_FORWARD = 110;
+const int OP_JUMP_IF_FALSE_OR_POP = 111;
+const int OP_JUMP_IF_TRUE_OR_POP = 112;
+const int OP_JUMP_ABSOLUTE = 113;
+const int OP_POP_JUMP_IF_FALSE = 114;
+const int OP_POP_JUMP_IF_TRUE = 115;
+const int OP_LOAD_GLOBAL = 116;
+const int OP_IS_OP = 117;
+const int OP_CONTAINS_OP = 118;
+const int OP_JUMP_IF_NOT_EXC_MATCH = 121;
+const int OP_SETUP_FINALLY = 122;
+const int OP_LOAD_FAST = 124;
+const int OP_STORE_FAST = 125;
+const int OP_DELETE_FAST = 126;
+const int OP_RAISE_VARARGS = 130;
+const int OP_CALL_FUNCTION = 131;
+const int OP_MAKE_FUNCTION = 132;
+const int OP_BUILD_SLICE = 133;
+const int OP_LOAD_CLOSURE = 135;
+const int OP_LOAD_DEREF = 136;
+const int OP_STORE_DEREF = 137;
+const int OP_DELETE_DEREF = 138;
+const int OP_CALL_FUNCTION_KW = 141;
+const int OP_CALL_FUNCTION_EX = 142;
+const int OP_SETUP_WITH = 143;
+const int OP_LIST_APPEND = 145;
+const int OP_SET_ADD = 146;
+const int OP_MAP_ADD = 147;
+const int OP_LOAD_CLASSDEREF = 148;
+const int OP_EXTENDED_ARG = 144;
+const int OP_SETUP_ASYNC_WITH = 154;
+const int OP_FORMAT_VALUE = 155;
+const int OP_BUILD_CONST_KEY_MAP = 156;
+const int OP_BUILD_STRING = 157;
+const int OP_LOAD_METHOD = 160;
+const int OP_CALL_METHOD = 161;
+const int OP_LIST_EXTEND = 162;
+const int OP_SET_UPDATE = 163;
+const int OP_DICT_MERGE = 164;
+const int OP_DICT_UPDATE = 165;
+
 
 void transfer(float * from, float * to, Positions * pos, size_t * strides,
               const Filter & filter, int nd, int depth) {
@@ -221,6 +384,7 @@ size_t align_index(Py_ssize_t i, size_t dim_length) {
 		return (size_t) result;
 	}
 }
+
 
 
 void inline
@@ -629,6 +793,24 @@ val_max_kernel(float * dest, float * lhs, float value, ssize_t length) {
     }
 }
 
+
+void inline
+relu_kernel(float * dest, float * lhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, constant = _mm256_set1_ps(0);
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_a = _mm256_max_ps(v_a, constant);
+        _mm256_store_ps(&dest[k], v_a);
+    }
+#endif
+    while (k < length) {
+        dest[k] = max(lhs[k], 0);
+        ++k;
+    }
+}
+
 Karray Karray::elementwise_binary_op(const Karray &other,
                                      binary_kernel kernel,
                                      binary_op op) {
@@ -901,7 +1083,7 @@ std::string Karray::str() {
 		}
 	}
 	ss << "shape=" << shape.str()
-	   << ")\n";
+	   << ")";
 	return ss.str();
 }
 
@@ -1456,6 +1638,13 @@ std::tuple<Shape, NDVector> Shape::transpose() const {
 	strides_t.buf[nd-1] = strides_t.buf[nd-2];
 	strides_t.buf[nd-2] = tmp;
 	return {result, strides_t};
+}
+
+int Shape::last_axis() {
+	int i = nd-1;
+	while (buf[i] == 1 && i > 0)
+		--i;
+	return i;
 }Filter::Filter(Shape& shape) {
     size_t total = 0;
     int i;
@@ -1941,6 +2130,246 @@ cache_info(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     Py_RETURN_NONE;
 }
 
+void Graph::print(const char * msg) {
+	std::cout << "graph: " << msg << "\n";
+	for (auto op : ops)
+		std::cout << "\t" << op.str() << "\n";
+}
+
+std::string Graph::str() const {
+	std::ostringstream ss;
+	ss << "graph\n";
+	for (auto op : ops)
+		ss << "\t" << op.str() << "\n";
+	return ss.str();
+}
+
+void Graph_dealloc(PyGraph *self) {
+	// printf("from python with refcount=%i\n", self->ob_base.ob_refcnt);
+	self->g.~Graph();
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
+PyObject *
+Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+	return type->tp_alloc(type, 0);
+}
+
+
+
+template<class T>
+std::vector<T> fast_to_vector(PyObject * o) {
+	printf("fast_to_vector is not implemented for this type\n");
+}
+
+template<>
+std::vector<std::string> fast_to_vector<std::string>(PyObject * o) {
+	Py_ssize_t len = PySequence_Fast_GET_SIZE(o);
+	std::vector<std::string> result(len);
+	PyObject ** items = PySequence_Fast_ITEMS(o);
+	for (int i = 0; i < len; ++i)
+		result[i] = std::string(PyUnicode_AsUTF8(items[i]));
+	return result;
+}
+
+const int KIPR_MODULE = -2;
+const int RELU_FUNCTION = -12;
+const int SOFTMAX_FUNCTION = -13;
+
+int karray_function_code(std::string & name) {
+	if (name == "relu")
+		return RELU_FUNCTION;
+	if (name == "softmax")
+		return SOFTMAX_FUNCTION;
+	return 0;
+}
+
+void print(std::stack<int> s) {
+	std::cout << "stack [";
+	while (!s.empty()) {
+		std::cout << s.top() << ", ";
+		s.pop();
+	}
+	std::cout << "]\n";
+}
+
+Op func_to_op(int function) {
+	if (function == RELU_FUNCTION)
+		return ElementwiseUnaryOp(relu_kernel, "relu");
+	if (function == SOFTMAX_FUNCTION)
+		return ElementwiseUnaryOp(exp_kernel, "softmax");
+	if (function == OP_BINARY_ADD)
+		return ElementwiseBinaryOp(add_kernel, "add");
+	if (function == OP_BINARY_MATRIX_MULTIPLY)
+		return MatMulOp();
+	if (function == OP_UNARY_NEGATIVE)
+		return ElementwiseUnaryOp(exp_kernel, "negative");
+
+	return Op();
+}
+
+int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
+	char *kwlist[] = {"function", "trainable", NULL};
+	PyObject *function = NULL, *trainable = NULL;
+
+	PyObject * code;
+	PyCodeObject * code_ob;
+	Graph * g = &self->g;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|$O", kwlist,
+	                                 &function, &trainable))
+		return -1;
+
+	if (trainable) {
+		Py_INCREF(trainable);
+		DEBUG_Obj(trainable, "trainable");
+	}
+
+	Py_INCREF(function);
+	if (!PyFunction_Check(function))
+		return -1;
+
+
+	code = PyFunction_GetCode(function);
+	code_ob = reinterpret_cast<PyCodeObject *>(code);
+	Py_ssize_t len = PyBytes_Size(code_ob->co_code);
+	char* items =  PyBytes_AsString(code_ob->co_code);
+
+	PyObject * globals = PyEval_GetGlobals();
+	auto names = fast_to_vector<std::string>(code_ob->co_names);
+	auto varnames = fast_to_vector<std::string>(code_ob->co_varnames);
+	std::stack<int> stack;
+	std::map<int, int> local;
+	std::map<int, int> global;
+
+	int op, arg;
+	for (int i = 0; i < len; i += 2) {
+		op = (int) (unsigned char) items[i];
+		arg = (int) (unsigned char) items[i + 1];
+		// printf("opcode %i, arg %i\n", op, arg);
+		switch (op) {
+
+		case (OP_LOAD_FAST):
+			if (!local.contains(arg)) {
+				local[arg] = g->ops.size();
+				g->ops.push_back(LoadInput(varnames[arg]));
+			}
+			stack.push(local[arg]);
+			break;
+
+		case (OP_LOAD_GLOBAL): {
+			PyObject * var = PyDict_GetItemString(globals, names[arg].c_str());
+			if (var == 0) {
+				PyErr_Format(Karray_error,
+				             "Global variable %s is not defined.",
+				             names[arg].c_str());
+				return -1;
+			}
+			if (PyModule_Check(var)) {
+				std::string module_name(PyModule_GetName(var));
+				if (module_name == std::string("kipr")) {
+					stack.push(KIPR_MODULE);
+				} else {
+					PyErr_Format(Karray_error,
+					             "Only 'kipr' modle can be used within kipr.graph functions but %s was used.",
+					             module_name);
+					return -1;
+				}
+			} else if (py_type(var) == KARRAY) {
+				if (!global.contains(arg)) {
+					global[arg] = g->ops.size();
+					g->ops.push_back(LoadGlobal(names[arg]));
+				}
+				stack.push(global[arg]);
+			} else {
+				PyErr_Format(Karray_error, "Unknown global variable %s is used in function.", names[arg]);
+				return -1;
+			}
+		}
+		break;
+
+		case (OP_LOAD_METHOD):
+			if (stack.top() != KIPR_MODULE) {
+				PyErr_SetString(Karray_error, "Expected stack to have KIPR_MODULE on top.");
+				return -1;
+			}
+			stack.pop();
+			stack.push(karray_function_code(names[arg]));
+			break;
+
+		case (OP_CALL_METHOD): {
+			if (arg != 1) {
+				PyErr_SetString(Karray_error, "At the moment, only one argument per function call is supported.");
+				return -1;
+			}
+			int argument = stack.top(); stack.pop();
+			int function = stack.top(); stack.pop();
+			Op oper = func_to_op(function);
+			oper.operands.push_back(argument);
+			g->ops[argument].add_child(g->ops.size());
+			stack.push(g->ops.size());
+			g->ops.push_back(oper);
+		}
+		break;
+
+		case (OP_BINARY_MATRIX_MULTIPLY):
+		case (OP_BINARY_ADD): {
+			int a = stack.top(); stack.pop();
+			int b = stack.top(); stack.pop();
+			Op oper = func_to_op(op);
+			oper.operands.push_back(a);
+			oper.operands.push_back(b);
+			g->ops[a].add_child(g->ops.size());
+			g->ops[b].add_child(g->ops.size());
+			stack.push(g->ops.size());
+			g->ops.push_back(oper);
+		}
+		break;
+
+		case (OP_UNARY_NEGATIVE): {
+			int a = stack.top(); stack.pop();
+			Op oper = func_to_op(op);
+			oper.operands.push_back(a);
+			g->ops[a].add_child(g->ops.size());
+			stack.push(g->ops.size());
+			g->ops.push_back(oper);
+		}
+		break;
+
+		case (OP_STORE_FAST):
+			local[arg] = stack.top(); stack.pop();
+			break;
+
+		case (OP_RETURN_VALUE):
+			g->ret = stack.top(); stack.pop();
+			break;
+
+		default:
+			PyErr_Format(Karray_error, "Unknown opcode %i.", op);
+			return -1;
+		}
+		// print(stack);
+
+	}
+
+	Py_DECREF(function);
+	Py_XDECREF(trainable);
+	return 0;
+
+fail:
+	Py_DECREF(function);
+	Py_XDECREF(trainable);
+	PyErr_SetString(PyExc_TypeError,
+	                "Failed to initialize <kipr.graph>.");
+	return -1;
+}
+
+
+
+PyObject *
+Graph_str(PyGraph * self) {
+    return PyUnicode_FromString(self->g.str().c_str());
+}
 inline PyObject * py_binary_op(PyObject *here,
                                PyObject *other,
                                binary_kernel kernel,

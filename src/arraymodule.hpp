@@ -13,6 +13,7 @@
 #include <numeric>
 #include <map>
 #include <tuple>
+#include <stack>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -138,6 +139,7 @@ public:
     std::tuple<NDVector, NDVector> paired_strides(Shape b) noexcept;
     std::tuple<Shape, NDVector> transpose() const;
     size_t nbmats();
+    int last_axis();
 
 private:
     size_t buf[MAX_ND];
@@ -259,6 +261,28 @@ typedef struct {
 } PyKarray;
 
 
+
+#include "ops.hpp"
+
+class Graph {
+public:
+
+    int ret;
+    std::vector<Op> ops;
+    std::vector<Karray *> instance;
+
+    Graph() : ops {}, instance {}, ret {0} {};
+
+    void print(const char * msg = "");
+    std::string str() const;
+};
+
+typedef struct {
+    PyObject_HEAD
+    Graph g;
+} PyGraph;
+
+
 struct Positions {
     size_t write;
     size_t left;
@@ -318,6 +342,14 @@ PyObject * Karray_log(PyObject *self, PyObject * o);
 
 // other
 PyObject * cache_info(PyObject *self, PyObject * input);
+
+
+// graph 
+
+void Graph_dealloc(PyGraph *self);
+int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds);
+PyObject * Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+PyObject * Graph_str(PyGraph * self);
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
 

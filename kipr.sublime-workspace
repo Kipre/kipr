@@ -4,12 +4,52 @@
 		"selected_items":
 		[
 			[
-				"Py",
-				"PyObject"
+				"Ka",
+				"Karray"
+			],
+			[
+				"test",
+				"test_labels"
+			],
+			[
+				"err",
+				"err_msg"
+			],
+			[
+				"to",
+				"tolist"
+			],
+			[
+				"PYERR",
+				"PYERR_PRINT_GOTO_FAIL"
+			],
+			[
+				"seq",
+				"seq_length"
+			],
+			[
+				"size",
+				"size_t"
+			],
+			[
+				"ne",
+				"new_PyKarray"
+			],
+			[
+				"P",
+				"Positions"
 			],
 			[
 				"print",
-				"print_m256"
+				"printf\tprintf …"
+			],
+			[
+				"_mm",
+				"_mm256_set1_ps"
+			],
+			[
+				"Py",
+				"PyObject"
 			],
 			[
 				"new",
@@ -76,10 +116,6 @@
 				"ASSERT_SHAPE_EQ"
 			],
 			[
-				"P",
-				"PyObject"
-			],
-			[
 				"inpla",
 				"inplace_binary_op"
 			],
@@ -118,10 +154,6 @@
 			[
 				"weights",
 				"weights_obj"
-			],
-			[
-				"PYERR",
-				"PYERR_RETURN_VAL"
 			],
 			[
 				"sha",
@@ -188,16 +220,8 @@
 				"strides"
 			],
 			[
-				"to",
-				"to_shape"
-			],
-			[
 				"nwe",
 				"new_shape"
-			],
-			[
-				"Ka",
-				"Karray_new"
 			],
 			[
 				"PyExc",
@@ -372,10 +396,6 @@
 				"Py_MAX"
 			],
 			[
-				"ne",
-				"new_Karray_by_hand"
-			],
-			[
 				"set",
 				"set_shape"
 			],
@@ -494,26 +514,6 @@
 			[
 				"rea",
 				"read_position"
-			],
-			[
-				"inde",
-				"index_and_positions"
-			],
-			[
-				"cu",
-				"current_tup_item"
-			],
-			[
-				"al",
-				"align_index"
-			],
-			[
-				"G",
-				"Karray_IF_ERR_GOTO_FAIL"
-			],
-			[
-				"PyLong",
-				"PyLong_AsLong"
 			]
 		]
 	},
@@ -523,35 +523,8 @@
 			"file": "src/arraymodule.hpp",
 			"settings":
 			{
-				"buffer_size": 9335,
+				"buffer_size": 9496,
 				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/math_ops.cpp",
-			"settings":
-			{
-				"buffer_size": 5364,
-				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/matmul.asm",
-			"settings":
-			{
-				"buffer_size": 5117,
-				"encoding": "UTF-8",
-				"line_ending": "Windows",
-				"name": "matmul.asm"
-			}
-		},
-		{
-			"file": "src/arraymodule.cpp",
-			"settings":
-			{
-				"buffer_size": 75539,
 				"line_ending": "Windows"
 			}
 		},
@@ -559,35 +532,35 @@
 			"file": "src/utils.cpp",
 			"settings":
 			{
-				"buffer_size": 9396,
+				"buffer_size": 2373,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "utils.cpp"
 			}
 		},
 		{
-			"file": "src/members.cpp",
+			"file": "src/math_ops.cpp",
 			"settings":
 			{
-				"buffer_size": 8845,
+				"buffer_size": 3810,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"contents": "py\nimport kipr as kp\na = kp.arr('range', shape=[3, 4, 5])\na.sum()\nexit()\n\n\npy \nimport kipr\nkipr.internal_test()\nexit()\n\npy\nimport kipr as kp\nimport dis\nW = kp.arr('rand', shape=[2, 3])\ndef f(x):\n    x = x + 1\n    x = kp.softmax(W @ x + b)\n    return x\n\ndis.dis(f)\nkp.function(f)\nexit()\n\npy\nimport kipr as kp\na = kp.arr('range', shape=(4, 5))\nb = kp.arr('range', shape=(5, 3))\na.matmul_t(b)\nexit()\n\n\npy\nimport kipr as kp\nregsA, regsB = 3, 4\nI, K, J = regsA * 3, 10, regsB * 2 * 8\na = kp.arr('range', shape=(I, K))\nb = kp.arr('range', shape=(K, J))\na.matmul_r(b)\nexit()\n\n\npy\nimport kipr as kp\na = kp.arr('range', shape=(8, 1)) + (kp.arr('range', shape=[1, 8]) * kp.arr(0.0001))\nb = kp.arr('range', shape=(8, 1)) + (kp.arr('range', shape=[1, 8]) * kp.arr(0.0001))\na.matmul_r(b)\nexit()\n\npy \nimport kipr as kp\na = kp.arr('range', shape=[2,3,4,5])\na.transpose()\n\n\n\n#include <immintrin.h>\n\n\nconst int u = 3;\nconst int v = 4;\n\n// /arch:AVX /O2  -mavx -mfma -O3\n\nvoid matmul(float * c, float * a, float * b, size_t I, size_t J, size_t K) {\n\n    for (int ii=0; ii < I; ii += u) {\n        for (int jj=0; jj < J / 8; jj += v) {\n            __m256 csum[u * v] = {};\n            for (int k=0; k < K; ++k) {\n                for (int j=0; j < v; ++j) {\n                    __m256 bb = _mm256_load_ps(&b[k * J + (j + jj) * 8]);\n                    for (int i=0; i < u; ++i) {\n                        __m256 aa = _mm256_set1_ps(a[(i + ii) * K + k]);\n                        csum[i * v + j] = _mm256_fmadd_ps(aa, bb, csum[i * v + j]);\n                    }\n                }\n            }\n\n            for (int j=0; j < v; ++j)\n                for (int i=0; i < u; ++i)\n                    _mm256_store_ps(&c[(i + ii) * J + (j + jj) * 8], csum[i * v + j]);\n        }\n    }\n\n}\n\nint main() {\n    size_t I=30, K=40, J=64;\n\n    float * a = new float[I*K];\n    float * b = new float[K*J];\n    float * c = new float[I*J];\n\n    matmul(c, a, b, I, J, K);\n}\n",
+			"file": "src/members.cpp",
 			"settings":
 			{
-				"buffer_size": 1930,
-				"line_ending": "Windows",
-				"name": "py"
+				"buffer_size": 7131,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
 			}
 		},
 		{
 			"file": "src/python_boilerplate.cpp",
 			"settings":
 			{
-				"buffer_size": 4404,
+				"buffer_size": 5103,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -596,7 +569,7 @@
 			"file": "src/module_functions.cpp",
 			"settings":
 			{
-				"buffer_size": 5950,
+				"buffer_size": 2582,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -605,8 +578,16 @@
 			"file": "setup.py",
 			"settings":
 			{
-				"buffer_size": 1715,
+				"buffer_size": 1766,
 				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/arraymodule.cpp",
+			"settings":
+			{
+				"buffer_size": 63806,
 				"line_ending": "Windows"
 			}
 		},
@@ -614,9 +595,37 @@
 			"file": "src/kernels.cpp",
 			"settings":
 			{
-				"buffer_size": 17024,
+				"buffer_size": 11058,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "test/test.py",
+			"settings":
+			{
+				"buffer_size": 11766,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "test/nn.py",
+			"settings":
+			{
+				"buffer_size": 2797,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/graph.cpp",
+			"settings":
+			{
+				"buffer_size": 1967,
+				"encoding": "UTF-8",
+				"line_ending": "Windows",
+				"name": "graph.cpp"
 			}
 		},
 		{
@@ -626,6 +635,16 @@
 				"buffer_size": 4925,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/opcodes.py",
+			"settings":
+			{
+				"buffer_size": 217,
+				"encoding": "UTF-8",
+				"line_ending": "Windows",
+				"name": "opcodes.py"
 			}
 		},
 		{
@@ -641,7 +660,7 @@
 			"file": "src/shape.cpp",
 			"settings":
 			{
-				"buffer_size": 9714,
+				"buffer_size": 8840,
 				"encoding": "UTF-8",
 				"line_ending": "Windows",
 				"name": "shape.cpp"
@@ -657,19 +676,19 @@
 			}
 		},
 		{
-			"file": "src/internal_test.hpp",
+			"file": "src/karray.cpp",
 			"settings":
 			{
-				"buffer_size": 5587,
+				"buffer_size": 9607,
+				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/karray.cpp",
+			"file": "src/internal_test.hpp",
 			"settings":
 			{
-				"buffer_size": 9868,
-				"encoding": "UTF-8",
+				"buffer_size": 5587,
 				"line_ending": "Windows"
 			}
 		}
@@ -738,12 +757,12 @@
 		"selected_items":
 		[
 			[
-				"a",
-				"Arithmetic"
-			],
-			[
 				"colo",
 				"UI: Select Color Scheme"
+			],
+			[
+				"a",
+				"Arithmetic"
 			],
 			[
 				"color",
@@ -819,16 +838,23 @@
 	"expanded_folders":
 	[
 		"/C/Users/kipr/repos/kipr/",
-		"/C/Users/kipr/repos/kipr//src"
+		"/C/Users/kipr/repos/kipr//src",
+		"/C/Users/kipr/repos/kipr//test"
 	],
 	"file_history":
 	[
+		"/C/Users/kipr/repos/kipr/src/opcodes.cpp",
+		"/C/Users/kipr/repos/perso/documents/cover.md",
+		"/C/Users/kipr/repos/kipr/kipr/__init__.py",
 		"/C/Users/kipr/repos/kipr/src/arraymodule.cpp",
+		"/C/Users/kipr/repos/kipr/test/test.py",
+		"/C/Users/kipr/repos/kipr/src/other.cpp",
+		"/C/Users/kipr/repos/kipr/src/members.cpp",
+		"/C/Users/kipr/repos/kipr/src/matmul.asm",
 		"/C/Users/kipr/repos/kipr/kipr.sublime-project",
 		"/C/Users/kipr/Downloads/opcode.py",
 		"/C/Users/kipr/repos/kipr/.gitignore",
 		"/C/Users/kipr/repos/kipr/src/internal_test.hpp",
-		"/C/Users/kipr/repos/perso/documents/cover.md",
 		"/C/Users/kipr/repos/kipr/src/math_ops.cpp",
 		"/C/Users/kipr/repos/kipr/src/karray.cpp",
 		"/C/Users/kipr/repos/kipr/src/kernels.cpp",
@@ -838,13 +864,10 @@
 		"/C/Users/kipr/repos/kipr/src/filter.cpp",
 		"/C/Users/kipr/repos/kipr/src/test.hpp",
 		"/C/Users/kipr/repos/kipr/src/module_functions.cpp",
-		"/C/Users/kipr/repos/kipr/src/members.cpp",
 		"/C/Users/kipr/repos/kipr/src/python_boilerplate.cpp",
 		"/C/Users/kipr/repos/kipr/src/include/py_types.hpp",
 		"/C/Users/kipr/repos/kipr/setup.py",
-		"/C/Users/kipr/repos/kipr/kipr/__init__.py",
 		"/C/Users/kipr/repos/kipr/src/internal_test.h",
-		"/C/Users/kipr/repos/kipr/test/test.py",
 		"/C/Users/kipr/repos/kipr/test/nn.py",
 		"/C/Users/kipr/repos/kipr/src/utils.cpp",
 		"/C/Users/kipr/repos/kipr/src/debug.cpp",
@@ -917,6 +940,59 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"LanguageWire",
+			"([A-z ]+)",
+			"\t",
+			"args",
+			"Karray",
+			"func",
+			"Karray",
+			"shape",
+			"input",
+			"Shape",
+			"shape",
+			"input",
+			"Karray",
+			"om",
+			"relu",
+			"test_sha",
+			"IndexError",
+			"test_su",
+			"t",
+			"T",
+			"broadcast",
+			"transpose",
+			"broa",
+			"posit",
+			"Position",
+			"[1]",
+			"pos",
+			"positions",
+			"rhs->arr.",
+			"self->arr.",
+			"Shape()",
+			"h",
+			"mul",
+			"h00",
+			"i",
+			"input",
+			"ii",
+			"\n            // printf(\"%lli \\n\", w - c);",
+			"printf(\"%lli \\n\", w - c);",
+			"jj",
+			"ii",
+			"a[",
+			",",
+			",\n           h10",
+			",",
+			", ",
+			"Trackunit",
+			"w);",
+			"\n            printf(\"%lli \\n\", w);",
+			"DebugBreak();",
+			"_mm256_store_ps",
+			"_mm256_fmadd_ps",
+			"$LN25@matmul",
 			"ymm3, YMMWORD PTR [rdx]",
 			"vmovaps ymm3,ymmword ptr [rdx]",
 			".",
@@ -991,60 +1067,7 @@
 			"0",
 			"depth",
 			"positions[0]",
-			"positions[2]",
-			"positions[1]",
-			"positions",
-			"positions[1]",
-			" must be a sequence of integer",
-			"Shape must be a sequence of integer",
-			"Shape must be a sequence of integers.",
-			"an integer is required",
-			"nd",
-			"a",
-			"curr_dim",
-			"strides",
-			"1",
-			"0",
-			"exped",
-			"exp",
-			"Exp",
-			"exp",
-			"arr",
-			"Karray",
-			"log",
-			"10",
-			"pp",
-			"PP",
-			"pp",
-			"corresppondance[",
-			"\\n[0-9]+",
-			"corresppondance[",
-			")",
-			"                 ",
-			"                ",
-			"                    ",
-			"                   ",
-			"                  ",
-			"                 ",
-			"                ",
-			"               ",
-			"              ",
-			"             ",
-			"            ",
-			"                     ",
-			"                    ",
-			"                   ",
-			"                  ",
-			"                 ",
-			"                ",
-			"               ",
-			"              ",
-			"                      ",
-			"                     ",
-			"                    ",
-			"                   ",
-			"                  ",
-			"                 "
+			"positions[2]"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -1062,7 +1085,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
@@ -1071,15 +1094,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 9335,
+						"buffer_size": 9496,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								5930,
-								5930
+								6199,
+								6199
 							]
 						],
 						"settings":
@@ -1089,113 +1112,27 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 3443.33333333,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
-					"file": "src/math_ops.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5364,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								4234,
-								4234
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 1920.0,
+						"translation.y": 3271.33333333,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
 					"type": "text"
 				},
 				{
-					"buffer": 2,
-					"file": "src/matmul.asm",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5117,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								40,
-								40
-							]
-						],
-						"settings":
-						{
-							"auto_name": "matmul.asm",
-							"syntax": "Packages/Text/Plain text.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 231.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 8,
-					"type": "text"
-				},
-				{
-					"buffer": 3,
-					"file": "src/arraymodule.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 75539,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								65158,
-								65158
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 13.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				},
-				{
-					"buffer": 4,
+					"buffer": 1,
 					"file": "src/utils.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 9396,
+						"buffer_size": 2373,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								643,
-								1
+								2373,
+								2373
 							]
 						],
 						"settings":
@@ -1204,116 +1141,28 @@
 							"syntax": "Packages/C++/C++.sublime-syntax",
 							"translate_tabs_to_spaces": false
 						},
-						"translation.x": 12.0,
-						"translation.y": 168.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 11,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "src/members.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 8845,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2902,
-								2713
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
 						"translation.x": 0.0,
-						"translation.y": 615.0,
+						"translation.y": 976.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
-					"buffer": 6,
+					"buffer": 2,
+					"file": "src/math_ops.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1930,
+						"buffer_size": 3810,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								560,
-								399
-							]
-						],
-						"settings":
-						{
-							"auto_name": "py",
-							"syntax": "Packages/Text/Plain text.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 399.333333333,
-						"zoom_level": 1.0
-					},
-					"stack_index": 3,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"file": "src/python_boilerplate.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 4404,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1263,
-								1263
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 240.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 12,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
-					"file": "src/module_functions.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5950,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1601,
-								1601
+								3111,
+								3111
 							]
 						],
 						"settings":
@@ -1322,63 +1171,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 455.0,
+						"translation.y": 773.333333333,
 						"zoom_level": 1.0
 					},
-					"stack_index": 13,
+					"stack_index": 7,
 					"type": "text"
 				},
 				{
-					"buffer": 9,
-					"file": "setup.py",
+					"buffer": 3,
+					"file": "src/members.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1715,
+						"buffer_size": 7131,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								389,
-								389
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Python/Python.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 9,
-					"type": "text"
-				}
-			]
-		},
-		{
-			"selected": 0,
-			"sheets":
-			[
-				{
-					"buffer": 10,
-					"file": "src/kernels.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 17024,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								14813,
-								14813
+								2493,
+								2493
 							]
 						],
 						"settings":
@@ -1388,14 +1201,259 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 5456.0,
+						"translation.y": 1421.33333333,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 10,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "src/python_boilerplate.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5103,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4467,
+								4467
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1664.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 11,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "src/module_functions.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2582,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2015,
+								1913
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "setup.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1766,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								806,
+								806
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 86.0,
+						"translation.y": 73.3333333333,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "src/arraymodule.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 63806,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								55891,
+								55891
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 31332.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 3,
+			"sheets":
+			[
+				{
+					"buffer": 8,
+					"file": "src/kernels.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 11058,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3584,
+								3584
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 144.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 14,
+					"type": "text"
+				},
+				{
+					"buffer": 9,
+					"file": "test/test.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 11766,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								7492,
+								7492
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2638.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 13,
+					"type": "text"
+				},
+				{
+					"buffer": 10,
+					"file": "test/nn.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2797,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2796,
+								2796
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 371.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 12,
 					"type": "text"
 				},
 				{
 					"buffer": 11,
+					"file": "src/graph.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1967,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1,
+								1
+							]
+						],
+						"settings":
+						{
+							"auto_name": "graph.cpp",
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 119.333333333,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 12,
 					"file": "src/filter.cpp",
 					"semi_transient": false,
 					"settings":
@@ -1407,8 +1465,8 @@
 						"selection":
 						[
 							[
-								671,
-								748
+								2197,
+								2197
 							]
 						],
 						"settings":
@@ -1416,15 +1474,44 @@
 							"syntax": "Packages/C++/C++.sublime-syntax",
 							"translate_tabs_to_spaces": true
 						},
-						"translation.x": 0.0,
-						"translation.y": 723.333333333,
+						"translation.x": 1.0,
+						"translation.y": 928.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 9,
 					"type": "text"
 				},
 				{
-					"buffer": 12,
+					"buffer": 13,
+					"file": "src/opcodes.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 217,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								50,
+								50
+							]
+						],
+						"settings":
+						{
+							"auto_name": "opcodes.py",
+							"syntax": "Packages/Python/Python.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 14,
 					"file": "src/py_types.hpp",
 					"semi_transient": false,
 					"settings":
@@ -1436,8 +1523,8 @@
 						"selection":
 						[
 							[
-								2876,
-								2876
+								280,
+								280
 							]
 						],
 						"settings":
@@ -1446,27 +1533,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1763.33333333,
+						"translation.y": 6.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
-					"buffer": 13,
+					"buffer": 15,
 					"file": "src/shape.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 9714,
+						"buffer_size": 8840,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								9380,
-								9380
+								2988,
+								2988
 							]
 						],
 						"settings":
@@ -1476,14 +1563,14 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 5357.0,
+						"translation.y": 1667.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 16,
+					"stack_index": 17,
 					"type": "text"
 				},
 				{
-					"buffer": 14,
+					"buffer": 16,
 					"file": "src/test.hpp",
 					"semi_transient": false,
 					"settings":
@@ -1495,8 +1582,8 @@
 						"selection":
 						[
 							[
-								883,
-								887
+								1007,
+								1007
 							]
 						],
 						"settings":
@@ -1504,14 +1591,73 @@
 							"syntax": "Packages/C++/C++.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 244.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 18,
+					"type": "text"
+				},
+				{
+					"buffer": 17,
+					"file": "src/karray.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 9607,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								6167,
+								6167
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 2886.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 16,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "src/utils.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2373,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2340,
+								2340
+							]
+						],
+						"settings":
+						{
+							"auto_name": "utils.cpp",
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 824.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 15,
 					"type": "text"
 				},
 				{
-					"buffer": 15,
+					"buffer": 18,
 					"file": "src/internal_test.hpp",
 					"semi_transient": false,
 					"settings":
@@ -1537,36 +1683,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
-					"type": "text"
-				},
-				{
-					"buffer": 16,
-					"file": "src/karray.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 9868,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5530,
-								5530
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 468.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 14,
+					"stack_index": 19,
 					"type": "text"
 				}
 			]
@@ -1574,7 +1691,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 29.0
+		"height": 22.0
 	},
 	"input":
 	{
@@ -1600,7 +1717,7 @@
 		"cols":
 		[
 			0.0,
-			0.5,
+			0.485937499999,
 			1.0
 		],
 		"rows":
@@ -1626,7 +1743,7 @@
 	"project": "kipr.sublime-project",
 	"replace":
 	{
-		"height": 54.0
+		"height": 40.0
 	},
 	"save_all_on_build": true,
 	"select_file":

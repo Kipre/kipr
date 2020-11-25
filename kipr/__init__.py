@@ -40,3 +40,13 @@ def fin():
     from IPython.display import Audio
     return Audio('https://www.soundboard.com/mediafiles/23/230637-88d7c1eb-fd29-4c12-9775-f8dff855374b.mp3',
                  autoplay=True)
+
+def toggle_color_mode():
+    """Toggles system color scheme preference."""
+    from winreg import ConnectRegistry, HKEY_CURRENT_USER, REG_SZ, KEY_ALL_ACCESS, OpenKeyEx, QueryValueEx, SetValueEx, CloseKey
+    root = ConnectRegistry(None, HKEY_CURRENT_USER)
+    policy_key = OpenKeyEx(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize", access=KEY_ALL_ACCESS)
+    light, _ = QueryValueEx(policy_key, "AppsUseLightTheme")
+    SetValueEx(policy_key, "AppsUseLightTheme", 0, REG_SZ, str(1-int(light)))
+    SetValueEx(policy_key, "SystemUsesLightTheme", 0, REG_SZ, str(1-int(light)))
+    CloseKey(policy_key)

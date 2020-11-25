@@ -270,7 +270,7 @@ std::string Karray::str() {
 		}
 	}
 	ss << "shape=" << shape.str()
-	   << ")\n";
+	   << ")";
 	return ss.str();
 }
 
