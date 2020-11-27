@@ -35,8 +35,6 @@ static PyMethodDef Karray_methods[] = {
 static PyMethodDef Graph_methods[] = {
     {"compile", (PyCFunction)  Graph_prepare,  METH_FASTCALL,
      "Compile graph."},
-    {"shapes", (PyCFunction)  Graph_shapes, METH_NOARGS,
-     "Print_shapes."},
     {"values", (PyCFunction)  Graph_values, METH_NOARGS,
      "Print_values."},
     {NULL}  /* Sentinel */
@@ -44,6 +42,8 @@ static PyMethodDef Graph_methods[] = {
 
 
 static PyGetSetDef Graph_getsetters[] = {
+    {"shapes", (getter) Graph_shapes, NULL,
+     "Shapes in the current instance.", NULL},
     {NULL}  /* Sentinel */
 };
 

@@ -1,4 +1,4 @@
-typedef struct ElementwiseOperation {
+struct ElementwiseOperation {
 	char name[4];
 	binary_kernel kernel;
 	binary_op op;
@@ -60,13 +60,9 @@ public:
 	};
 
 	void prepare(std::vector<Karray> & v, size_t pos) {
-		Karray * rhs = &v[operands[0]];
-		Karray * lhs = &v[operands[1]];
+		Karray * lhs = &v[operands[0]];
+		Karray * rhs = &v[operands[1]];
 		Karray * dest = &v[pos];
-
-		printf("%s\n", name);
-		rhs->shape.print("rhs");
-		lhs->shape.print("lhs");
 
 		if (rhs->shape.length == lhs->shape.length) {
 			simple = true;
@@ -89,7 +85,7 @@ public:
 		} else {
 			Positions posi {0, 0, 0};
 			rec_binary_op(v[pos].data, v[operands[0]].data, v[operands[1]].data,
-			              common, rstr, lstr, &posi, ope.op, 0);
+			              common, lstr, rstr, &posi, ope.op, 0);
 		}
 	};
 };
@@ -131,15 +127,61 @@ public:
 
 class MatMulOp: public Op {
 public:
-	size_t M;
-	size_t N;
-	size_t I;
-	size_t J;
-	size_t K;
+	size_t M {};
+	size_t N {};
+	size_t I {};
+	size_t J {};
+	size_t K {};
 
-	MatMulOp() :
-		M{0}, N{0}, I{0}, J{0}, K{0} {
+	MatMulOp() {
 		name = "matmul";
+	};
+
+	void prepare(std::vector<Karray> & v, size_t pos) {
+		Karray * lhs = &v[operands[0]];
+		Karray * rhs = &v[operands[1]];
+		Karray * dest = &v[pos];
+
+		if (lhs->shape.nd < 2 && rhs->shape.nd < 2) {
+			PyErr_SetString(Karray_error, "Both arrays must be at least two-dimensional for matmul.");
+			return;
+		}
+
+		I = lhs->shape[-2];
+		K = lhs->shape[-1];
+		J = rhs->shape[-1];
+
+		M = lhs->shape.nbmats();
+		N = rhs->shape.nbmats();
+
+		if (K != rhs->shape[-2] || (M % N != 0 && N % M != 0)) {
+			PyErr_Format(Karray_error,
+			             "Matmul not possible with shapes %s and %s.",
+			             lhs->shape.str(), rhs->shape.str());
+			return;
+		}
+
+		Shape new_shape((M > N) ? lhs->shape : rhs->shape);
+		new_shape.set(new_shape.nd - 2, I);
+		new_shape.set(new_shape.nd - 1, J);
+
+		dest->reset(new_shape);
+	};
+
+	void run(std::vector<Karray> & v, size_t pos) {
+		Karray * lhs = &v[operands[0]];
+		Karray * rhs = &v[operands[1]];
+		Karray * dest = &v[pos];
+
+		for (int m = 0; m < max(M, N); ++m) {
+			int ia = m % M;
+			int ib = m % N;
+
+			general_matmul(dest->data + m * I * J,
+			               lhs->data + ia * I * K,
+			               rhs->data + ib * K * J,
+			               I, J, K);
+		}
 	};
 };
 

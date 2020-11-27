@@ -206,6 +206,14 @@ Shape::paired_strides(Shape b) noexcept {
 	return {astr, bstr};
 }
 
+PyObject * Shape::as_tuple() {
+	auto tuple = PyTuple_New(nd);
+	for (int k=0; k < nd; ++k)
+		PyTuple_SetItem(tuple, k, PyLong_FromSize_t(buf[k]));
+	// Py_INCREF(tuple);
+	return tuple;
+}
+
 
 void Shape::swap(Shape & other) {
 	std::swap(nd, other.nd);

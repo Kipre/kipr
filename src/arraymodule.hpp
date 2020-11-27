@@ -88,6 +88,7 @@ public:
     std::tuple<Shape, NDVector> transpose() const;
     size_t nbmats();
     int last_axis();
+    PyObject * as_tuple();
 
 private:
     size_t buf[MAX_ND];
@@ -287,7 +288,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds);
 PyObject * Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Graph_str(PyGraph * self);
 PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs);
-PyObject * Graph_shapes(PyGraph *graph, PyObject *Py_UNUSED(ignored));
+PyObject * Graph_shapes(PyGraph *graph, void *closure);
 PyObject * Graph_values(PyGraph *graph, PyObject *Py_UNUSED(ignored));
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");

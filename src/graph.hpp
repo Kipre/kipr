@@ -63,15 +63,15 @@ Op * func_to_op(size_t function) {
 		return new ElementwiseUnaryOp(relu_kernel, "relu");
 	if (function == SOFTMAX_FUNCTION)
 		return new ElementwiseUnaryOp(exp_kernel, "softmax");
-	if (function == BINARY_ADD)
+	if (function == BINARY_ADD || function == INPLACE_ADD)
 		return new EWBinaryOp<Add>();
-	if (function == BINARY_SUBTRACT)
+	if (function == BINARY_SUBTRACT || function == INPLACE_SUBTRACT)
 		return new EWBinaryOp<Sub>();
-	if (function == BINARY_MULTIPLY)
+	if (function == BINARY_MULTIPLY || function == INPLACE_MULTIPLY)
 		return new EWBinaryOp<Mul>();
-	if (function == BINARY_TRUE_DIVIDE)
+	if (function == BINARY_TRUE_DIVIDE || function == INPLACE_TRUE_DIVIDE)
 		return new EWBinaryOp<Div>();
-	if (function == BINARY_MATRIX_MULTIPLY)
+	if (function == BINARY_MATRIX_MULTIPLY || function == INPLACE_MATRIX_MULTIPLY)
 		return new MatMulOp {};
 	if (function == UNARY_NEGATIVE)
 		return new ElementwiseUnaryOp(exp_kernel, "negative");
@@ -196,6 +196,24 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		}
 		break;
 
+		case (INPLACE_MATRIX_MULTIPLY):
+		case (INPLACE_ADD):
+		case (INPLACE_MULTIPLY):
+		case (INPLACE_SUBTRACT):
+		case (INPLACE_TRUE_DIVIDE): {
+			size_t b = stack.top(); stack.pop();
+			size_t a = stack.top(); stack.pop();
+			Op * oper = func_to_op(op);
+			oper->operands.push_back(a);
+			oper->operands.push_back(b);
+			stack.push(g->ops.size());
+			g->ops[a]->add_child(stack.top());
+			g->ops[b]->add_child(stack.top());
+			g->ops.push_back(oper);
+			local[a] = stack.top();
+		}
+		break;
+
 		case (UNARY_NEGATIVE): {
 			size_t a = stack.top(); stack.pop();
 			Op * oper = func_to_op(op);
@@ -300,11 +318,14 @@ PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs)
 
 
 PyObject *
-Graph_shapes(PyGraph *graph, PyObject *Py_UNUSED(ignored)) {
+Graph_shapes(PyGraph *graph, void *closure) {
 	Graph * g = &graph->g;
-    for (auto k : g->instance)
-    	k.shape.print();
-    Py_RETURN_NONE;
+	PyObject * result = PyList_New(g->ops.size());
+	for (int k=0; k < g->ops.size(); ++k) {
+		PyList_SetItem(result, k, g->instance[k].shape.as_tuple());
+	}
+	// Py_INCREF(result);
+    return result;
 }
 
 PyObject *

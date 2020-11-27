@@ -134,12 +134,7 @@ Karray_reshape(PyKarray * self, PyObject * shape) {
 
 PyObject *
 Karray_getshape(PyKarray *self, void *closure) {
-    int nd = self->arr.shape.nd;
-    PyObject * result = PyTuple_New(nd);
-    for (int k = 0; k < nd; k++) {
-        PyTuple_SET_ITEM(result, k, PyLong_FromSize_t(self->arr.shape[k]));
-    }
-    return result;
+    return self->arr.shape.as_tuple();
 }
 
 PyObject *
