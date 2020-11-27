@@ -12,6 +12,7 @@ additional = ['ERROR_CODE',
               'SLICE',
               'KARRAY',
               'KIPR_MODULE',
+              'MODULE',
               'RELU_FUNCTION',
               'SOFTMAX_FUNCTION']
 

@@ -9,11 +9,11 @@ Karray Karray::elementwise_binary_op(const Karray &other,
 	} else {
 		auto [common, a_strides, b_strides] =
 		    paired_strides(shape, other.shape);
-		IF_ERROR_RETURN(Karray());
+		IF_ERROR_RETURN(Karray {});
 		Karray result(common);
-		size_t positions[3] = {0};
+		Positions pos {0, 0, 0};
 		rec_binary_op(result.data, data, other.data,
-		              common, a_strides, b_strides, positions, op, 0);
+		              common, a_strides, b_strides, &pos, op, 0);
 		return result;
 	}
 }
@@ -27,21 +27,19 @@ void Karray::inplace_binary_op(const Karray  &rhs,
 		auto [a_strides, b_strides] =
 		    shape.paired_strides(rhs.shape);
 		IF_ERROR_RETURN();
-		size_t positions[3] = {0};
+		Positions pos {0, 0, 0};
 		rec_binary_op(data, data, rhs.data, shape,
-		              a_strides, b_strides, positions, op, 0);
+		              a_strides, b_strides, &pos, op, 0);
 	}
 }
 
 Karray::Karray(Shape new_shape) {
-	seed = rand();
 	shape = new_shape;
 	data = new float[shape.length];
 }
 
 
 Karray::Karray(Shape new_shape, float value) {
-	seed = rand();
 	shape = new_shape;
 	data = new float[shape.length];
 	std::fill(data, data + shape.length, value);
@@ -49,7 +47,6 @@ Karray::Karray(Shape new_shape, float value) {
 
 Karray::Karray(float val) {
 	// printf("creating generic new karr\n");
-	seed = rand();
 	shape = Shape();
 	data = new float[1];
 	data[0] = val;
@@ -58,21 +55,19 @@ Karray::Karray(float val) {
 
 Karray::Karray() {
 	// printf("creating generic new karr\n");
-	seed = rand();
 	shape = Shape();
 	data = new float[1];
 	data[0] = 0;
 }
 
 Karray::Karray(const Karray& other)
-	: seed{other.seed + 1},
-	  shape{other.shape} {
+	: shape{other.shape} {
 	data = new float[shape.length];
 	std::copy(other.data, other.data + shape.length, data);
 }
 
 Karray& Karray::operator=(const Karray& other) {
-	// printf("copying array %i into %i\n", other.seed, seed);
+	// printf("copying array %s into %s\n", other.shape.str().c_str(), shape.str().c_str());
 	shape = other.shape;
 	delete[] data;
 	data = new float[shape.length];
@@ -81,9 +76,7 @@ Karray& Karray::operator=(const Karray& other) {
 }
 
 Karray::Karray(Karray&& other)
-	: seed{other.seed + 1},
-	  shape{other.shape} {
-	seed = other.seed + 1;
+	: shape{other.shape} {
 	// printf("moving array %i into %i\n", other.seed, seed);
 	data = other.data;
 	other.shape = Shape();
@@ -100,6 +93,12 @@ Karray& Karray::operator=(Karray&& other) {
 	other.data = new float[1];
 	other.data[0] = 0;
 	return *this;
+}
+
+void Karray::reset(Shape & new_shape) {
+	delete [] data;
+	shape = new_shape;
+	data = new float[shape.length];
 }
 
 // Karray& Karray::operator+=(const Karray& other) {
@@ -151,7 +150,6 @@ void Karray::swap(Karray& other) {
 }
 
 Karray::Karray(Shape new_shape, std::vector<float> vec) {
-	seed = rand();
 	shape = new_shape;
 	// printf("shape.length, vec.size(): %i %i\n", shape.length, vec.size());
 	data = new float[shape.length];
@@ -159,41 +157,11 @@ Karray::Karray(Shape new_shape, std::vector<float> vec) {
 }
 
 Karray::Karray(Shape new_shape, float * new_data) {
-	seed = rand();
 	shape = new_shape;
 	data = new_data;
 }
 
-void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
-	delete[] data;
-	shape = new_shape;
-	data = new float[shape.length];
-
-	if (mode == RANDOM_NORMAL || mode == RANDOM_UNIFORM) {
-		std::random_device rd{};
-		std::mt19937 gen{rd()};
-
-		if (mode == RANDOM_NORMAL) {
-			std::normal_distribution<float> d{0, 1};
-			for (int n = 0; n < shape.length; ++n) {
-				data[n] = d(gen);
-			}
-		} else if (mode == RANDOM_UNIFORM) {
-			for (int n = 0; n < shape.length; ++n) {
-				data[n] = gen() / (float) 4294967295;
-			}
-		}
-	} else if (mode == RANGE) {
-		for (int n = 0; n < shape.length; ++n) {
-			data[n] = (float) n;
-		}
-	} else {
-		throw std::exception("unknown mode");
-	}
-}
-
 Karray Karray::subscript(PyObject * key) {
-
 	Karray result;
 	Filter filter;
 	Positions pos {0, 0, 0};
@@ -212,11 +180,8 @@ Karray Karray::subscript(PyObject * key) {
 	         strides.buf, filter, shape.nd, 0);
 	// printf("positions[0], positions[1]: %i %i\n", positions[0], positions[1]);
 	if (pos.write != new_shape.length)
-		goto fail;
+		PyErr_SetString(PyExc_ValueError, "Failed to subscript array.");
 
-	return result;
-fail:
-	PyErr_SetString(PyExc_ValueError, "Failed to subscript array.");
 	return result;
 }
 
@@ -227,7 +192,7 @@ Karray::~Karray() {
 }
 
 void Karray::print(const char * message) {
-	std::cout << "Printing Karray " << seed << " " << message << "\n\t";
+	std::cout << "Printing Karray " << message << "\n\t";
 	shape.print();
 	std::cout << "\t";
 	auto limit = min(shape.length, MAX_PRINT_SIZE);
@@ -344,25 +309,53 @@ void Karray::from_numpy(PyObject * obj) noexcept {
 	auto arr = (PyArrayObject *) obj;
 	npy_intp nd;
 	float * arr_data;
-	if ((nd = PyArray_NDIM(arr)) < MAX_ND &&
-	        PyArray_TYPE(arr) == NPY_FLOAT) {
-		shape = Shape(PyArray_SHAPE(arr), (int) nd);
-		auto length = (size_t) PyArray_SIZE(arr);
-		if (shape.length != length) goto fail;
-		// printf("length, shape_length %i %i\n", length, shape.length);
-		arr_data = (float *) PyArray_DATA(arr);
-		delete[] data;
-		data = new float[length];
-		for (int i = 0; i < length; ++i) {
-			data[i] = arr_data[i];
-		}
-	} else {
-fail:
-		PyErr_Clear();
-		PyErr_SetString(PyExc_ValueError,
-		                "Failed to copy numpy array.");
+	if ((nd = PyArray_NDIM(arr)) > MAX_ND || PyArray_TYPE(arr) != NPY_FLOAT) {
+		PyErr_SetString(Karray_error, "Failed to copy numpy array.");
+		return;
+	}
+
+	shape = Shape(PyArray_SHAPE(arr), (int) nd);
+	auto length = (size_t) PyArray_SIZE(arr);
+	if (shape.length != length) {
+		PyErr_SetString(Karray_error, "Failed to copy numpy array.");
+		return;
+	}
+	arr_data = (float *) PyArray_DATA(arr);
+	delete[] data;
+	data = new float[length];
+	for (int i = 0; i < length; ++i) {
+		data[i] = arr_data[i];
 	}
 }
+
+void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
+	delete[] data;
+	shape = new_shape;
+	data = new float[shape.length];
+
+	if (mode == RANDOM_NORMAL || mode == RANDOM_UNIFORM) {
+		std::random_device rd{};
+		std::mt19937 gen{rd()};
+
+		if (mode == RANDOM_NORMAL) {
+			std::normal_distribution<float> d{0, 1};
+			for (int n = 0; n < shape.length; ++n) {
+				data[n] = d(gen);
+			}
+		} else if (mode == RANDOM_UNIFORM) {
+			for (int n = 0; n < shape.length; ++n) {
+				data[n] = gen() / (float) 4294967295;
+			}
+		}
+	} else if (mode == RANGE) {
+		for (int n = 0; n < shape.length; ++n) {
+			data[n] = (float) n;
+		}
+	} else {
+		throw std::exception("unknown mode");
+	}
+}
+
 
 Karray Karray::flat_sum(bool mean) {
 	Karray result;

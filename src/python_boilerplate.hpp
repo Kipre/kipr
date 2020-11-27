@@ -35,6 +35,10 @@ static PyMethodDef Karray_methods[] = {
 static PyMethodDef Graph_methods[] = {
     {"compile", (PyCFunction)  Graph_prepare,  METH_FASTCALL,
      "Compile graph."},
+    {"shapes", (PyCFunction)  Graph_shapes, METH_NOARGS,
+     "Print_shapes."},
+    {"values", (PyCFunction)  Graph_values, METH_NOARGS,
+     "Print_values."},
     {NULL}  /* Sentinel */
 };
 
@@ -104,7 +108,7 @@ static PyMappingMethods Karray_as_mapping = {
 
 static PyTypeObject KarrayType = {
     Karray_HEAD_INIT
-    .tp_name = KARRAY_NAME,
+    .tp_name = "kipr.arr",
     .tp_basicsize = sizeof(PyKarray) - sizeof(float),
     .tp_itemsize = sizeof(float),
     .tp_dealloc = (destructor) Karray_dealloc,

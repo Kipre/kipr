@@ -124,7 +124,7 @@ Shape::Shape() {
 	std::fill(buf + 1, buf + MAX_ND, 0);
 }
 
-Shape::Shape(Shape a, Shape b) noexcept { // [3, 4, 5] & [3, 1]
+Shape::Shape(Shape a, Shape b) noexcept { 
 	if (a.nd < b.nd)
 		std::swap(a, b);
 
@@ -198,7 +198,7 @@ Shape::paired_strides(Shape b) noexcept {
 			bstr.buf[k] = 0;
 		} else {
 			PyErr_Format(Karray_error,
-			             "Shapes %s and %s not compatible for inplace binary op.",
+			             "Shapes %s and %s are not compatible for a binary operation.",
 			             str(), b.str());
 			return {astr, bstr};
 		}
@@ -403,16 +403,6 @@ void Shape::insert_one(int i) {
 		--k;
 	}
 	buf[i] = 1;
-}
-
-void Shape::push_back(size_t dim) {
-	if (def) {
-		nd = 0;
-		def = false;
-	}
-	buf[nd] = dim;
-	++nd;
-	length *= dim;
 }
 
 size_t Shape::axis(PyObject * o) {

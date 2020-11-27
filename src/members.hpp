@@ -99,13 +99,6 @@ Karray_init(PyKarray *self, PyObject *args, PyObject *kwds) {
     Py_DECREF(input);
     Py_XDECREF(shape);
     return 0;
-
-// fail:
-//     Py_DECREF(input);
-//     Py_XDECREF(shape);
-//     PyErr_SetString(PyExc_TypeError,
-//                     "Failed to initialize kipr.arr.");
-//     return -1;
 }
 
 PyObject *

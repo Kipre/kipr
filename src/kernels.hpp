@@ -1,4 +1,7 @@
 
+typedef __m256(*intrinsic_op)(__m256, __m256);
+
+
 
 void inline
 add_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {

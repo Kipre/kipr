@@ -1,25 +1,23 @@
 
 
 
-inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
-                          NDVector &l_strides, NDVector &r_strides, size_t * positions,
+void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
+                          NDVector &l_strides, NDVector &r_strides, Positions * pos,
                           binary_op op, int depth) {
-    if (depth < shape.nd - 1) {
-        for (int k = 0; k < shape[depth]; ++k) {
-            rec_binary_op(dest, lhs, rhs, shape, l_strides, r_strides, positions, op, depth + 1);
-            positions[1] += l_strides[depth];
-            positions[2] += r_strides[depth];
-        }
-        positions[1] -= l_strides[depth] * shape[depth];
-        positions[2] -= r_strides[depth] * shape[depth];
-    } else {
-        for (int k = 0; k < shape[depth]; ++k) {
-            dest[positions[0]] = op(lhs[positions[1] + l_strides[depth] * k],
-                                    rhs[positions[2] + r_strides[depth] * k]);
-            ++positions[0];
-        }
-    }
-
+	if (depth < shape.nd - 1) {
+		for (int k = 0; k < shape[depth]; ++k) {
+			rec_binary_op(dest, lhs, rhs, shape, l_strides, r_strides, pos, op, depth + 1);
+			pos->right += l_strides[depth];
+			pos->left += r_strides[depth];
+		}
+		pos->right -= l_strides[depth] * shape[depth];
+		pos->left -= r_strides[depth] * shape[depth];
+	} else {
+		for (int k = 0; k < shape[depth]; ++k) {
+			dest[pos->write++] = op(lhs[pos->right + l_strides[depth] * k],
+			                        rhs[pos->left + r_strides[depth] * k]);
+		}
+	}
 }
 
 
@@ -28,22 +26,22 @@ void
 inline _sum(float * self_data, float * result_data, float * weights_data,
             Shape &self_shape, NDVector &strides, bool multiple_weights,
             bool mean, int axis, int depth) {
-    if (axis != depth) {
-        for (int k = 0; k < self_shape[depth]; ++k) {
-            _sum(self_data + strides[depth]*k, result_data + strides[depth]*k / self_shape[axis],
-                 weights_data, self_shape, strides, multiple_weights, mean, axis, depth + 1);
-        }
-    } else {
-        for (int i = 0; i < self_shape[axis]; ++i) {
-            for (int k = 0; k < strides[axis]; ++k) {
-                // printf("val and result: %f %f %i %i\n", self_data[strides[axis] * i + k], result_data[k], strides[axis] * i + k, i);
-                result_data[k] += self_data[strides[axis] * i + k] * weights_data[multiple_weights * i];
-            }
-        }
-        if (mean)
-            for (int k = 0; k < strides[axis]; ++k)
-                result_data[k] /= (float) self_shape[axis];
-    }
+	if (axis != depth) {
+		for (int k = 0; k < self_shape[depth]; ++k) {
+			_sum(self_data + strides[depth]*k, result_data + strides[depth]*k / self_shape[axis],
+			     weights_data, self_shape, strides, multiple_weights, mean, axis, depth + 1);
+		}
+	} else {
+		for (int i = 0; i < self_shape[axis]; ++i) {
+			for (int k = 0; k < strides[axis]; ++k) {
+				// printf("val and result: %f %f %i %i\n", self_data[strides[axis] * i + k], result_data[k], strides[axis] * i + k, i);
+				result_data[k] += self_data[strides[axis] * i + k] * weights_data[multiple_weights * i];
+			}
+		}
+		if (mean)
+			for (int k = 0; k < strides[axis]; ++k)
+				result_data[k] /= (float) self_shape[axis];
+	}
 }
 
 void transfer(float * from, float * to, Positions * pos, size_t * strides,
@@ -64,14 +62,14 @@ void transfer(float * from, float * to, Positions * pos, size_t * strides,
 }
 
 
-void simple_transfer(float * from, float * to, Positions * pos, 
-	Shape & shape, NDVector & strides, int depth) {
+void simple_transfer(float * from, float * to, Positions * pos,
+                     Shape & shape, NDVector & strides, int depth) {
 	if (depth < shape.nd) {
-		for (int k=0; k < shape[depth]; ++k) {
+		for (int k = 0; k < shape[depth]; ++k) {
 			simple_transfer(from, to, pos, shape, strides, depth + 1);
 			pos->left += strides[depth];
 		}
-        pos->left -= shape[depth] * strides[depth];
+		pos->left -= shape[depth] * strides[depth];
 	} else {
 		to[pos->write++] = from[pos->left];
 	}
@@ -110,6 +108,8 @@ size_t py_type(PyObject * o) {
 		return SEQUENCE;
 	if (PySlice_Check(o))
 		return SLICE;
+	if (PyModule_Check(o))
+		return MODULE;
 	return ERROR_CODE;
 }
 

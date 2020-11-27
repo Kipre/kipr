@@ -68,6 +68,7 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
 
     Shape new_shape;
     size_t ind;
+    size_t nd = 0;
     int rest;
 
     std::vector<PyObject *> subs = full_subscript(key, current_shape);
@@ -88,7 +89,7 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
                 for (int k = 0; k < slicelength; ++k) {
                     push_back(k * step + start, i);
                 }
-                new_shape.push_back(slicelength);
+                new_shape.set(nd++, slicelength);
             }
         }
         break;
@@ -101,7 +102,7 @@ Shape Filter::from_subscript(PyObject * key, Shape &current_shape) {
                 IF_ERROR_RETURN({});
                 push_back(ind, i);
             }
-            new_shape.push_back(length);
+            new_shape.set(nd++, length);
         }
         }
     }

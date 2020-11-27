@@ -1,7 +1,7 @@
 
 PyObject *
 execute_func(PyObject *self, PyObject * input) {
-    
+
     Py_RETURN_NONE;
 }
 

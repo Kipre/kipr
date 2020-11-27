@@ -16,6 +16,7 @@
 #include <stack>
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 // debugging bullshit
 #ifdef _WIN32
@@ -33,7 +34,6 @@
     .ob_base={.ob_base={1, NULL }, .ob_size=0},
 
 const int MAX_ND = 8;
-const char * KARRAY_NAME = "kipr.arr";
 
 const int MAX_PRINT_SIZE = 100;
 const int STR_OFFSET = 10;
@@ -45,12 +45,10 @@ PyObject* Karray_error;
         return __VA_ARGS__;
 
 
-
 typedef float(*binary_op)(float, float);
 typedef void(*binary_kernel)(float *, float *, float *, ssize_t);
 typedef void(*binary_val_kernel)(float *, float *, float, ssize_t);
 typedef void(*unary_kernel)(float *, float *, ssize_t);
-
 
 
 class Filter;
@@ -60,7 +58,6 @@ class NDVector;
 class Shape
 {
 public:
-    bool def = true;
     int nd;
     size_t length;
 
@@ -82,7 +79,6 @@ public:
     size_t sum();
     NDVector strides(int depth_diff = 0) const;
     NDVector broadcast_to(Shape & other);
-    void push_back(size_t dim);
     void insert_one(int i);
     size_t pop(int i = -1) noexcept;
     size_t axis(PyObject * o);
@@ -101,7 +97,6 @@ private:
 class Karray
 {
 public:
-    int seed;
     Shape shape;
     float * data = nullptr;
 
@@ -133,6 +128,7 @@ public:
 
     void from_mode(Shape new_shape, size_t mode) noexcept;
     void from_numpy(PyObject * o) noexcept;
+    void reset(Shape & new_shape);
     void print(const char * message = "");
     std::string str();
     Karray broadcast(Shape new_shape);
@@ -199,33 +195,12 @@ typedef struct {
 } PyKarray;
 
 
-
-#include "ops.hpp"
-
-class Graph {
-public:
-
-    std::vector<int> inputs;
-    std::vector<Op> ops;
-    std::vector<Karray *> instance;
-
-    Graph() : ops {}, instance {}, inputs {} {};
-
-    void print(const char * msg = "");
-    std::string str() const;
-};
-
-typedef struct {
-    PyObject_HEAD
-    Graph g;
-} PyGraph;
-
-
 struct Positions {
     size_t write;
     size_t left;
     size_t right;
 };
+
 
 // utils
 size_t read_mode(PyObject * o);
@@ -236,6 +211,9 @@ void _sum(float * self_data, float * result_data, float * weights_data,
 static std::tuple<Shape, NDVector, NDVector> paired_strides(Shape a, Shape b) noexcept;
 void transpose(float * from, float * to, Positions * pos,
                Shape & shape, const NDVector& strides, int depth);
+void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
+                   NDVector &l_strides, NDVector &r_strides, Positions * pos,
+                   binary_op op, int depth);
 
 // members
 void Karray_dealloc(PyKarray *self);
@@ -282,16 +260,37 @@ PyObject * Karray_log(PyObject *self, PyObject * o);
 PyObject * cache_info(PyObject *self, PyObject * input);
 
 
-// graph 
 
+#include "ops.hpp"
+
+class Graph {
+public:
+
+    std::vector<int> inputs;
+    std::vector<Op *> ops;
+    std::vector<Karray> instance;
+
+    Graph() : ops {}, instance {}, inputs {} {};
+
+    void print(const char * msg = "");
+    std::string str() const;
+};
+
+typedef struct {
+    PyObject_HEAD
+    Graph g;
+} PyGraph;
+
+// graph
 void Graph_dealloc(PyGraph *self);
 int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds);
 PyObject * Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Graph_str(PyGraph * self);
 PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs);
+PyObject * Graph_shapes(PyGraph *graph, PyObject *Py_UNUSED(ignored));
+PyObject * Graph_values(PyGraph *graph, PyObject *Py_UNUSED(ignored));
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
-
 
 #include "py_types.hpp"
 #include "python_boilerplate.hpp"
