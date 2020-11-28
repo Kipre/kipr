@@ -303,12 +303,43 @@ PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs)
 		// DEBUG_Obj(args[k], "");
 		g->instance[g->inputs[k]] = reinterpret_cast<PyKarray *>(args[k])->arr;
 	}
-	for (int k=0; k < g->ops.size(); ++k) {
+	for (int k = 0; k < g->ops.size(); ++k) {
 		g->ops[k]->prepare(g->instance, k);
 		IF_ERROR_RETURN(NULL);
 		g->ops[k]->run(g->instance, k);
 	}
-	return (PyObject *) new_PyKarray(g->instance[g->ops.size()-1]);
+	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
+	// Py_RETURN_NONE;
+}
+
+PyObject * Graph_run(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
+	Graph * g = &self->g;
+	if (nargs != g->inputs.size()) {
+		PyErr_Format(Karray_error,
+		             "Wrong number of arguments, expecting %i but got %i.",
+		             g->inputs.size(), nargs);
+		return NULL;
+	}
+	for (int k = 0; k < nargs; ++k) {
+		if (py_type(args[k]) != KARRAY) {
+			PyErr_SetString(Karray_error,
+			                "Only kipr.arr is a valid input.");
+			return NULL;
+		}
+		auto karr = reinterpret_cast<PyKarray *>(args[k]);
+		if (g->instance[g->inputs[k]].shape != karr->arr.shape) {
+			PyErr_Format(Karray_error,
+			             "Shapes of input %i %s does not match instantiated shape %s.",
+			             k, karr->arr.shape.str().c_str(), g->instance[g->inputs[k]].shape.str().c_str());
+			return NULL;
+		}
+		g->instance[g->inputs[k]] = karr->arr;
+	}
+
+	for (int k = 0; k < g->ops.size(); ++k) {
+		g->ops[k]->run(g->instance, k);
+	}
+	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
 	// Py_RETURN_NONE;
 }
 
@@ -321,17 +352,30 @@ PyObject *
 Graph_shapes(PyGraph *graph, void *closure) {
 	Graph * g = &graph->g;
 	PyObject * result = PyList_New(g->ops.size());
-	for (int k=0; k < g->ops.size(); ++k) {
+	for (int k = 0; k < g->ops.size(); ++k) {
 		PyList_SetItem(result, k, g->instance[k].shape.as_tuple());
 	}
 	// Py_INCREF(result);
-    return result;
+	return result;
 }
 
 PyObject *
 Graph_values(PyGraph *graph, PyObject *Py_UNUSED(ignored)) {
 	Graph * g = &graph->g;
-    for (auto k : g->instance)
-    	k.print();
-    Py_RETURN_NONE;
+	for (auto k : g->instance)
+		k.print();
+	Py_RETURN_NONE;
+}
+
+
+PyObject *
+Graph_instance(PyGraph *graph, void *closure) {
+	Graph * g = &graph->g;
+	PyObject * result = PyList_New(g->ops.size());
+	for (int k = 0; k < g->ops.size(); ++k) {
+		PyKarray * res = new_PyKarray(g->instance[k]);
+		PyList_SetItem(result, k, reinterpret_cast<PyObject *>(res));
+	}
+	// Py_INCREF(result);
+	return result;
 }

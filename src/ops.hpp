@@ -26,6 +26,7 @@ public:
 	virtual void prepare(std::vector<Karray> & v, size_t pos) {
 		// printf("default prepare\n");
 	};
+	virtual void back(std::vector<Karray> & v, size_t pos) {};
 
 	void add_child(size_t i) {
 		children.push_back((int) i);
@@ -106,6 +107,15 @@ public:
 
 	void run(std::vector<Karray> & v, size_t pos) {
 		val_max_kernel(v[pos].data, v[operands[0]].data, 0, length);
+	};
+
+	void back(std::vector<Karray> & v, size_t pos) {
+		Karray * arg = &v[operands[0]];
+
+		size_t i = 0;
+		while(i < length) {
+			arg->data[i] = v[pos].data[i] * (arg->data[i] > 0);
+		}
 	};
 };
 

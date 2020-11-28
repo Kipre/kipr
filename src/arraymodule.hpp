@@ -288,8 +288,10 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds);
 PyObject * Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 PyObject * Graph_str(PyGraph * self);
 PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs);
+PyObject * Graph_run(PyGraph *self, PyObject *const *args, Py_ssize_t nargs);
 PyObject * Graph_shapes(PyGraph *graph, void *closure);
 PyObject * Graph_values(PyGraph *graph, PyObject *Py_UNUSED(ignored));
+PyObject * Graph_instance(PyGraph *graph, void *closure);
 
 #define DEBUG_Obj(o, msg)  printf(msg); PyObject_Print(o, stdout, Py_PRINT_RAW); printf("\n");
 
