@@ -296,7 +296,7 @@ Karray Karray::broadcast(Shape new_shape) {
 		Positions pos {0, 0, 0};
 		Karray result(new_shape);
 
-		NDVector strides = shape.broadcast_to(new_shape);
+		auto strides = shape.broadcast_to(new_shape);
 		IF_ERROR_RETURN(result);
 		simple_transfer(data, result.data, &pos, new_shape, strides, 0);
 

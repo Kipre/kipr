@@ -21,10 +21,10 @@ public:
 
 	virtual void execute(std::vector<Karray> & v, size_t pos) {};
 	virtual void run(std::vector<Karray> & v, size_t pos) {
-		printf("default run\n");
+		// printf("default run\n");
 	};
 	virtual void prepare(std::vector<Karray> & v, size_t pos) {
-		printf("default prepare\n");
+		// printf("default prepare\n");
 	};
 
 	void add_child(size_t i) {
@@ -90,39 +90,81 @@ public:
 	};
 };
 
-class ElementwiseUnaryOp: public Op {
+class ReluOp: public Op {
 public:
-	unary_kernel kernel;
 	size_t length;
 
-	ElementwiseUnaryOp(unary_kernel ker, std::string opname = "unary op") :
-		length {0}, kernel {ker} {
-		name = opname;
+	ReluOp() {
+		name = "relu";
 	};
 
-	void execute(std::vector<Karray *> & instance, size_t pos) {
-		kernel(instance[pos]->data,
-		       instance[operands[0]]->data,
-		       length);
+	void prepare(std::vector<Karray> & v, size_t pos) {
+		Karray * arg = &v[operands[0]];
+		v[pos].reset(arg->shape);
+		length = arg->shape.length;
+	};
+
+	void run(std::vector<Karray> & v, size_t pos) {
+		val_max_kernel(v[pos].data, v[operands[0]].data, 0, length);
 	};
 };
 
-class SoftmaxOp: public Op {
+
+
+class UnaryNegative: public Op {
 public:
 	size_t length;
 
-	SoftmaxOp() :
-		length{0} {
+	UnaryNegative() {
+		name = "negative";
+	};
+
+	void prepare(std::vector<Karray> & v, size_t pos) {
+		Karray * arg = &v[operands[0]];
+		v[pos].reset(arg->shape);
+		length = arg->shape.length;
+	};
+
+	void run(std::vector<Karray> & v, size_t pos) {
+		val_mul_kernel(v[pos].data, v[operands[0]].data, -1, length);
+	};
+};
+
+
+
+
+class SoftmaxOp: public Op {
+public:
+	size_t length {};
+	size_t ax {};
+
+	SoftmaxOp() {
 		name = "softmax";
 	};
 
-	// void execute(std::vector<Karray *> & instance, size_t pos) {
-	// 	int ax = instance[operands[0]]->shape.last_axis();
-	// 	exp_kernel(instance[pos]->data, instance[operands[0]]->data, length);
-	// 	Karray summed_exp = instance[pos]->sum(ax, Karray(1.), false);
-	// 	summed_exp.shape.insert_one(ax);
-	// 	instance[operands[0]]->operator/=(summed_exp);
-	// };
+	void prepare(std::vector<Karray> & v, size_t pos) {
+		Karray * arg = &v[operands[0]];
+		v[pos].reset(arg->shape);
+		length = arg->shape.length;
+
+		ax = arg->shape.last_axis();
+	};
+
+	void run(std::vector<Karray> & v, size_t pos) {
+		Karray * arg = &v[operands[0]];
+		
+		exp_kernel(v[pos].data, arg->data, length);
+		Karray summed_exp = v[pos].sum(ax, Karray(1.), false);
+		summed_exp.shape.insert_one(ax);
+		// summed_exp.print();
+		// summed_exp = summed_exp.broadcast(arg->shape);
+		// summed_exp.print();
+		// div_kernel(v[pos].data,  v[pos].data, summed_exp.data, length);
+		Positions posi {0, 0, 0};
+		auto [lstr, rstr] = arg->shape.paired_strides(summed_exp.shape);
+		rec_binary_op(v[pos].data, v[pos].data, summed_exp.data, arg->shape,
+                          lstr, rstr, &posi, _div, 0);
+	};
 };
 
 class MatMulOp: public Op {

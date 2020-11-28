@@ -155,6 +155,7 @@ Shape::Shape(Shape a, Shape b) noexcept {
 static std::tuple<Shape, NDVector, NDVector>
 paired_strides(Shape a, Shape b) noexcept {
 	Shape common = Shape(a, b);
+	// IF_ERROR_RETURN({});
 	NDVector astr, bstr;
 	size_t acc = 1, bcc = 1;
 	while (a.nd > b.nd)
@@ -329,7 +330,7 @@ NDVector Shape::broadcast_to(Shape & other) {
 		return result;
 	}
 	int acc = 1;
-	for (int i = other.nd - 1; i > dim_diff; --i) {
+	for (int i = other.nd - 1; i >= dim_diff; --i) {
 		if (buf[i - dim_diff] == 1 && other[i] != 1) {
 			result.buf[i] = 0;
 		} else if (buf[i - dim_diff] == other[i]) {

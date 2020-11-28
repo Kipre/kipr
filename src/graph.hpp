@@ -60,22 +60,22 @@ void print(std::stack<int> s) {
 
 Op * func_to_op(size_t function) {
 	if (function == RELU_FUNCTION)
-		return new ElementwiseUnaryOp(relu_kernel, "relu");
+		return new ReluOp {};
 	if (function == SOFTMAX_FUNCTION)
-		return new ElementwiseUnaryOp(exp_kernel, "softmax");
+		return new SoftmaxOp {};
 	if (function == BINARY_ADD || function == INPLACE_ADD)
-		return new EWBinaryOp<Add>();
+		return new EWBinaryOp<Add> {};
 	if (function == BINARY_SUBTRACT || function == INPLACE_SUBTRACT)
-		return new EWBinaryOp<Sub>();
+		return new EWBinaryOp<Sub> {};
 	if (function == BINARY_MULTIPLY || function == INPLACE_MULTIPLY)
-		return new EWBinaryOp<Mul>();
+		return new EWBinaryOp<Mul> {};
 	if (function == BINARY_TRUE_DIVIDE || function == INPLACE_TRUE_DIVIDE)
-		return new EWBinaryOp<Div>();
+		return new EWBinaryOp<Div> {};
 	if (function == BINARY_MATRIX_MULTIPLY || function == INPLACE_MATRIX_MULTIPLY)
 		return new MatMulOp {};
 	if (function == UNARY_NEGATIVE)
-		return new ElementwiseUnaryOp(exp_kernel, "negative");
-	return new Op();
+		return new UnaryNegative {};
+	return new Op {};
 }
 
 int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
