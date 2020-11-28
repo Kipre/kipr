@@ -102,9 +102,9 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	PyObject * globals = PyEval_GetGlobals();
 	auto names = fast_to_vector<std::string>(code_ob->co_names);
 	auto varnames = fast_to_vector<std::string>(code_ob->co_varnames);
-	std::stack<int> stack;
-	std::map<int, int> local;
-	std::map<int, int> global;
+	std::stack<size_t> stack;
+	std::map<int, size_t> local;
+	std::map<int, size_t> global;
 
 	int op, arg;
 	for (int i = 0; i < len; i += 2) {

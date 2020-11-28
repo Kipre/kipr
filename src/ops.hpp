@@ -16,8 +16,8 @@ constexpr ElementwiseOperation Div {"div", div_kernel, _div};
 class Op {
 public:
 	std::string name = "op";
-	std::vector<int> children;
-	std::vector<int> operands;
+	std::vector<size_t> children;
+	std::vector<size_t> operands;
 
 	virtual void execute(std::vector<Karray> & v, size_t pos) {};
 	virtual void run(std::vector<Karray> & v, size_t pos) {
@@ -165,7 +165,7 @@ public:
 		
 		exp_kernel(v[pos].data, arg->data, length);
 		Karray summed_exp = v[pos].sum(ax, Karray(1.), false);
-		summed_exp.shape.insert_one(ax);
+		summed_exp.shape.insert_one((int) ax);
 		// summed_exp.print();
 		// summed_exp = summed_exp.broadcast(arg->shape);
 		// summed_exp.print();
