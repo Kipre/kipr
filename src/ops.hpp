@@ -11,8 +11,6 @@ constexpr ElementwiseOperation Div {"div", div_kernel, _div};
 
 
 
-
-
 class Op {
 public:
 	std::string name = "op";
@@ -26,7 +24,9 @@ public:
 	virtual void prepare(std::vector<Karray> & v, size_t pos) {
 		// printf("default prepare\n");
 	};
-	virtual void back(std::vector<Karray> & v, size_t pos) {};
+	virtual void back(std::vector<Karray> & v, 
+		      std::vector<Op *> & ops, 
+		      size_t pos) {};
 
 	void add_child(size_t i) {
 		children.push_back((int) i);
@@ -109,13 +109,31 @@ public:
 		val_max_kernel(v[pos].data, v[operands[0]].data, 0, length);
 	};
 
-	void back(std::vector<Karray> & v, size_t pos) {
+	void back(std::vector<Karray> & v, 
+		      std::vector<Op *> & ops, 
+		      size_t pos) {
 		Karray * arg = &v[operands[0]];
+		Karray * self = &v[pos];
 
-		size_t i = 0;
-		while(i < length) {
-			arg->data[i] = v[pos].data[i] * (arg->data[i] > 0);
+		int k = 0;
+#if __AVX__
+		__m256 v_a, v_b, constant = _mm256_set1_ps(0);
+		for (k = 0; k < length - 8; k += 8) {
+			v_a = _mm256_load_ps(&arg->data[k]);
+			v_a = _mm256_cmp_ps(v_a, constant, 14); // -> greater than
+			v_b = _mm256_load_ps(&self->data[k]);
+        	v_a = _mm256_mul_ps(v_a, v_b);
+			_mm256_store_ps(&arg->data[k], v_a);
 		}
+#endif
+		while (k < length) {
+			arg->data[k] = self->data[k] * (arg->data[k] > 0);
+			++k;
+		}
+
+		size_t div = ops[operands[0]]->children.size();
+		if (div > 1)
+			val_div_kernel(arg->data, self->data, (float) div, length);
 	};
 };
 
@@ -162,7 +180,7 @@ public:
 
 	void run(std::vector<Karray> & v, size_t pos) {
 		Karray * arg = &v[operands[0]];
-		
+
 		exp_kernel(v[pos].data, arg->data, length);
 		Karray summed_exp = v[pos].sum(ax, Karray(1.), false);
 		summed_exp.shape.insert_one((int) ax);
@@ -173,7 +191,7 @@ public:
 		Positions posi {0, 0, 0};
 		auto [lstr, rstr] = arg->shape.paired_strides(summed_exp.shape);
 		rec_binary_op(v[pos].data, v[pos].data, summed_exp.data, arg->shape,
-                          lstr, rstr, &posi, _div, 0);
+		              lstr, rstr, &posi, _div, 0);
 	};
 };
 

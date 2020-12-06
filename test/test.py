@@ -359,7 +359,7 @@ class TestKarrayMath(unittest.TestCase):
 
         np.testing.assert_almost_equal(
             a.numpy(), 
-            [1]
+            [1],
         )
 
     def test_mul(self):
@@ -462,6 +462,40 @@ class TestKarrayMath(unittest.TestCase):
         self.test_div()
         self.test_inplace_div()
 
+
+
+class TestGraph(unittest.TestCase):
+
+    def test_init(self):
+        global v, w, y, z, d
+
+        v = kp.arr('randn', shape=(2,))
+        w = kp.arr('randn', shape=(2,))
+        y = kp.arr('randn', shape=(2,))
+        z = kp.arr('randn', shape=(2,))
+        d = kp.arr([[1, .3], [0.5, -1]])
+
+        evaluator = np.random.randn(3, 2)
+
+        def f(x):
+            x = x @ ((d + v - w)* y / z)
+            return -x
+
+        g = kp.graph(f)
+        result = g.compile(kp.arr(evaluator))
+
+        v = v.numpy()
+        w = w.numpy()
+        y = y.numpy()
+        z = z.numpy()
+        d = d.numpy()
+
+        np.testing.assert_almost_equal(
+            result.numpy(), 
+            f(evaluator),
+            decimal=6,
+            err_msg="behavior of graph anf function differs"
+        )
 
 
 

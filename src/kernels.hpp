@@ -347,6 +347,24 @@ val_mul_kernel(float * dest, float * lhs, float value, ssize_t length) {
 
 
 void inline
+val_div_kernel(float * dest, float * lhs, float value, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, constant = _mm256_set1_ps(value);
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_a = _mm256_div_ps(v_a, constant);
+        _mm256_store_ps(&dest[k], v_a);
+    }
+#endif
+    while (k < length) {
+        dest[k] = lhs[k] * value;
+        ++k;
+    }
+}
+
+
+void inline
 val_max_kernel(float * dest, float * lhs, float value, ssize_t length) {
     int k = 0;
 #if __AVX__

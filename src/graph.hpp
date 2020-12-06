@@ -5,6 +5,42 @@ void Graph::print(const char * msg) {
 		std::cout << "\t" << op->str() << "\n";
 }
 
+void Graph::run() {
+	for (int k = 0; k < ops.size(); ++k) {
+		ops[k]->run(instance, k);
+	}
+}
+
+void Graph::load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes) {
+	if (nargs != inputs.size()) {
+		PyErr_Format(Karray_error,
+		             "Wrong number of arguments, expecting %i but got %i.",
+		             inputs.size(), nargs);
+		return;
+	}
+	for (int k = 0; k < nargs; ++k) {
+		if (py_type(args[k]) != KARRAY) {
+			PyErr_SetString(Karray_error,
+			                "Only kipr.arr is a valid input.");
+			return;
+		}
+		auto karr = reinterpret_cast<PyKarray *>(args[k]);
+		if (check_shapes && instance[inputs[k]].shape != karr->arr.shape) {
+			PyErr_Format(Karray_error,
+			             "Shapes of input %i %s does not match instantiated shape %s.",
+			             k, karr->arr.shape.str().c_str(), instance[inputs[k]].shape.str().c_str());
+			return;
+		}
+		instance[inputs[k]] = karr->arr;
+	}
+}
+
+void Graph::back() {
+	for (int k = ops.size() - 1; k >= 0; --k) {
+		ops[k]->back(instance, ops, k);
+	}
+}
+
 std::string Graph::str() const {
 	std::ostringstream ss;
 	ss << "graph\n";
@@ -23,8 +59,6 @@ PyObject *
 Graph_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
 	return type->tp_alloc(type, 0);
 }
-
-
 
 template<class T>
 std::vector<T> fast_to_vector(PyObject * o) {
@@ -102,6 +136,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	PyObject * globals = PyEval_GetGlobals();
 	auto names = fast_to_vector<std::string>(code_ob->co_names);
 	auto varnames = fast_to_vector<std::string>(code_ob->co_varnames);
+	auto freevars = fast_to_vector<std::string>(code_ob->co_freevars);
 	std::stack<size_t> stack;
 	std::map<int, size_t> local;
 	std::map<int, size_t> global;
@@ -235,6 +270,12 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 			}
 			break;
 
+		case (LOAD_DEREF):
+			PyErr_Format(Karray_error, 
+				"Only global and local variables are not supported inside the graph. %s is a free variable.",
+				freevars[arg].c_str());
+			return -1;
+
 		default:
 			PyErr_Format(Karray_error, "Unknown opcode %i.", op);
 			return -1;
@@ -249,98 +290,62 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	return 0;
 }
 
-
-
 PyObject *
 Graph_str(PyGraph * self) {
 	return PyUnicode_FromString(self->g.str().c_str());
 }
 
-
-// PyObject * Graph_call(PyGraph *self, PyObject *args, PyObject *kwds) {
-// 	char *kwlist[] = {"a", "b", "c", "d", "e", "f", NULL};
-// 	PyKarray *a = NULL, *b = NULL, *c = NULL,
-// 	         *d = NULL, *e = NULL, *f = NULL;
-
-// 	Graph * g = &self->g;
-
-// 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|O!O!O!O!O!", kwlist,
-// 	                                 &KarrayType, &a,
-// 	                                 &KarrayType, &b,
-// 	                                 &KarrayType, &c,
-// 	                                 &KarrayType, &d,
-// 	                                 &KarrayType, &e,
-// 	                                 &KarrayType, &f))
-// 		return NULL;
-
-//     std::vector<PyKarray *> inputs = {a, b, c, d, e, f, g};
-
-//     int i = 0;
-// 	for (auto v : g->inputs) {
-//         g->instance[v] = &inputs[i++]->arr;
-//     }
-
-//     for (i=0; i < g->ops.size(); ++i) {
-//     	g->ops[i].execute(g->instance, i);
-//     }
-// 	return reinterpret_cast<PyObject *>(g->instance[g->instance.size() - 1]);
-// }
-
 PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
 	Graph * g = &self->g;
-	if (nargs != g->inputs.size()) {
-		PyErr_Format(Karray_error,
-		             "Wrong number of arguments, expecting %i but got %i.",
-		             g->inputs.size(), nargs);
-		return NULL;
-	}
-	for (int k = 0; k < nargs; ++k) {
-		if (py_type(args[k]) != KARRAY) {
-			PyErr_SetString(Karray_error,
-			                "Only kipr.arr is a valid input.");
-			return NULL;
-		}
-		// DEBUG_Obj(args[k], "");
-		g->instance[g->inputs[k]] = reinterpret_cast<PyKarray *>(args[k])->arr;
-	}
+
+	g->load(args, nargs, false);
+	IF_ERROR_RETURN(NULL);
+
 	for (int k = 0; k < g->ops.size(); ++k) {
 		g->ops[k]->prepare(g->instance, k);
 		IF_ERROR_RETURN(NULL);
 		g->ops[k]->run(g->instance, k);
 	}
 	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
-	// Py_RETURN_NONE;
 }
 
 PyObject * Graph_run(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
 	Graph * g = &self->g;
-	if (nargs != g->inputs.size()) {
-		PyErr_Format(Karray_error,
-		             "Wrong number of arguments, expecting %i but got %i.",
-		             g->inputs.size(), nargs);
+
+	g->load(args, nargs, true);
+	IF_ERROR_RETURN(NULL);
+	g->run();
+
+	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
+}
+
+PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
+	Graph * g = &self->g;
+	g->load(args, nargs - 1, true);
+	IF_ERROR_RETURN(NULL);
+	g->run();
+
+	Karray * ret = &g->instance[g->inputs.size() - 1];
+
+	if (py_type(args[nargs - 1]) != KARRAY) {
+		PyErr_SetString(Karray_error,
+		                "Only kipr.arr is a valid input for the target.");
 		return NULL;
 	}
-	for (int k = 0; k < nargs; ++k) {
-		if (py_type(args[k]) != KARRAY) {
-			PyErr_SetString(Karray_error,
-			                "Only kipr.arr is a valid input.");
-			return NULL;
-		}
-		auto karr = reinterpret_cast<PyKarray *>(args[k]);
-		if (g->instance[g->inputs[k]].shape != karr->arr.shape) {
-			PyErr_Format(Karray_error,
-			             "Shapes of input %i %s does not match instantiated shape %s.",
-			             k, karr->arr.shape.str().c_str(), g->instance[g->inputs[k]].shape.str().c_str());
-			return NULL;
-		}
-		g->instance[g->inputs[k]] = karr->arr;
+	Karray * target = &reinterpret_cast<PyKarray *>(args[nargs - 1])->arr;
+	size_t length;
+	if ((length = target->shape.length) != ret->shape.length) {
+		PyErr_Format(Karray_error,
+		             "Target size does not match graph output size. Shapes are %s and %s.",
+		             target->shape.str().c_str(),
+		             ret->shape.str().c_str());
+		return NULL;
 	}
+	sub_kernel(ret->data, ret->data, target->data, length);
 
-	for (int k = 0; k < g->ops.size(); ++k) {
-		g->ops[k]->run(g->instance, k);
-	}
-	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
-	// Py_RETURN_NONE;
+	g->back();
+
+	Py_RETURN_NONE;
 }
 
 

@@ -20,8 +20,8 @@
 
 // debugging bullshit
 #ifdef _WIN32
-#include <windows.h>
-#include <debugapi.h>
+    #include <windows.h>
+    #include <debugapi.h>
 #endif
 
 #include "microtest.hpp"
@@ -31,7 +31,7 @@
 
 // To avoid c++ mixed designated initializers error
 #define Karray_HEAD_INIT \
-    .ob_base={.ob_base={1, NULL }, .ob_size=0},
+    .ob_base={.ob_base={1, NULL}, .ob_size=0},
 
 const int MAX_ND = 8;
 
@@ -273,6 +273,9 @@ public:
 
     Graph() : ops {}, instance {}, inputs {} {};
 
+    void run();
+    void load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes);
+    void back();
     void print(const char * msg = "");
     std::string str() const;
 };
