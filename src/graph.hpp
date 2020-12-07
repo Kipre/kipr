@@ -6,9 +6,13 @@ void Graph::print(const char * msg) {
 }
 
 void Graph::run() {
-	for (int k = 0; k < ops.size(); ++k) {
-		ops[k]->run(instance, k);
+	for (auto o : ops) {
+		o->run();
 	}
+}
+
+size_t Graph::size() {
+	return ops.size();
 }
 
 void Graph::load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes) {
@@ -25,19 +29,20 @@ void Graph::load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes) {
 			return;
 		}
 		auto karr = reinterpret_cast<PyKarray *>(args[k]);
-		if (check_shapes && instance[inputs[k]].shape != karr->arr.shape) {
+		if (check_shapes && ops[inputs[k]]->arr.shape != karr->arr.shape) {
 			PyErr_Format(Karray_error,
 			             "Shapes of input %i %s does not match instantiated shape %s.",
-			             k, karr->arr.shape.str().c_str(), instance[inputs[k]].shape.str().c_str());
+			             k, karr->arr.shape.str().c_str(), 
+			             ops[inputs[k]]->arr.shape.str().c_str());
 			return;
 		}
-		instance[inputs[k]] = karr->arr;
+		ops[inputs[k]]->arr = karr->arr;
 	}
 }
 
 void Graph::back() {
-	for (int k = ops.size() - 1; k >= 0; --k) {
-		ops[k]->back(instance, ops, k);
+	for (int k = (int) ops.size() - 1; k >= 0; --k) {
+		ops[k]->back();
 	}
 }
 
@@ -92,23 +97,23 @@ void print(std::stack<int> s) {
 	std::cout << "]\n";
 }
 
-Op * func_to_op(size_t function) {
+Op * func_to_op(size_t function, size_t id) {
 	if (function == RELU_FUNCTION)
-		return new ReluOp {};
+		return new ReluOp {id};
 	if (function == SOFTMAX_FUNCTION)
-		return new SoftmaxOp {};
+		return new SoftmaxOp {id};
 	if (function == BINARY_ADD || function == INPLACE_ADD)
-		return new EWBinaryOp<Add> {};
+		return new EWBinaryOp<Add> {id};
 	if (function == BINARY_SUBTRACT || function == INPLACE_SUBTRACT)
-		return new EWBinaryOp<Sub> {};
+		return new EWBinaryOp<Sub> {id};
 	if (function == BINARY_MULTIPLY || function == INPLACE_MULTIPLY)
-		return new EWBinaryOp<Mul> {};
+		return new EWBinaryOp<Mul> {id};
 	if (function == BINARY_TRUE_DIVIDE || function == INPLACE_TRUE_DIVIDE)
-		return new EWBinaryOp<Div> {};
+		return new EWBinaryOp<Div> {id};
 	if (function == BINARY_MATRIX_MULTIPLY || function == INPLACE_MATRIX_MULTIPLY)
-		return new MatMulOp {};
+		return new MatMulOp {id};
 	if (function == UNARY_NEGATIVE)
-		return new UnaryNegative {};
+		return new UnaryNegative {id};
 	return new Op {};
 }
 
@@ -133,13 +138,14 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	Py_ssize_t len = PyBytes_Size(code_ob->co_code);
 	char* items =  PyBytes_AsString(code_ob->co_code);
 
+	size_t size = 0;
 	PyObject * globals = PyEval_GetGlobals();
 	auto names = fast_to_vector<std::string>(code_ob->co_names);
 	auto varnames = fast_to_vector<std::string>(code_ob->co_varnames);
 	auto freevars = fast_to_vector<std::string>(code_ob->co_freevars);
 	std::stack<size_t> stack;
-	std::map<int, size_t> local;
-	std::map<int, size_t> global;
+	std::map<size_t, size_t> local;
+	std::map<size_t, size_t> global;
 
 	int op, arg;
 	for (int i = 0; i < len; i += 2) {
@@ -150,9 +156,10 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 
 		case (LOAD_FAST):
 			if (!local.contains(arg)) {
-				local[arg] = g->ops.size();
-				g->inputs.push_back(g->ops.size());
-				g->ops.emplace_back(new LoadInput(varnames[arg]));
+				local[arg] = size;
+				g->inputs.push_back(size);
+				g->ops.emplace_back(new LoadInput(varnames[arg], size));
+				size++;
 			}
 			stack.push(local[arg]);
 			break;
@@ -179,8 +186,9 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 			} break;
 			case (KARRAY): {
 				if (!global.contains(arg)) {
-					global[arg] = g->ops.size();
-					g->ops.emplace_back(new LoadGlobal(names[arg]));
+					global[arg] = size;
+					g->ops.emplace_back(new LoadGlobal(names[arg], size));
+					size++;
 				}
 				stack.push(global[arg]);
 			} break;
@@ -206,11 +214,12 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 			}
 			size_t argument = stack.top(); stack.pop();
 			size_t function = stack.top(); stack.pop();
-			Op * oper = func_to_op(function);
-			oper->operands.push_back(argument);
-			g->ops[argument]->add_child(g->ops.size());
-			stack.push(g->ops.size());
+			Op * oper = func_to_op(function, size);
+			oper->operands.push_back(g->ops[argument]);
+			g->ops[argument]->add_child(oper);
+			stack.push(size);
 			g->ops.push_back(oper);
+			size++;
 		}
 		break;
 
@@ -221,13 +230,14 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		case (BINARY_TRUE_DIVIDE): {
 			size_t b = stack.top(); stack.pop();
 			size_t a = stack.top(); stack.pop();
-			Op * oper = func_to_op(op);
-			oper->operands.push_back(a);
-			oper->operands.push_back(b);
-			g->ops[a]->add_child(g->ops.size());
-			g->ops[b]->add_child(g->ops.size());
-			stack.push(g->ops.size());
+			Op * oper = func_to_op(op, size);
+			oper->operands.push_back(g->ops[a]);
+			oper->operands.push_back(g->ops[b]);
+			g->ops[a]->add_child(oper);
+			g->ops[b]->add_child(oper);
+			stack.push(size);
 			g->ops.push_back(oper);
+			size++;
 		}
 		break;
 
@@ -238,24 +248,26 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		case (INPLACE_TRUE_DIVIDE): {
 			size_t b = stack.top(); stack.pop();
 			size_t a = stack.top(); stack.pop();
-			Op * oper = func_to_op(op);
-			oper->operands.push_back(a);
-			oper->operands.push_back(b);
-			stack.push(g->ops.size());
-			g->ops[a]->add_child(stack.top());
-			g->ops[b]->add_child(stack.top());
+			Op * oper = func_to_op(op, size);
+			oper->operands.push_back(g->ops[a]);
+			oper->operands.push_back(g->ops[b]);
+			stack.push(size);
+			g->ops[a]->add_child(g->ops[stack.top()]);
+			g->ops[b]->add_child(g->ops[stack.top()]);
 			g->ops.push_back(oper);
+			size++;
 			local[a] = stack.top();
 		}
 		break;
 
 		case (UNARY_NEGATIVE): {
 			size_t a = stack.top(); stack.pop();
-			Op * oper = func_to_op(op);
-			oper->operands.push_back(a);
-			g->ops[a]->add_child(g->ops.size());
-			stack.push(g->ops.size());
+			Op * oper = func_to_op(op, size);
+			oper->operands.push_back(g->ops[a]);
+			g->ops[a]->add_child(oper);
+			stack.push(size);
 			g->ops.push_back(oper);
+			size++;
 		}
 		break;
 
@@ -284,8 +296,6 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 
 	}
 
-	g->instance = std::move(std::vector<Karray>(g->ops.size()));
-
 	Py_DECREF(function);
 	return 0;
 }
@@ -301,12 +311,14 @@ PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs)
 	g->load(args, nargs, false);
 	IF_ERROR_RETURN(NULL);
 
-	for (int k = 0; k < g->ops.size(); ++k) {
-		g->ops[k]->prepare(g->instance, k);
+	for (auto o : g->ops) {
+		o->prepare();
 		IF_ERROR_RETURN(NULL);
-		g->ops[k]->run(g->instance, k);
+		o->run();
+		o->print();
 	}
-	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
+
+	return (PyObject *) new_PyKarray(*g->return_last());
 }
 
 PyObject * Graph_run(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -316,7 +328,7 @@ PyObject * Graph_run(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
 	IF_ERROR_RETURN(NULL);
 	g->run();
 
-	return (PyObject *) new_PyKarray(g->instance[g->ops.size() - 1]);
+	return (PyObject *) new_PyKarray(*g->return_last());
 }
 
 PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -325,7 +337,7 @@ PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs
 	IF_ERROR_RETURN(NULL);
 	g->run();
 
-	Karray * ret = &g->instance[g->ops.size() - 1];
+	Karray * ret = g->return_last();
 
 	if (py_type(args[nargs - 1]) != KARRAY) {
 		PyErr_SetString(Karray_error,
@@ -353,7 +365,7 @@ Graph_shapes(PyGraph *graph, void *closure) {
 	Graph * g = &graph->g;
 	PyObject * result = PyList_New(g->ops.size());
 	for (int k = 0; k < g->ops.size(); ++k) {
-		PyList_SetItem(result, k, g->instance[k].shape.as_tuple());
+		PyList_SetItem(result, k, g->ops[k]->arr.shape.as_tuple());
 	}
 	// Py_INCREF(result);
 	return result;
@@ -362,8 +374,8 @@ Graph_shapes(PyGraph *graph, void *closure) {
 PyObject *
 Graph_values(PyGraph *graph, PyObject *Py_UNUSED(ignored)) {
 	Graph * g = &graph->g;
-	for (auto k : g->instance)
-		k.print();
+	for (auto o : g->ops)
+		o->arr.print();
 	Py_RETURN_NONE;
 }
 
@@ -373,7 +385,7 @@ Graph_instance(PyGraph *graph, void *closure) {
 	Graph * g = &graph->g;
 	PyObject * result = PyList_New(g->ops.size());
 	for (int k = 0; k < g->ops.size(); ++k) {
-		PyKarray * res = new_PyKarray(g->instance[k]);
+		PyKarray * res = new_PyKarray(g->ops[k]->arr);
 		PyList_SetItem(result, k, reinterpret_cast<PyObject *>(res));
 	}
 	// Py_INCREF(result);

@@ -20,7 +20,7 @@ z = kp.arr('randn', shape=(2,))
 d = kp.arr([[1, .3], [0.5, -1]])
 
 def f(x):
-    x @= (d + v - w)* y / z
+    x = x @ ((d + v - w)* y / z)
     return kp.relu(-x)
 
 g = kp.graph(f)

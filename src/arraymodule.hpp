@@ -267,17 +267,21 @@ PyObject * cache_info(PyObject *self, PyObject * input);
 class Graph {
 public:
 
-    std::vector<int> inputs;
+    std::vector<size_t> inputs;
     std::vector<Op *> ops;
-    std::vector<Karray> instance;
 
-    Graph() : ops {}, instance {}, inputs {} {};
+    Graph() : ops {}, inputs {} {};
 
     void run();
     void load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes);
     void back();
+    size_t size();
     void print(const char * msg = "");
     std::string str() const;
+
+    Karray * return_last() {
+        return &ops[ops.size() - 1]->arr;
+    };
 };
 
 typedef struct {

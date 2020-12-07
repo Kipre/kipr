@@ -14,35 +14,34 @@ constexpr ElementwiseOperation Div {"div", div_kernel, div_dkernel, _div};
 
 class Op {
 public:
+	size_t id;
 	std::string name = "op";
-	std::vector<size_t> children;
-	std::vector<size_t> operands;
+	std::vector<Op *> children;
+	std::vector<Op *> operands;
+	Karray arr;
 
-	virtual void execute(std::vector<Karray> & v, size_t pos) {};
-	virtual void run(std::vector<Karray> & v, size_t pos) {
-		// printf("default run\n");
-	};
-	virtual void prepare(std::vector<Karray> & v, size_t pos) {
-		// printf("default prepare\n");
-	};
-	virtual void back(std::vector<Karray> & v,
-	                  std::vector<Op *> & ops,
-	                  size_t pos) {};
+	virtual void run() {};
+	virtual void prepare() {};
+	virtual void back() {};
 
-	void add_child(size_t i) {
-		children.push_back((int) i);
+	void add_child(Op * child) {
+		children.push_back(child);
 	};
 
 	std::string str() {
 		std::ostringstream ss;
-		ss << '[';
+		ss << id << " [";
 		for (auto a : operands)
-			ss << a << ", ";
+			ss << a->id << ", ";
 		ss << "] -> " << name << " -> [";
 		for (auto a : children)
-			ss << a << ", ";
+			ss << a->id << ", ";
 		ss << "]";
 		return ss.str();
+	};
+
+	void print() {
+		arr.print(name.c_str());
 	};
 };
 
@@ -57,19 +56,19 @@ public:
 	Shape common {};
 
 
-	EWBinaryOp() {
+	EWBinaryOp(size_t new_id) {
+		id = new_id;
 		name = ope.name;
 	};
 
-	void prepare(std::vector<Karray> & v, size_t pos) {
-		Karray * lhs = &v[operands[0]];
-		Karray * rhs = &v[operands[1]];
-		Karray * dest = &v[pos];
+	void prepare() {
+		Karray * lhs = &operands[0]->arr;
+		Karray * rhs = &operands[1]->arr;
 
 		if (rhs->shape.length == lhs->shape.length) {
 			simple = true;
 			length = rhs->shape.length;
-			dest->reset(rhs->shape);
+			arr.reset(rhs->shape);
 		} else {
 			simple = false;
 			auto [new_common, new_rstr, new_lstr] = paired_strides(rhs->shape, lhs->shape);
@@ -77,30 +76,26 @@ public:
 			common = new_common;
 			rstr = new_rstr;
 			lstr = new_lstr;
-			dest->reset(common);
+			arr.reset(common);
 		}
 	};
 
-	void run(std::vector<Karray> & v, size_t pos) {
+	void run() {
 		if (simple) {
-			ope.kernel(v[pos].data, v[operands[0]].data, v[operands[1]].data, length);
+			ope.kernel(arr.data, operands[0]->arr.data, operands[1]->arr.data, length);
 		} else {
 			Positions posi {0, 0, 0};
-			rec_binary_op(v[pos].data, v[operands[0]].data, v[operands[1]].data,
+			rec_binary_op(arr.data, operands[0]->arr.data, operands[1]->arr.data,
 			              common, lstr, rstr, &posi, ope.op, 0);
 		}
 	};
 
-	void back(std::vector<Karray> & v,
-	          std::vector<Op *> & ops,
-	          size_t pos) {
-
-		Karray * lhs = &v[operands[0]];
-		Karray * rhs = &v[operands[1]];
-		Karray * self = &v[pos];
+	void back() {
+		Karray * lhs = &operands[0]->arr;
+		Karray * rhs = &operands[1]->arr;
 
 		if (simple) {
-			ope.dkernel(self->data, lhs->data, rhs->data, length);
+			ope.dkernel(arr.data, lhs->data, rhs->data, length);
 		} else {
 			PyErr_Format(PyExc_NotImplementedError,
 			             "not 'simple' %s is not implemented",
@@ -113,37 +108,21 @@ class ReluOp: public Op {
 public:
 	size_t length;
 
-	ReluOp() {
+	ReluOp(size_t new_id) {
+		id = new_id;
 		name = "relu";
 	};
 
-	void prepare(std::vector<Karray> & v, size_t pos) {
-		Karray * arg = &v[operands[0]];
-		v[pos].reset(arg->shape);
-		length = arg->shape.length;
+	void prepare() {
+		arr.reset(operands[0]->arr.shape);
+		length = operands[0]->arr.shape.length;
 	};
 
-	void run(std::vector<Karray> & v, size_t pos) {
-		val_max_kernel(v[pos].data, v[operands[0]].data, 0, length);
+	void run() {
+		val_max_kernel(arr.data, operands[0]->arr.data, 0, length);
 	};
 
-	void back(std::vector<Karray> & v,
-	          std::vector<Op *> & ops,
-	          size_t pos) {
-
-
-		Karray * arg = &v[operands[0]];
-		Karray * self = &v[pos];
-
-		// arg->print();
-		// self->print();
-
-		drelu_kernel(arg->data, self->data, length);
-
-		size_t div = ops[operands[0]]->children.size();
-		if (div > 1)
-			val_div_kernel(arg->data, self->data, (float) div, length);
-	};
+	void back() {};
 };
 
 
@@ -152,18 +131,19 @@ class UnaryNegative: public Op {
 public:
 	size_t length;
 
-	UnaryNegative() {
+	UnaryNegative(size_t new_id) {
+		id = new_id;
 		name = "negative";
 	};
 
-	void prepare(std::vector<Karray> & v, size_t pos) {
-		Karray * arg = &v[operands[0]];
-		v[pos].reset(arg->shape);
+	void prepare() {
+		Karray * arg = &operands[0]->arr;
+		arr.reset(arg->shape);
 		length = arg->shape.length;
 	};
 
-	void run(std::vector<Karray> & v, size_t pos) {
-		val_mul_kernel(v[pos].data, v[operands[0]].data, -1, length);
+	void run() {
+		val_mul_kernel(arr.data, operands[0]->arr.data, -1, length);
 	};
 };
 
@@ -175,31 +155,28 @@ public:
 	size_t length {};
 	size_t ax {};
 
-	SoftmaxOp() {
+	SoftmaxOp(size_t new_id) {
+		id = new_id;
 		name = "softmax";
 	};
 
-	void prepare(std::vector<Karray> & v, size_t pos) {
-		Karray * arg = &v[operands[0]];
-		v[pos].reset(arg->shape);
+	void prepare() {
+		Karray * arg = &operands[0]->arr;
+		arr.reset(arg->shape);
 		length = arg->shape.length;
 
 		ax = arg->shape.last_axis();
 	};
 
-	void run(std::vector<Karray> & v, size_t pos) {
-		Karray * arg = &v[operands[0]];
+	void run() {
+		Karray * arg = &operands[0]->arr;
 
-		exp_kernel(v[pos].data, arg->data, length);
-		Karray summed_exp = v[pos].sum(ax, Karray(1.), false);
+		exp_kernel(arr.data, arg->data, length);
+		Karray summed_exp = arr.sum(ax, Karray(1.), false);
 		summed_exp.shape.insert_one((int) ax);
-		// summed_exp.print();
-		// summed_exp = summed_exp.broadcast(arg->shape);
-		// summed_exp.print();
-		// div_kernel(v[pos].data,  v[pos].data, summed_exp.data, length);
 		Positions posi {0, 0, 0};
 		auto [lstr, rstr] = arg->shape.paired_strides(summed_exp.shape);
-		rec_binary_op(v[pos].data, v[pos].data, summed_exp.data, arg->shape,
+		rec_binary_op(arr.data, arr.data, summed_exp.data, arg->shape,
 		              lstr, rstr, &posi, _div, 0);
 	};
 };
@@ -212,14 +189,14 @@ public:
 	size_t J {};
 	size_t K {};
 
-	MatMulOp() {
+	MatMulOp(size_t new_id) {
+		id = new_id;
 		name = "matmul";
 	};
 
-	void prepare(std::vector<Karray> & v, size_t pos) {
-		Karray * lhs = &v[operands[0]];
-		Karray * rhs = &v[operands[1]];
-		Karray * dest = &v[pos];
+	void prepare() {
+		Karray * lhs = &operands[0]->arr;
+		Karray * rhs = &operands[1]->arr;
 
 		if (lhs->shape.nd < 2 && rhs->shape.nd < 2) {
 			PyErr_SetString(Karray_error, "Both arrays must be at least two-dimensional for matmul.");
@@ -244,19 +221,18 @@ public:
 		new_shape.set(new_shape.nd - 2, I);
 		new_shape.set(new_shape.nd - 1, J);
 
-		dest->reset(new_shape);
+		arr.reset(new_shape);
 	};
 
-	void run(std::vector<Karray> & v, size_t pos) {
-		Karray * lhs = &v[operands[0]];
-		Karray * rhs = &v[operands[1]];
-		Karray * dest = &v[pos];
+	void run() {
+		Karray * lhs = &operands[0]->arr;
+		Karray * rhs = &operands[1]->arr;
 
 		for (int m = 0; m < max(M, N); ++m) {
 			int ia = m % M;
 			int ib = m % N;
 
-			general_matmul(dest->data + m * I * J,
+			general_matmul(arr.data + m * I * J,
 			               lhs->data + ia * I * K,
 			               rhs->data + ib * K * J,
 			               I, J, K);
@@ -267,21 +243,23 @@ public:
 class LoadGlobal: public Op {
 public:
 
-	LoadGlobal(std::string & inp) {
+	LoadGlobal(std::string & inp, size_t new_id) {
+		id = new_id;
 		name = inp;
 	};
 
-	void prepare(std::vector<Karray> & v, size_t pos) {
+	void prepare() {
 		PyObject * globals = PyEval_GetGlobals();
 		PyObject * karr = PyDict_GetItemString(globals, name.c_str());
-		v[pos] = reinterpret_cast<PyKarray *>(karr)->arr;
+		arr = reinterpret_cast<PyKarray *>(karr)->arr;
 	};
 };
 
 class LoadInput: public Op {
 public:
 
-	LoadInput(std::string & inp) {
+	LoadInput(std::string & inp, size_t new_id) {
+		id = new_id;
 		name = inp;
 	};
 };
