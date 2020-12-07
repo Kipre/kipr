@@ -78,6 +78,91 @@ div_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
     }
 }
 
+void inline
+add_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a;
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&self[k]);
+        _mm256_store_ps(&rhs[k], v_a);
+        _mm256_store_ps(&lhs[k], v_a);
+    }
+#endif
+    while (k < length) {
+        lhs[k] = self[k];
+        rhs[k] = self[k];
+        ++k;
+    }
+}
+
+void inline
+sub_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, minus = _mm256_set1_ps(-1);
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&self[k]);
+        _mm256_store_ps(&lhs[k], v_a);
+        v_a = _mm256_mul_ps(v_a, minus);
+        _mm256_store_ps(&rhs[k], v_a);
+    }
+#endif
+    while (k < length) {
+        lhs[k] = self[k];
+        rhs[k] = -self[k];
+        ++k;
+    }
+}
+
+void inline
+mul_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, v_b, v_c, tmp;
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_b = _mm256_load_ps(&rhs[k]);
+        v_c = _mm256_load_ps(&self[k]);
+        tmp = _mm256_mul_ps(v_a, v_c);
+        _mm256_store_ps(&rhs[k], tmp);
+        tmp = _mm256_mul_ps(v_b, v_c);
+        _mm256_store_ps(&lhs[k], tmp);
+    }
+#endif
+    float fmp;
+    while (k < length) {
+        fmp = rhs[k]*self[k];
+        rhs[k] = lhs[k]*self[k];
+        lhs[k] = fmp;
+        ++k;
+    }
+}
+
+void inline
+div_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
+    int k = 0;
+#if __AVX__
+    __m256 v_a, v_b, v_c, tmp;
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&lhs[k]);
+        v_b = _mm256_load_ps(&rhs[k]);
+        v_c = _mm256_load_ps(&self[k]);
+        tmp = _mm256_mul_ps(v_a, v_c);
+        _mm256_store_ps(&rhs[k], tmp);
+        tmp = _mm256_mul_ps(v_b, v_c);
+        _mm256_store_ps(&lhs[k], tmp);
+    }
+#endif
+    float fmp;
+    while (k < length) {
+        fmp = rhs[k]*self[k];
+        rhs[k] = lhs[k]*self[k];
+        lhs[k] = fmp;
+        ++k;
+    }
+}
+
 void print_m256(__m256 a, const char * msg = "") {
     float tmp[8];
     _mm256_store_ps(tmp, a);
@@ -398,4 +483,24 @@ relu_kernel(float * dest, float * lhs, ssize_t length) {
         ++k;
     }
 }
+
+void inline
+drelu_kernel(float * arg, float * self, ssize_t length) {
+        int k = 0;
+#if __AVX__
+        __m256 v_a, v_b, constant = _mm256_set1_ps(0);
+        for (k = 0; k < length - 8; k += 8) {
+            v_a = _mm256_load_ps(&arg[k]);
+            v_a = _mm256_cmp_ps(v_a, constant, 14); // -> greater than
+            v_b = _mm256_load_ps(&self[k]);
+            v_a = _mm256_mul_ps(v_a, v_b);
+            _mm256_store_ps(&arg[k], v_a);
+        }
+#endif
+        while (k < length) {
+            arg[k] = self[k] * (arg[k] > 0);
+            ++k;
+        }
+}
+
 

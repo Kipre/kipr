@@ -493,8 +493,8 @@ class TestGraph(unittest.TestCase):
         np.testing.assert_almost_equal(
             result.numpy(), 
             f(evaluator),
-            decimal=6,
-            err_msg="behavior of graph anf function differs"
+            decimal=5,
+            err_msg="behavior of graph and function differs"
         )
 
 

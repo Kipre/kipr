@@ -325,7 +325,7 @@ PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs
 	IF_ERROR_RETURN(NULL);
 	g->run();
 
-	Karray * ret = &g->instance[g->inputs.size() - 1];
+	Karray * ret = &g->instance[g->ops.size() - 1];
 
 	if (py_type(args[nargs - 1]) != KARRAY) {
 		PyErr_SetString(Karray_error,
@@ -347,11 +347,6 @@ PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs
 
 	Py_RETURN_NONE;
 }
-
-
-
-
-
 
 PyObject *
 Graph_shapes(PyGraph *graph, void *closure) {

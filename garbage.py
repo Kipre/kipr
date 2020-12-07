@@ -27,3 +27,25 @@ g = kp.graph(f)
 g.compile(kp.arr(0.2, shape=[3, 2]))
 g.shapes
 exit()
+
+py
+import kipr as kp
+@kp.graph
+def f(x):
+    return kp.relu(x)
+
+f.compile(kp.arr('randn', shape=[2]))
+f.backprop(kp.arr([-0.2, 0.4]), kp.arr([1, 1.001]))
+f.values()
+exit()
+
+py
+import kipr as kp
+@kp.graph
+def f(x):
+    return kp.relu(x + x)
+
+f.compile(kp.arr('randn', shape=[2]))
+f.backprop(kp.arr([-0.2, 0.4]), kp.arr([1, 1.001]))
+f.values()
+exit()

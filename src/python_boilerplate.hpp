@@ -39,6 +39,8 @@ static PyMethodDef Graph_methods[] = {
      "Run graph inference."},
     {"values", (PyCFunction)  Graph_values, METH_NOARGS,
      "Print_values."},
+    {"backprop", (PyCFunction)  Graph_backprop,  METH_FASTCALL,
+     "Forward and backward propagate the graph."},
     {NULL}  /* Sentinel */
 };
 

@@ -1,13 +1,14 @@
 struct ElementwiseOperation {
 	char name[4];
 	binary_kernel kernel;
+	binary_kernel dkernel;
 	binary_op op;
 };
 
-constexpr ElementwiseOperation Add {"add", add_kernel, _add};
-constexpr ElementwiseOperation Sub {"sub", sub_kernel, _sub};
-constexpr ElementwiseOperation Mul {"mul", mul_kernel, _mul};
-constexpr ElementwiseOperation Div {"div", div_kernel, _div};
+constexpr ElementwiseOperation Add {"add", add_kernel, add_dkernel, _add};
+constexpr ElementwiseOperation Sub {"sub", sub_kernel, sub_dkernel, _sub};
+constexpr ElementwiseOperation Mul {"mul", mul_kernel, mul_dkernel, _mul};
+constexpr ElementwiseOperation Div {"div", div_kernel, div_dkernel, _div};
 
 
 
@@ -24,9 +25,9 @@ public:
 	virtual void prepare(std::vector<Karray> & v, size_t pos) {
 		// printf("default prepare\n");
 	};
-	virtual void back(std::vector<Karray> & v, 
-		      std::vector<Op *> & ops, 
-		      size_t pos) {};
+	virtual void back(std::vector<Karray> & v,
+	                  std::vector<Op *> & ops,
+	                  size_t pos) {};
 
 	void add_child(size_t i) {
 		children.push_back((int) i);
@@ -89,6 +90,23 @@ public:
 			              common, lstr, rstr, &posi, ope.op, 0);
 		}
 	};
+
+	void back(std::vector<Karray> & v,
+	          std::vector<Op *> & ops,
+	          size_t pos) {
+
+		Karray * lhs = &v[operands[0]];
+		Karray * rhs = &v[operands[1]];
+		Karray * self = &v[pos];
+
+		if (simple) {
+			ope.dkernel(self->data, lhs->data, rhs->data, length);
+		} else {
+			PyErr_Format(PyExc_NotImplementedError,
+			             "not 'simple' %s is not implemented",
+			             name);
+		}
+	};
 };
 
 class ReluOp: public Op {
@@ -109,27 +127,18 @@ public:
 		val_max_kernel(v[pos].data, v[operands[0]].data, 0, length);
 	};
 
-	void back(std::vector<Karray> & v, 
-		      std::vector<Op *> & ops, 
-		      size_t pos) {
+	void back(std::vector<Karray> & v,
+	          std::vector<Op *> & ops,
+	          size_t pos) {
+
+
 		Karray * arg = &v[operands[0]];
 		Karray * self = &v[pos];
 
-		int k = 0;
-#if __AVX__
-		__m256 v_a, v_b, constant = _mm256_set1_ps(0);
-		for (k = 0; k < length - 8; k += 8) {
-			v_a = _mm256_load_ps(&arg->data[k]);
-			v_a = _mm256_cmp_ps(v_a, constant, 14); // -> greater than
-			v_b = _mm256_load_ps(&self->data[k]);
-        	v_a = _mm256_mul_ps(v_a, v_b);
-			_mm256_store_ps(&arg->data[k], v_a);
-		}
-#endif
-		while (k < length) {
-			arg->data[k] = self->data[k] * (arg->data[k] > 0);
-			++k;
-		}
+		// arg->print();
+		// self->print();
+
+		drelu_kernel(arg->data, self->data, length);
 
 		size_t div = ops[operands[0]]->children.size();
 		if (div > 1)
