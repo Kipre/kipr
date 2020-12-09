@@ -260,6 +260,9 @@ PyObject * Karray_log(PyObject *self, PyObject * o);
 // other
 PyObject * cache_info(PyObject *self, PyObject * input);
 
+// test
+PyObject * Karray_notemplate_add(PyObject * here, PyObject * other);
+PyObject * Karray_template_add(PyObject * here, PyObject * other);
 
 
 #include "ops.hpp"
@@ -271,6 +274,7 @@ public:
     std::vector<Op *> ops;
 
     Graph() : ops {}, inputs {} {};
+    ~Graph();
 
     void run();
     void load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes);

@@ -12,17 +12,51 @@ constexpr ElementwiseOperation Div {"div", div_kernel, div_dkernel, _div};
 
 
 
+#pragma inline_recursion(on)
+#pragma inline_depth(8)
+
+template<ElementwiseOperation ope>
+inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
+                          NDVector &l_strides, NDVector &r_strides, 
+                          Positions * pos, int depth) {
+	if (depth < shape.nd - 1) {
+		for (int k = 0; k < shape[depth]; ++k) {
+			rec_binary_op<ope>(dest, lhs, rhs, shape, l_strides, r_strides, pos, depth + 1);
+			pos->right += l_strides[depth];
+			pos->left += r_strides[depth];
+		}
+		pos->right -= l_strides[depth] * shape[depth];
+		pos->left -= r_strides[depth] * shape[depth];
+	} else {
+		for (int k = 0; k < shape[depth]; ++k) {
+			dest[pos->write++] = ope.op(lhs[pos->right + l_strides[depth] * k],
+			                        rhs[pos->left + r_strides[depth] * k]);
+		}
+	}
+}
+
+
 class Op {
 public:
 	size_t id;
 	std::string name = "op";
 	std::vector<Op *> children;
-	std::vector<Op *> operands;
-	Karray arr;
+	bool overwrite_gradients = true;
 
-	virtual void run() {};
+	Karray arr;
+	Karray grad;
+
+	virtual void run() {
+		overwrite_gradients = true;
+	};
 	virtual void prepare() {};
 	virtual void back() {};
+	virtual std::vector<Op *> operands() { return {}; };
+
+	void reset(Shape & new_shape) {
+		arr.reset(new_shape);
+		grad.reset(new_shape);
+	}
 
 	void add_child(Op * child) {
 		children.push_back(child);
@@ -31,7 +65,7 @@ public:
 	std::string str() {
 		std::ostringstream ss;
 		ss << id << " [";
-		for (auto a : operands)
+		for (auto a : operands())
 			ss << a->id << ", ";
 		ss << "] -> " << name << " -> [";
 		for (auto a : children)
@@ -45,30 +79,30 @@ public:
 	};
 };
 
-
 template<ElementwiseOperation ope>
 class EWBinaryOp: public Op {
 public:
 	size_t length {0};
 	bool simple = true;
-	NDVector rstr {};
+	Op * larg; // left hand side...
+	Op * rarg;
 	NDVector lstr {};
+	NDVector rstr {};
 	Shape common {};
 
-
-	EWBinaryOp(size_t new_id) {
+	EWBinaryOp(size_t new_id, Op * new_lop, Op * new_rop) :
+		larg {new_lop}, rarg {new_rop} {
 		id = new_id;
 		name = ope.name;
 	};
 
 	void prepare() {
-		Karray * lhs = &operands[0]->arr;
-		Karray * rhs = &operands[1]->arr;
+		Karray * lhs = &larg->arr, * rhs = &rarg->arr;
 
 		if (rhs->shape.length == lhs->shape.length) {
 			simple = true;
 			length = rhs->shape.length;
-			arr.reset(rhs->shape);
+			reset(rhs->shape);
 		} else {
 			simple = false;
 			auto [new_common, new_rstr, new_lstr] = paired_strides(rhs->shape, lhs->shape);
@@ -76,53 +110,65 @@ public:
 			common = new_common;
 			rstr = new_rstr;
 			lstr = new_lstr;
-			arr.reset(common);
+			reset(common);
 		}
 	};
 
 	void run() {
+		Op::run();
+		Karray * lhs = &larg->arr, * rhs = &rarg->arr;
+
 		if (simple) {
-			ope.kernel(arr.data, operands[0]->arr.data, operands[1]->arr.data, length);
+			ope.kernel(arr.data, lhs->data, rhs->data, length);
 		} else {
 			Positions posi {0, 0, 0};
-			rec_binary_op(arr.data, operands[0]->arr.data, operands[1]->arr.data,
+			rec_binary_op(arr.data, lhs->data, rhs->data,
 			              common, lstr, rstr, &posi, ope.op, 0);
 		}
 	};
 
 	void back() {
-		Karray * lhs = &operands[0]->arr;
-		Karray * rhs = &operands[1]->arr;
+		// if (larg->overwrite_gradients) {
+		// 	larg->overwrite_gradients = false;
 
-		if (simple) {
-			ope.dkernel(arr.data, lhs->data, rhs->data, length);
-		} else {
-			PyErr_Format(PyExc_NotImplementedError,
-			             "not 'simple' %s is not implemented",
-			             name);
-		}
+		// }
+		// if (simple) {
+		// 	ope.dkernel(arr.data, lhs->data, rhs->data, length);
+		// } else {
+		// 	PyErr_Format(PyExc_NotImplementedError,
+		// 	             "not 'simple' %s is not implemented",
+		// 	             name);
+		// }
+	};
+
+	std::vector<Op *> operands() {
+		return std::vector<Op *> {larg, rarg};
 	};
 };
 
 class ReluOp: public Op {
 public:
 	size_t length;
+	Op * arg;
 
-	ReluOp(size_t new_id) {
+	ReluOp(size_t new_id, Op * new_arg) :
+		arg {new_arg} {
 		id = new_id;
 		name = "relu";
 	};
 
 	void prepare() {
-		arr.reset(operands[0]->arr.shape);
-		length = operands[0]->arr.shape.length;
+		arr.reset(arg->arr.shape);
+		length = arg->arr.shape.length;
 	};
 
 	void run() {
-		val_max_kernel(arr.data, operands[0]->arr.data, 0, length);
+		val_max_kernel(arr.data, arg->arr.data, 0, length);
 	};
 
-	void back() {};
+	void back() {
+		
+	};
 };
 
 
@@ -130,20 +176,21 @@ public:
 class UnaryNegative: public Op {
 public:
 	size_t length;
+	Op * arg;
 
-	UnaryNegative(size_t new_id) {
+	UnaryNegative(size_t new_id, Op * new_arg) :
+		arg {new_arg} {
 		id = new_id;
 		name = "negative";
 	};
 
 	void prepare() {
-		Karray * arg = &operands[0]->arr;
-		arr.reset(arg->shape);
-		length = arg->shape.length;
+		arr.reset(arg->arr.shape);
+		length = arg->arr.shape.length;
 	};
 
 	void run() {
-		val_mul_kernel(arr.data, operands[0]->arr.data, -1, length);
+		val_mul_kernel(arr.data, arg->arr.data, -1, length);
 	};
 };
 
@@ -154,29 +201,29 @@ class SoftmaxOp: public Op {
 public:
 	size_t length {};
 	size_t ax {};
+	Op * arg;
 
-	SoftmaxOp(size_t new_id) {
+	SoftmaxOp(size_t new_id, Op * new_arg) :
+		arg {new_arg} {
 		id = new_id;
 		name = "softmax";
 	};
 
 	void prepare() {
-		Karray * arg = &operands[0]->arr;
-		arr.reset(arg->shape);
-		length = arg->shape.length;
+		arr.reset(arg->arr.shape);
+		length = arg->arr.shape.length;
 
-		ax = arg->shape.last_axis();
+		ax = arg->arr.shape.last_axis();
 	};
 
 	void run() {
-		Karray * arg = &operands[0]->arr;
 
-		exp_kernel(arr.data, arg->data, length);
+		exp_kernel(arr.data, arg->arr.data, length);
 		Karray summed_exp = arr.sum(ax, Karray(1.), false);
 		summed_exp.shape.insert_one((int) ax);
 		Positions posi {0, 0, 0};
-		auto [lstr, rstr] = arg->shape.paired_strides(summed_exp.shape);
-		rec_binary_op(arr.data, arr.data, summed_exp.data, arg->shape,
+		auto [lstr, rstr] = arg->arr.shape.paired_strides(summed_exp.shape);
+		rec_binary_op(arr.data, arr.data, summed_exp.data, arg->arr.shape,
 		              lstr, rstr, &posi, _div, 0);
 	};
 };
@@ -188,15 +235,18 @@ public:
 	size_t I {};
 	size_t J {};
 	size_t K {};
+	Op * larg;
+	Op * rarg;
 
-	MatMulOp(size_t new_id) {
+	MatMulOp(size_t new_id, Op * new_lop, Op * new_rop) :
+		larg {new_lop}, rarg {new_rop} {
 		id = new_id;
 		name = "matmul";
 	};
 
 	void prepare() {
-		Karray * lhs = &operands[0]->arr;
-		Karray * rhs = &operands[1]->arr;
+		Karray * lhs = &larg->arr;
+		Karray * rhs = &rarg->arr;
 
 		if (lhs->shape.nd < 2 && rhs->shape.nd < 2) {
 			PyErr_SetString(Karray_error, "Both arrays must be at least two-dimensional for matmul.");
@@ -225,16 +275,13 @@ public:
 	};
 
 	void run() {
-		Karray * lhs = &operands[0]->arr;
-		Karray * rhs = &operands[1]->arr;
-
 		for (int m = 0; m < max(M, N); ++m) {
 			int ia = m % M;
 			int ib = m % N;
 
 			general_matmul(arr.data + m * I * J,
-			               lhs->data + ia * I * K,
-			               rhs->data + ib * K * J,
+			               larg->arr.data + ia * I * K,
+			               rarg->arr.data + ib * K * J,
 			               I, J, K);
 		}
 	};

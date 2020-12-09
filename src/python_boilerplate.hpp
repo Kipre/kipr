@@ -25,6 +25,10 @@ static PyMethodDef Karray_methods[] = {
      "Return a numpy representtion of the PyKarray."},
     {"execute", (PyCFunction)  execute_func, METH_O,
      "Testing function to execute C code."},
+    {"addnotemplate", (PyCFunction)  Karray_notemplate_add, METH_O,
+     "..."},
+    {"addtemplate", (PyCFunction)  Karray_template_add, METH_O,
+     "..."},
     {"transpose", (PyCFunction)  Karray_transpose, METH_NOARGS,
      "Get the transpose of <kipr.arr>."},
     {NULL}  /* Sentinel */

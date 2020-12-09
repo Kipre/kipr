@@ -3,6 +3,7 @@ typedef __m256(*intrinsic_op)(__m256, __m256);
 
 
 
+
 void inline
 add_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
     int k = 0;
@@ -132,8 +133,8 @@ mul_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
 #endif
     float fmp;
     while (k < length) {
-        fmp = rhs[k]*self[k];
-        rhs[k] = lhs[k]*self[k];
+        fmp = rhs[k] * self[k];
+        rhs[k] = lhs[k] * self[k];
         lhs[k] = fmp;
         ++k;
     }
@@ -156,8 +157,8 @@ div_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
 #endif
     float fmp;
     while (k < length) {
-        fmp = rhs[k]*self[k];
-        rhs[k] = lhs[k]*self[k];
+        fmp = rhs[k] * self[k];
+        rhs[k] = lhs[k] * self[k];
         lhs[k] = fmp;
         ++k;
     }
@@ -303,7 +304,7 @@ inline void general_matmul(float * c, float * a, float * b, size_t I, size_t J, 
                 a0 = _mm256_set1_ps(a[(3 + ii) * K + k]);
                 h3 = _mm256_fmadd_ps(a0, b0, h3);
             }
-            
+
             float * w = c + ii * J + j;
             _mm256_store_ps(w, h0);
             w += J;
@@ -486,21 +487,21 @@ relu_kernel(float * dest, float * lhs, ssize_t length) {
 
 void inline
 drelu_kernel(float * arg, float * self, ssize_t length) {
-        int k = 0;
+    int k = 0;
 #if __AVX__
-        __m256 v_a, v_b, constant = _mm256_set1_ps(0);
-        for (k = 0; k < length - 8; k += 8) {
-            v_a = _mm256_load_ps(&arg[k]);
-            v_a = _mm256_cmp_ps(v_a, constant, 14); // -> greater than
-            v_b = _mm256_load_ps(&self[k]);
-            v_a = _mm256_mul_ps(v_a, v_b);
-            _mm256_store_ps(&arg[k], v_a);
-        }
+    __m256 v_a, v_b, constant = _mm256_set1_ps(0);
+    for (k = 0; k < length - 8; k += 8) {
+        v_a = _mm256_load_ps(&arg[k]);
+        v_a = _mm256_cmp_ps(v_a, constant, 14); // -> greater than
+        v_b = _mm256_load_ps(&self[k]);
+        v_a = _mm256_mul_ps(v_a, v_b);
+        _mm256_store_ps(&arg[k], v_a);
+    }
 #endif
-        while (k < length) {
-            arg[k] = self[k] * (arg[k] > 0);
-            ++k;
-        }
+    while (k < length) {
+        arg[k] = self[k] * (arg[k] > 0);
+        ++k;
+    }
 }
 
 

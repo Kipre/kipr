@@ -35,6 +35,48 @@ Karray_add(PyObject * self, PyObject * other) {
 }
 
 PyObject *
+Karray_notemplate_add(PyObject * here, PyObject * other) {
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+
+	auto lhs = &reinterpret_cast<PyKarray *>(here)->arr;
+	auto rhs = &reinterpret_cast<PyKarray *>(other)->arr;
+	
+	if (lhs->shape.length != rhs->shape.length) {
+		PyErr_SetString(Karray_error,
+		             "Error");
+		return NULL;
+	}
+
+	auto result = new_PyKarray(rhs->shape);
+
+	for (int k=0; k < rhs->shape.length; ++k) {
+		result->arr.data[k] = lhs->data[k] + rhs->data[k];
+	}
+	return reinterpret_cast<PyObject *>(result);
+}
+
+PyObject *
+Karray_template_add(PyObject * here, PyObject * other) {
+
+	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
+		Py_RETURN_NOTIMPLEMENTED;
+	}
+
+	auto lhs = &reinterpret_cast<PyKarray *>(here)->arr;
+	auto rhs = &reinterpret_cast<PyKarray *>(other)->arr;
+	
+	auto [common, a_strides, b_strides] = paired_strides(lhs->shape, rhs->shape);
+	IF_ERROR_RETURN({});
+	auto result = new_PyKarray(common);
+	Positions pos {0, 0, 0};
+	rec_binary_op<Add>(result->arr.data, lhs->data, rhs->data, common, a_strides, b_strides, &pos, 0);
+	return reinterpret_cast<PyObject *>(result);
+}
+
+
+PyObject *
 Karray_sub(PyObject * self, PyObject * other) {
 	return py_binary_op(self, other, sub_kernel, _sub);
 }

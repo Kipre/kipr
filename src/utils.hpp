@@ -1,6 +1,5 @@
 
 
-
 void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
                           NDVector &l_strides, NDVector &r_strides, Positions * pos,
                           binary_op op, int depth) {

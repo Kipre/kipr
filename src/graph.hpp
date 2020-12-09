@@ -5,6 +5,13 @@ void Graph::print(const char * msg) {
 		std::cout << "\t" << op->str() << "\n";
 }
 
+Graph::~Graph() {
+	for (auto o : ops) {
+		delete o;
+	}
+	ops.clear();
+}
+
 void Graph::run() {
 	for (auto o : ops) {
 		o->run();
@@ -31,7 +38,7 @@ void Graph::load(PyObject *const *args, Py_ssize_t nargs, bool check_shapes) {
 		auto karr = reinterpret_cast<PyKarray *>(args[k]);
 		if (check_shapes && ops[inputs[k]]->arr.shape != karr->arr.shape) {
 			PyErr_Format(Karray_error,
-			             "Shapes of input %i %s does not match instantiated shape %s.",
+			             "Shape of input %i %s does not match instantiated shape %s.",
 			             k, karr->arr.shape.str().c_str(), 
 			             ops[inputs[k]]->arr.shape.str().c_str());
 			return;
@@ -97,23 +104,45 @@ void print(std::stack<int> s) {
 	std::cout << "]\n";
 }
 
-Op * func_to_op(size_t function, size_t id) {
+// Op * func_to_op(size_t function, size_t id) {
+// 	if (function == RELU_FUNCTION)
+// 		return new ReluOp {id};
+// 	if (function == SOFTMAX_FUNCTION)
+// 		return new SoftmaxOp {id};
+// 	if (function == BINARY_ADD || function == INPLACE_ADD)
+// 		return new EWBinaryOp<Add> {id};
+// 	if (function == BINARY_SUBTRACT || function == INPLACE_SUBTRACT)
+// 		return new EWBinaryOp<Sub> {id};
+// 	if (function == BINARY_MULTIPLY || function == INPLACE_MULTIPLY)
+// 		return new EWBinaryOp<Mul> {id};
+// 	if (function == BINARY_TRUE_DIVIDE || function == INPLACE_TRUE_DIVIDE)
+// 		return new EWBinaryOp<Div> {id};
+// 	if (function == BINARY_MATRIX_MULTIPLY || function == INPLACE_MATRIX_MULTIPLY)
+// 		return new MatMulOp {id};
+// 	if (function == UNARY_NEGATIVE)
+// 		return new UnaryNegative {id};
+// 	return new Op {};
+// }
+
+
+
+Op * func_to_op(size_t function, size_t id, Op * arg1, Op * arg2) {
 	if (function == RELU_FUNCTION)
-		return new ReluOp {id};
+		return new ReluOp {id, arg1};
 	if (function == SOFTMAX_FUNCTION)
-		return new SoftmaxOp {id};
+		return new SoftmaxOp {id, arg1};
 	if (function == BINARY_ADD || function == INPLACE_ADD)
-		return new EWBinaryOp<Add> {id};
+		return new EWBinaryOp<Add> {id, arg1, arg2};
 	if (function == BINARY_SUBTRACT || function == INPLACE_SUBTRACT)
-		return new EWBinaryOp<Sub> {id};
+		return new EWBinaryOp<Sub> {id, arg1, arg2};
 	if (function == BINARY_MULTIPLY || function == INPLACE_MULTIPLY)
-		return new EWBinaryOp<Mul> {id};
+		return new EWBinaryOp<Mul> {id, arg1, arg2};
 	if (function == BINARY_TRUE_DIVIDE || function == INPLACE_TRUE_DIVIDE)
-		return new EWBinaryOp<Div> {id};
+		return new EWBinaryOp<Div> {id, arg1, arg2};
 	if (function == BINARY_MATRIX_MULTIPLY || function == INPLACE_MATRIX_MULTIPLY)
-		return new MatMulOp {id};
+		return new MatMulOp {id, arg1, arg2};
 	if (function == UNARY_NEGATIVE)
-		return new UnaryNegative {id};
+		return new UnaryNegative {id, arg1};
 	return new Op {};
 }
 
@@ -214,8 +243,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 			}
 			size_t argument = stack.top(); stack.pop();
 			size_t function = stack.top(); stack.pop();
-			Op * oper = func_to_op(function, size);
-			oper->operands.push_back(g->ops[argument]);
+			Op * oper = func_to_op(function, size, g->ops[argument], NULL);
 			g->ops[argument]->add_child(oper);
 			stack.push(size);
 			g->ops.push_back(oper);
@@ -230,9 +258,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		case (BINARY_TRUE_DIVIDE): {
 			size_t b = stack.top(); stack.pop();
 			size_t a = stack.top(); stack.pop();
-			Op * oper = func_to_op(op, size);
-			oper->operands.push_back(g->ops[a]);
-			oper->operands.push_back(g->ops[b]);
+			Op * oper = func_to_op(op, size, g->ops[a], g->ops[b]);
 			g->ops[a]->add_child(oper);
 			g->ops[b]->add_child(oper);
 			stack.push(size);
@@ -248,9 +274,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		case (INPLACE_TRUE_DIVIDE): {
 			size_t b = stack.top(); stack.pop();
 			size_t a = stack.top(); stack.pop();
-			Op * oper = func_to_op(op, size);
-			oper->operands.push_back(g->ops[a]);
-			oper->operands.push_back(g->ops[b]);
+			Op * oper = func_to_op(op, size, g->ops[a], g->ops[b]);
 			stack.push(size);
 			g->ops[a]->add_child(g->ops[stack.top()]);
 			g->ops[b]->add_child(g->ops[stack.top()]);
@@ -262,8 +286,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 
 		case (UNARY_NEGATIVE): {
 			size_t a = stack.top(); stack.pop();
-			Op * oper = func_to_op(op, size);
-			oper->operands.push_back(g->ops[a]);
+			Op * oper = func_to_op(op, size, g->ops[a], NULL);
 			g->ops[a]->add_child(oper);
 			stack.push(size);
 			g->ops.push_back(oper);
@@ -292,8 +315,6 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 			PyErr_Format(Karray_error, "Unknown opcode %i.", op);
 			return -1;
 		}
-		// print(stack);
-
 	}
 
 	Py_DECREF(function);
@@ -315,7 +336,6 @@ PyObject * Graph_prepare(PyGraph *self, PyObject *const *args, Py_ssize_t nargs)
 		o->prepare();
 		IF_ERROR_RETURN(NULL);
 		o->run();
-		o->print();
 	}
 
 	return (PyObject *) new_PyKarray(*g->return_last());
@@ -354,7 +374,6 @@ PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs
 		return NULL;
 	}
 	sub_kernel(ret->data, ret->data, target->data, length);
-
 	g->back();
 
 	Py_RETURN_NONE;
