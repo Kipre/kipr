@@ -57,7 +57,7 @@ Karray_notemplate_add(PyObject * here, PyObject * other) {
 	return reinterpret_cast<PyObject *>(result);
 }
 
-PyObject *
+/*PyObject *
 Karray_template_add(PyObject * here, PyObject * other) {
 
 	if (py_type(here) != KARRAY || py_type(other) != KARRAY) {
@@ -73,7 +73,7 @@ Karray_template_add(PyObject * here, PyObject * other) {
 	Positions pos {0, 0, 0};
 	rec_binary_op<Add>(result->arr.data, lhs->data, rhs->data, common, a_strides, b_strides, &pos, 0);
 	return reinterpret_cast<PyObject *>(result);
-}
+}*/
 
 
 PyObject *

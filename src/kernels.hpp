@@ -364,12 +364,14 @@ void
 exp_kernel(float * dest, float * src, ssize_t length) {
     int k = 0;
 #if __AVX__
+#ifdef __SVML__
     __m256 v_a;
     for (k = 0; k < length - 8; k += 8) {
         v_a = _mm256_load_ps(&src[k]);
         v_a = _mm256_exp_ps(v_a);
         _mm256_store_ps(&dest[k], v_a);
     }
+#endif
 #endif
     while (k < length) {
         dest[k] = exp(src[k]);
