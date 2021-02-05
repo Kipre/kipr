@@ -50,16 +50,16 @@ internal_test(PyObject *self, PyObject *Py_UNUSED(ignored)) {
 		ASSERT_SHAPE_EQ(Shape(4, 2, 1, 6, 4), shape1);
 	};
 
-	// TEST(ShapeInsertOne) {
-	// 	Shape shape1(2, 3, 5);
-	// 	Shape shape2(3, 3, 5, 1);
-	// 	Shape shape3(4, 1, 3, 5, 1);
-	// 	Shape shape4(5, 1, 3, 1, 5, 1);
+	/*TEST(ShapeInsertOne) {
+		Shape shape1(2, 3, 5);
+		Shape shape2(3, 3, 5, 1);
+		Shape shape3(4, 1, 3, 5, 1);
+		Shape shape4(5, 1, 3, 1, 5, 1);
 
-	// 	ASSERT_SHAPE_EQ(shape1.insert_one(2), shape2);
-	// 	ASSERT_SHAPE_EQ(shape1.insert_one(0), shape3);
-	// 	ASSERT_SHAPE_EQ(shape1.insert_one(2), shape2);
-	// };
+		ASSERT_SHAPE_EQ(shape1.insert_one(2), shape2);
+		ASSERT_SHAPE_EQ(shape1.insert_one(0), shape3);
+		ASSERT_SHAPE_EQ(shape1.insert_one(2), shape2);
+	};*/
 
 
     RUN_KTEST;

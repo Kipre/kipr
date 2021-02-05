@@ -352,7 +352,7 @@ void Karray::from_mode(Shape new_shape, size_t mode) noexcept {
 			data[n] = (float) n;
 		}
 	} else {
-		throw std::exception("unknown mode");
+		std::abort(); // unknown mode
 	}
 }
 

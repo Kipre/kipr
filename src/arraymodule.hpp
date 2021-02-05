@@ -37,7 +37,7 @@
 
 const int MAX_ND = 8;
 
-const int MAX_PRINT_SIZE = 100;
+const size_t MAX_PRINT_SIZE = 100;
 const int STR_OFFSET = 10;
 
 PyObject* Karray_error;

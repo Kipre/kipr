@@ -3,6 +3,7 @@
 PyObject *
 cache_info(PyObject *self, PyObject *Py_UNUSED(ignored)) {
     int i;
+#ifdef _WIN32
     for (i = 0; i < 32; i++) {
 
         // Variables to hold the contents of the 4 i386 legacy registers
@@ -64,5 +65,8 @@ cache_info(PyObject *self, PyObject *Py_UNUSED(ignored)) {
             , cache_is_self_initializing ? "true" : "false"
         );
     }
+#else
+    std::cout << "cache_info is available only on windows" << std::endl; 
+#endif
     Py_RETURN_NONE;
 }

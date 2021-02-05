@@ -9,7 +9,10 @@ debug = True
 
 
 if platform in ["linux", "linux2"]:
-    extra_args = {}
+    extra_args = {
+      'extra_compile_args': ['-std=c++20', "-mavx2",],
+      'extra_link_args': []
+    }
 elif platform == "darwin":
     pass
 elif platform == "win32":

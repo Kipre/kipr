@@ -147,7 +147,7 @@ Shape::Shape(Shape a, Shape b) noexcept {
 		} else {
 			buf[i] = a[i];
 		}
-		length *= std::max(1, buf[i]);
+		length *= std::max((size_t) 1, buf[i]);
 		--i;
 	}
 }
@@ -363,13 +363,13 @@ size_t Shape::operator[](int i) const {
 	} else if (i > - nd - 1 && i < 0) {
 		return buf[nd + i];
 	} else {
-		throw std::exception("index out of range");
+		std::abort(); // index out of range
 	}
 }
 
 size_t Shape::pop(int i) noexcept {
 	if (abs(i) >= nd)
-		throw std::exception("Shape::pop out of range");
+		std::abort(); // Shape::pop out of range
 	if (i == -1)
 		i = nd - 1;
 	size_t tmp = buf[i];
@@ -404,7 +404,7 @@ NDVector Shape::strides(int depth_diff) const {
 
 void Shape::insert_one(int i) {
 	if (i < 0 || i > nd)
-		throw std::exception("cannot instert one because out of range");
+		std::abort(); // cannot instert one because out of range
 	++nd;
 	int k = MAX_ND - 1;
 	while (k > i) {

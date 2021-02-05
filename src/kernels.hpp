@@ -480,7 +480,7 @@ relu_kernel(float * dest, float * lhs, ssize_t length) {
     }
 #endif
     while (k < length) {
-        dest[k] = std::max(lhs[k], 0);
+        dest[k] = std::max(lhs[k], 0.);
         ++k;
     }
 }
