@@ -382,12 +382,14 @@ void
 log_kernel(float * dest, float * src, ssize_t length) {
     int k = 0;
 #if __AVX__
+#ifdef __SVML__
     __m256 v_a;
     for (k = 0; k < length - 8; k += 8) {
         v_a = _mm256_load_ps(&src[k]);
         v_a = _mm256_log_ps(v_a);
         _mm256_store_ps(&dest[k], v_a);
     }
+#endif
 #endif
     while (k < length) {
         dest[k] = log(src[k]);
@@ -400,12 +402,14 @@ void inline
 val_add_kernel(float * dest, float * lhs, float value, ssize_t length) {
     int k = 0;
 #if __AVX__
+#ifdef __SVML__
     __m256 v_a, constant = _mm256_set1_ps(value);
     for (k = 0; k < length - 8; k += 8) {
         v_a = _mm256_load_ps(&lhs[k]);
         v_a = _mm256_add_ps(v_a, constant);
         _mm256_store_ps(&dest[k], v_a);
     }
+#endif
 #endif
     while (k < length) {
         dest[k] = lhs[k] + value;
@@ -480,7 +484,7 @@ relu_kernel(float * dest, float * lhs, ssize_t length) {
     }
 #endif
     while (k < length) {
-        dest[k] = std::max(lhs[k], 0.);
+        dest[k] = std::max(lhs[k], (float) 0);
         ++k;
     }
 }
