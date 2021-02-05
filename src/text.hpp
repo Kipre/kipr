@@ -8,8 +8,8 @@
 
 
 typedef struct {
-	char mask;    /* char data will be bitwise AND with this */
-	char lead;    /* start bytes of current char in utf-8 encoded character */
+	unsigned char mask;    /* char data will be bitwise AND with this */
+	unsigned char lead;    /* start bytes of current char in utf-8 encoded character */
 	uint32_t beg; /* beginning of codepoint range */
 	uint32_t end; /* end of codepoint range */
 	int bits_stored; /* the number of bits from the codepoint that fits in char */

@@ -5,10 +5,10 @@ struct ElementwiseOperation {
 	binary_op op;
 };
 
-constexpr ElementwiseOperation Add {"add", add_kernel, add_dkernel, _add};
-constexpr ElementwiseOperation Sub {"sub", sub_kernel, sub_dkernel, _sub};
-constexpr ElementwiseOperation Mul {"mul", mul_kernel, mul_dkernel, _mul};
-constexpr ElementwiseOperation Div {"div", div_kernel, div_dkernel, _div};
+constexpr ElementwiseOperation Add {"add", &add_kernel, add_dkernel, _add};
+constexpr ElementwiseOperation Sub {"sub", &sub_kernel, sub_dkernel, _sub};
+constexpr ElementwiseOperation Mul {"mul", &mul_kernel, mul_dkernel, _mul};
+constexpr ElementwiseOperation Div {"div", &div_kernel, div_dkernel, _div};
 
 
 

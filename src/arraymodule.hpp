@@ -24,6 +24,7 @@
     #define NOMINMAX
     #include <windows.h>
     #include <debugapi.h>
+    #define __SVML__
 #endif
 
 #include "microtest.hpp"

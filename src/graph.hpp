@@ -175,6 +175,9 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	std::stack<size_t> stack;
 	std::map<size_t, size_t> local;
 	std::map<size_t, size_t> global;
+	
+	const size_t LOAD_METHOD = 160;
+	const size_t CALL_METHOD = 161;
 
 	int op, arg;
 	for (int i = 0; i < len; i += 2) {
