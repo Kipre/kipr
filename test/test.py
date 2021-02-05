@@ -40,7 +40,7 @@ class TestModuleFunctions(unittest.TestCase):
             np.testing.assert_almost_equal(
                 kp.relu(ka).numpy(), 
                 na * (na > 0),
-                err_msg=f"{shape = }"
+                err_msg=f"shape = {shape}"
             )
 
 
@@ -104,7 +104,7 @@ class TestKarrayObject(unittest.TestCase):
             np.testing.assert_almost_equal(
                 kp.arr('range', shape=shape).numpy(), 
                 np.array(range(np.array(shape).prod())).reshape(shape),
-                err_msg=f'{shape = }'
+                err_msg=f"shape = {shape}"
             )
 
         for k in range(nb_random_checks):
@@ -114,7 +114,7 @@ class TestKarrayObject(unittest.TestCase):
             np.testing.assert_almost_equal(
                 kp.arr(a).numpy(), 
                 a,
-                err_msg=f'{shape = }'
+                err_msg=f"shape = {shape}"
             )
 
     def test_reshape(self):
@@ -134,7 +134,7 @@ class TestKarrayObject(unittest.TestCase):
             np.testing.assert_almost_equal(
                 kp.arr('range', shape=[size]).reshape(shape).numpy(), 
                 np.array(range(size)).reshape(shape),
-                err_msg=f'reshape to {shape}'
+                err_msg=f"reshape to {shape}"
             )
 
     def test_print(self):
@@ -204,7 +204,7 @@ class TestKarrayObject(unittest.TestCase):
             np.testing.assert_almost_equal(
                 a[subscript].numpy(), 
                 b[subscript],
-                err_msg=f"error occured with {subscript = }"
+                err_msg=f"error occured with subscript {subscript}"
             )
 
     def test_broadcast(self):
@@ -279,7 +279,7 @@ class TestKarrayMath(unittest.TestCase):
             np.testing.assert_almost_equal(
                 (kp.arr(a) + kp.arr(b)).numpy(), 
                 a + b,
-                err_msg=f"{shape = }"
+                err_msg=f"shape = {shape}"
             )
 
         for sa, sb in self.pair_shapes:
@@ -292,13 +292,13 @@ class TestKarrayMath(unittest.TestCase):
             np.testing.assert_almost_equal(
                 (a + b).numpy(), 
                 na + nb,
-                err_msg=f"{sa = }, {sb = }"
+                err_msg=f"sa = {sa}, sb = {sb}"
             )
 
             np.testing.assert_almost_equal(
                 (b + a).numpy(), 
                 na + nb,
-                err_msg=f"{sb = }, {sa = }"
+                err_msg=f"sa = {sa}, sb = {sb}"
             )
 
     def test_inplace_add(self):
@@ -338,7 +338,7 @@ class TestKarrayMath(unittest.TestCase):
             np.testing.assert_almost_equal(
                 b.numpy(), 
                 na + nb,
-                err_msg=f"{sa = }, {sb = }"
+                err_msg=f"sa = {sa}, sb = {sb}"
             )
 
     def test_sub(self):
