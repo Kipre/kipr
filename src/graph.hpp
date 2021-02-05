@@ -132,13 +132,13 @@ Op * func_to_op(size_t function, size_t id, Op * arg1, Op * arg2) {
 	if (function == SOFTMAX_FUNCTION)
 		return new SoftmaxOp {id, arg1};
 	if (function == BINARY_ADD || function == INPLACE_ADD)
-		return new EWBinaryOp<Add> {id, arg1, arg2};
+		return new EWBinaryOp<add_kernel, add_dkernel, _add> {id, arg1, arg2};
 	if (function == BINARY_SUBTRACT || function == INPLACE_SUBTRACT)
-		return new EWBinaryOp<Sub> {id, arg1, arg2};
+		return new EWBinaryOp<sub_kernel, sub_dkernel, _sub> {id, arg1, arg2};
 	if (function == BINARY_MULTIPLY || function == INPLACE_MULTIPLY)
-		return new EWBinaryOp<Mul> {id, arg1, arg2};
+		return new EWBinaryOp<mul_kernel, mul_dkernel, _mul> {id, arg1, arg2};
 	if (function == BINARY_TRUE_DIVIDE || function == INPLACE_TRUE_DIVIDE)
-		return new EWBinaryOp<Div> {id, arg1, arg2};
+		return new EWBinaryOp<div_kernel, div_dkernel, _div> {id, arg1, arg2};
 	if (function == BINARY_MATRIX_MULTIPLY || function == INPLACE_MATRIX_MULTIPLY)
 		return new MatMulOp {id, arg1, arg2};
 	if (function == UNARY_NEGATIVE)
@@ -175,7 +175,7 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 	std::stack<size_t> stack;
 	std::map<size_t, size_t> local;
 	std::map<size_t, size_t> global;
-	
+
 	const size_t LOAD_METHOD = 160;
 	const size_t CALL_METHOD = 161;
 

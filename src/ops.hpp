@@ -1,23 +1,11 @@
-#ifdef _WIN32
-struct ElementwiseOperation {
-	char name[4];
-	binary_kernel kernel;
-	binary_kernel dkernel;
-	binary_op op;
-};
 
-constexpr ElementwiseOperation Add {"add", add_kernel, add_dkernel, _add};
-constexpr ElementwiseOperation Sub {"sub", sub_kernel, sub_dkernel, _sub};
-constexpr ElementwiseOperation Mul {"mul", mul_kernel, mul_dkernel, _mul};
-constexpr ElementwiseOperation Div {"div", div_kernel, div_dkernel, _div};
-
-template<ElementwiseOperation ope>
+template<binary_op op>
 inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
                           NDVector &l_strides, NDVector &r_strides, 
                           Positions * pos, int depth) {
 	if (depth < shape.nd - 1) {
 		for (int k = 0; k < shape[depth]; ++k) {
-			rec_binary_op<ope>(dest, lhs, rhs, shape, l_strides, r_strides, pos, depth + 1);
+			rec_binary_op<op>(dest, lhs, rhs, shape, l_strides, r_strides, pos, depth + 1);
 			pos->right += l_strides[depth];
 			pos->left += r_strides[depth];
 		}
@@ -25,12 +13,11 @@ inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
 		pos->left -= r_strides[depth] * shape[depth];
 	} else {
 		for (int k = 0; k < shape[depth]; ++k) {
-			dest[pos->write++] = ope.op(lhs[pos->right + l_strides[depth] * k],
+			dest[pos->write++] = op(lhs[pos->right + l_strides[depth] * k],
 			                        rhs[pos->left + r_strides[depth] * k]);
 		}
 	}
 }
-#endif
 
 class Op {
 public:
@@ -75,7 +62,7 @@ public:
 	};
 };
 
-template<ElementwiseOperation ope>
+template<binary_kernel kernel, binary_kernel dkernel, binary_op op>
 class EWBinaryOp: public Op {
 public:
 	size_t length {0};
@@ -89,7 +76,7 @@ public:
 	EWBinaryOp(size_t new_id, Op * new_lop, Op * new_rop) :
 		larg {new_lop}, rarg {new_rop} {
 		id = new_id;
-		name = ope.name;
+		name = name;
 	};
 
 	void prepare() {
@@ -115,11 +102,11 @@ public:
 		Karray * lhs = &larg->arr, * rhs = &rarg->arr;
 
 		if (simple) {
-			ope.kernel(arr.data, lhs->data, rhs->data, length);
+			kernel(arr.data, lhs->data, rhs->data, length);
 		} else {
 			Positions posi {0, 0, 0};
-			rec_binary_op(arr.data, lhs->data, rhs->data,
-			              common, lstr, rstr, &posi, ope.op, 0);
+			rec_binary_op<op>(arr.data, lhs->data, rhs->data,
+			              common, lstr, rstr, &posi, 0);
 		}
 	};
 
