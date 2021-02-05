@@ -1,3 +1,4 @@
+#ifdef _WIN32
 struct ElementwiseOperation {
 	char name[4];
 	binary_kernel kernel;
@@ -5,15 +6,10 @@ struct ElementwiseOperation {
 	binary_op op;
 };
 
-constexpr ElementwiseOperation Add {"add", &add_kernel, add_dkernel, _add};
-constexpr ElementwiseOperation Sub {"sub", &sub_kernel, sub_dkernel, _sub};
-constexpr ElementwiseOperation Mul {"mul", &mul_kernel, mul_dkernel, _mul};
-constexpr ElementwiseOperation Div {"div", &div_kernel, div_dkernel, _div};
-
-
-
-#pragma inline_recursion(on)
-#pragma inline_depth(8)
+constexpr ElementwiseOperation Add {"add", add_kernel, add_dkernel, _add};
+constexpr ElementwiseOperation Sub {"sub", sub_kernel, sub_dkernel, _sub};
+constexpr ElementwiseOperation Mul {"mul", mul_kernel, mul_dkernel, _mul};
+constexpr ElementwiseOperation Div {"div", div_kernel, div_dkernel, _div};
 
 template<ElementwiseOperation ope>
 inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
@@ -34,7 +30,7 @@ inline void rec_binary_op(float * dest, float * lhs, float * rhs, Shape &shape,
 		}
 	}
 }
-
+#endif
 
 class Op {
 public:

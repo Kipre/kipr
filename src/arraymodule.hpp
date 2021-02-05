@@ -269,7 +269,7 @@ PyObject * langid_tokenize(PyObject *self, PyObject * input);
 
 // test
 PyObject * Karray_notemplate_add(PyObject * here, PyObject * other);
-PyObject * Karray_template_add(PyObject * here, PyObject * other);
+// PyObject * Karray_template_add(PyObject * here, PyObject * other);
 
 
 #include "ops.hpp"
