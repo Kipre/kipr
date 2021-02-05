@@ -80,6 +80,10 @@ static PyMethodDef arraymodule_methods[] = {
      "Softmax function for <kipr.arr> arrays, computes along the last axis."},
     {"log", Karray_log, METH_O,
      "Log function for <kipr.arr> arrays."},
+    {"count_characters", count_characters, METH_O,
+     "Count character occurences in string and return code points."},
+    {"langid_tokenize", langid_tokenize, METH_O,
+     "Vectorize the input sequences (list of strings) into a numpy array."},
     {"cache_info", cache_info, METH_NOARGS,
      "Function to query CPU info about cache configuration."},
     {NULL, NULL, 0, NULL}        /* Sentinel */

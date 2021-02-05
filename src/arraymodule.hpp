@@ -12,6 +12,7 @@
 #include <random>
 #include <numeric>
 #include <map>
+#include <unordered_map>
 #include <tuple>
 #include <stack>
 #include <algorithm>
@@ -260,6 +261,10 @@ PyObject * Karray_log(PyObject *self, PyObject * o);
 // other
 PyObject * cache_info(PyObject *self, PyObject * input);
 
+// text
+PyObject * count_characters(PyObject *self, PyObject * input);
+PyObject * langid_tokenize(PyObject *self, PyObject * input);
+
 // test
 PyObject * Karray_notemplate_add(PyObject * here, PyObject * other);
 PyObject * Karray_template_add(PyObject * here, PyObject * other);
@@ -317,6 +322,7 @@ PyObject * Graph_backprop(PyGraph *self, PyObject *const *args, Py_ssize_t nargs
 #include "other.hpp"
 #include "graph.hpp"
 #include "math_ops.hpp"
+#include "text.hpp"
 #include "module_functions.hpp"
 
 #include "test.hpp"
