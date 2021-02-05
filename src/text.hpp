@@ -8,19 +8,19 @@
 
 
 typedef struct {
-	unsigned char mask;    /* char data will be bitwise AND with this */
-	unsigned char lead;    /* start bytes of current char in utf-8 encoded character */
+	char mask;    /* char data will be bitwise AND with this */
+	char lead;    /* start bytes of current char in utf-8 encoded character */
 	uint32_t beg; /* beginning of codepoint range */
 	uint32_t end; /* end of codepoint range */
 	int bits_stored; /* the number of bits from the codepoint that fits in char */
 } utf_t;
 
 utf_t pre[] = {
-	{0b00111111, 0b10000000, 0,       0,        6    },
-	{0b01111111, 0b00000000, 0000,    0177,     7    },
-	{0b00011111, 0b11000000, 0200,    03777,    5    },
-	{0b00001111, 0b11100000, 04000,   0177777,  4    },
-	{0b00000111, 0b11110000, 0200000, 04177777, 3    },
+	{0b00111111, -128      , 0,       0,        6    },
+	{0b01111111, 0         , 0000,    0177,     7    },
+	{0b00011111, -64       , 0200,    03777,    5    },
+	{0b00001111, -32       , 04000,   0177777,  4    },
+	{0b00000111, -16       , 0200000, 04177777, 3    },
 	{0},
 };
 
@@ -50,7 +50,7 @@ int codepoint_len(const uint32_t cp)
 		++len;
 	}
 	if(len > 4) /* Out of bounds */
-		exit(1);
+		std::abort();
  
 	return len;
 }
@@ -65,7 +65,7 @@ int utf8_len(const char ch)
 		++len;
 	}
 	if(len > 4) { /* Malformed leading byte */
-		exit(1);
+		std::abort();
 	}
 	return len;
 }
