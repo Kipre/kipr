@@ -195,7 +195,7 @@ void Karray::print(const char * message) {
 	std::cout << "Printing Karray " << message << "\n\t";
 	shape.print();
 	std::cout << "\t";
-	auto limit = min(shape.length, MAX_PRINT_SIZE);
+	auto limit = std::min(shape.length, MAX_PRINT_SIZE);
 	for (int i = 0; i < limit; ++i) {
 		std::cout << data[i] << ", ";
 	}
@@ -213,7 +213,7 @@ std::string Karray::str() {
 	};
 	std::ostringstream ss;
 	ss << "kipr.arr(";
-	auto limit = min(shape.length, MAX_PRINT_SIZE);
+	auto limit = std::min(shape.length, MAX_PRINT_SIZE);
 	int match = matches(0);
 	for (int i = 0; i < limit; ++i) {
 		if (i == 0)

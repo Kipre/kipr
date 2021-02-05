@@ -462,7 +462,7 @@ val_max_kernel(float * dest, float * lhs, float value, ssize_t length) {
     }
 #endif
     while (k < length) {
-        dest[k] = max(lhs[k], value);
+        dest[k] = std::max(lhs[k], value);
         ++k;
     }
 }
@@ -480,7 +480,7 @@ relu_kernel(float * dest, float * lhs, ssize_t length) {
     }
 #endif
     while (k < length) {
-        dest[k] = max(lhs[k], 0);
+        dest[k] = std::max(lhs[k], 0);
         ++k;
     }
 }

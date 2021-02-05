@@ -17,7 +17,7 @@ Shape::Shape(int ndims...) {
 Shape::Shape(Py_ssize_t * input, int size) {
 	nd = 0;
 	length = 1;
-	size = min(MAX_ND, size);
+	size = std::min(MAX_ND, size);
 	while (nd < size) {
 		length *= (size_t) input[nd];
 		buf[nd] = (size_t) input[nd];
@@ -33,7 +33,7 @@ Shape::Shape(Py_ssize_t * input, int size) {
 Shape::Shape(size_t * input, int size) {
 	nd = 0;
 	length = 1;
-	size = min(MAX_ND, size);
+	size = std::min(MAX_ND, size);
 	while (nd < size) {
 		length *= input[nd];
 		buf[nd] = input[nd];
@@ -147,7 +147,7 @@ Shape::Shape(Shape a, Shape b) noexcept {
 		} else {
 			buf[i] = a[i];
 		}
-		length *= max(1, buf[i]);
+		length *= std::max(1, buf[i]);
 		--i;
 	}
 }

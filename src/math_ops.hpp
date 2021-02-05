@@ -151,7 +151,7 @@ Karray_matmul(PyObject * here, PyObject * other) {
 
 	auto result = new_PyKarray(new_shape);
 
-	for (int m = 0; m < max(M, N); ++m) {
+	for (int m = 0; m < std::max(M, N); ++m) {
 		int ia = m % M;
 		int ib = m % N;
 
