@@ -102,20 +102,29 @@ int to_cp(const char chr[4], uint32_t *code_point)
 
 /* My code */
 
-void char_vectorizer(const char * text, size_t length, size_t nb_chars, uint16_t * result) {
+void char_vectorizer(const char * text, 
+	                 size_t length, 
+	                 size_t nb_chars, 
+	                 uint16_t * result, 
+	                 std::unordered_map<uint32_t, uint16_t> charmap) {
 	uint32_t code_point;
 	size_t count = 0, place = 0;
 	std::unordered_map<uint32_t, uint16_t>::const_iterator got;
+
+	uint16_t whitespace = charmap[0x20], last_token = 0;
+
 	while (count < nb_chars && place < length) {
 		place += to_cp(&text[place], &code_point);
-		got = langid_map.find(code_point);
+		got = charmap.find(code_point);
 		// std::cout << (char) code_point << ' ' << got->first << ' ' << got->second << " " << std::endl;
-		if (got != langid_map.end())
+		if (got != charmap.end() && !(last_token == whitespace && got->second == whitespace)) {
 			result[count++] = got->second;
+			last_token = got->second;
+		}
 	}
 	
 	while (count < nb_chars)
-		result[count++] = langid_map.size();
+		result[count++] = whitespace;
 }
 
 std::unordered_map<uint32_t, size_t>
@@ -145,4 +154,3 @@ count_all_chars(const char * text, size_t length) {
 	}
 	return countmap;
 }
-

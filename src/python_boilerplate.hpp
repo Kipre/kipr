@@ -82,7 +82,7 @@ static PyMethodDef arraymodule_methods[] = {
      "Log function for <kipr.arr> arrays."},
     {"count_characters", count_characters, METH_O,
      "Count character occurences in string and return code points."},
-    {"langid_tokenize", langid_tokenize, METH_O,
+    {"char_tokenize", (PyCFunction) char_tokenize, METH_VARARGS | METH_KEYWORDS,
      "Vectorize the input sequences (list of strings) into a numpy array."},
     {"cache_info", cache_info, METH_NOARGS,
      "Function to query CPU info about cache configuration."},

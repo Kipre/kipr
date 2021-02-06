@@ -5,26 +5,82 @@ execute_func(PyObject *self, PyObject * input) {
 	Py_RETURN_NONE;
 }
 
-PyObject *
-langid_tokenize(PyObject *self, PyObject * input) {
-	int SEQ_LENGTH = 64;
-	Py_ssize_t size = 0;
-	PyObject ** strings = PySequence_Fast_ITEMS(input);
-	Py_ssize_t len  = PySequence_Fast_GET_SIZE(input);
+// PyObject *
+// langid_tokenize(PyObject *self, PyObject * input) {
+// 	int SEQ_LENGTH = 64;
+// 	Py_ssize_t size = 0;
+// 	PyObject ** strings = PySequence_Fast_ITEMS(input);
+// 	Py_ssize_t len  = PySequence_Fast_GET_SIZE(input);
 
-	uint16_t * buffer = new uint16_t[SEQ_LENGTH * len];
+// 	uint16_t * buffer = new uint16_t[SEQ_LENGTH * len];
+
+// 	for (int i = 0; i < len; ++i) {
+// 		const char * utf8 = PyUnicode_AsUTF8AndSize(strings[i], &size);
+// 		char_vectorizer(utf8, size, SEQ_LENGTH, buffer + i*SEQ_LENGTH, );
+// 	}
+
+//     npy_intp * dims = new npy_intp[2];
+//     dims[0] = len;
+//     dims[1] = SEQ_LENGTH;
+//     PyObject * result = PyArray_SimpleNewFromData(2, dims, NPY_UINT16, buffer);
+//     PyArray_UpdateFlags(reinterpret_cast<PyArrayObject *>(result), NPY_ARRAY_OWNDATA);
+//     return result;
+// }
+
+PyObject *
+char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
+	PyObject * sentences;
+    int seq_length = 64;
+    PyObject * mapping = NULL;
+    std::unordered_map<uint32_t, uint16_t> charmap;
+    Py_ssize_t len;
+
+    static char *kwlist[] = {"sentences", "mapping", "seq_length", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "OO|i", kwlist,
+                                     &sentences, &mapping, &seq_length))
+        return NULL;
+
+    if (!PySequence_Check(sentences) || PyUnicode_Check(sentences)) {
+    	PyErr_SetString(PyExc_ValueError, "'sentences' should be a sequence of strings");
+    	return NULL;
+    }
+
+	if (!PyDict_Check(mapping)) {
+		PyErr_SetString(PyExc_ValueError, "'mapping' should be a dict with single-char strings mapping to integers");
+		return NULL;
+	}
+
+	PyObject * map = PyDict_Items(mapping);
+	len  = PySequence_Fast_GET_SIZE(map);
+	PyObject ** items = PySequence_Fast_ITEMS(map);
+	uint32_t key;
+	uint16_t value;
+	for (int i = 0; i < len; ++i) {
+		PyArg_ParseTuple(items[i], "IH", &key, &value);
+		charmap[key] = value;
+	}
+	Py_DECREF(map);
+    
+	Py_ssize_t size = 0;
+	PyObject ** strings = PySequence_Fast_ITEMS(sentences);
+	len  = PySequence_Fast_GET_SIZE(sentences);
+
+	uint16_t * buffer = new uint16_t[seq_length * len];
 
 	for (int i = 0; i < len; ++i) {
 		const char * utf8 = PyUnicode_AsUTF8AndSize(strings[i], &size);
-		char_vectorizer(utf8, size, SEQ_LENGTH, buffer + i*SEQ_LENGTH);
+		char_vectorizer(utf8, size, seq_length, buffer + i*seq_length, charmap);
 	}
 
-	
     npy_intp * dims = new npy_intp[2];
     dims[0] = len;
-    dims[1] = SEQ_LENGTH;
+    dims[1] = seq_length;
     PyObject * result = PyArray_SimpleNewFromData(2, dims, NPY_UINT16, buffer);
     PyArray_UpdateFlags(reinterpret_cast<PyArrayObject *>(result), NPY_ARRAY_OWNDATA);
+
+    Py_DECREF(sentences);
+    Py_XDECREF(mapping);
     return result;
 }
 
