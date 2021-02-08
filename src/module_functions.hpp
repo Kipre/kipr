@@ -34,11 +34,12 @@ char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
     PyObject * mapping = NULL;
     std::unordered_map<uint32_t, uint16_t> charmap;
     Py_ssize_t len;
+    int verbose = 0;
 
-    static char *kwlist[] = {"sentences", "mapping", "seq_length", NULL};
+    static char *kwlist[] = {"sentences", "mapping", "seq_length", "verbose", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "OO|i", kwlist,
-                                     &sentences, &mapping, &seq_length))
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "OO|ip", kwlist,
+                                     &sentences, &mapping, &seq_length, &verbose))
         return NULL;
 
     if (!PySequence_Check(sentences) || PyUnicode_Check(sentences)) {
@@ -61,6 +62,8 @@ char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
 		charmap[key] = value;
 	}
 	Py_DECREF(map);
+
+	if (verbose) std::cout << "mapping loaded" << std::endl;
     
 	Py_ssize_t size = 0;
 	PyObject ** strings = PySequence_Fast_ITEMS(sentences);
@@ -68,19 +71,21 @@ char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
 
 	uint16_t * buffer = new uint16_t[seq_length * len];
 
+	int progress = (len / 50) + 1;
+
 	for (int i = 0; i < len; ++i) {
 		const char * utf8 = PyUnicode_AsUTF8AndSize(strings[i], &size);
 		char_vectorizer(utf8, size, seq_length, buffer + i*seq_length, charmap);
+		if (verbose && i % progress == 0) std::cout << ".";
 	}
+	if (verbose) std::cout << "!" << std::endl;
+	
 
     npy_intp * dims = new npy_intp[2];
     dims[0] = len;
     dims[1] = seq_length;
     PyObject * result = PyArray_SimpleNewFromData(2, dims, NPY_UINT16, buffer);
     PyArray_UpdateFlags(reinterpret_cast<PyArrayObject *>(result), NPY_ARRAY_OWNDATA);
-
-    Py_DECREF(sentences);
-    Py_XDECREF(mapping);
     return result;
 }
 

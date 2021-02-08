@@ -106,7 +106,7 @@ void char_vectorizer(const char * text,
 	                 size_t length, 
 	                 size_t nb_chars, 
 	                 uint16_t * result, 
-	                 std::unordered_map<uint32_t, uint16_t> charmap) {
+	                 std::unordered_map<uint32_t, uint16_t>& charmap) {
 	uint32_t code_point;
 	size_t count = 0, place = 0;
 	std::unordered_map<uint32_t, uint16_t>::const_iterator got;
