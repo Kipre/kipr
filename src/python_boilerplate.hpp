@@ -84,6 +84,8 @@ static PyMethodDef arraymodule_methods[] = {
      "Count character occurences in string and return code points."},
     {"char_tokenize", (PyCFunction) char_tokenize, METH_VARARGS | METH_KEYWORDS,
      "Vectorize the input sequences (list of strings) into a numpy array."},
+    {"tokenize_string", (PyCFunction) tokenize_string, METH_VARARGS | METH_KEYWORDS,
+     "Vectorize a single string into a numpy array."},
     {"cache_info", cache_info, METH_NOARGS,
      "Function to query CPU info about cache configuration."},
     {NULL, NULL, 0, NULL}        /* Sentinel */

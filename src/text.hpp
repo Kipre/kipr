@@ -102,9 +102,9 @@ int to_cp(const char chr[4], uint32_t *code_point)
 
 /* My code */
 
-void char_vectorizer(const char * text, 
+size_t char_vectorizer(const char * text, 
 	                 size_t length, 
-	                 size_t nb_chars, 
+	                 size_t nb_chars,
 	                 uint16_t * result, 
 	                 std::unordered_map<uint32_t, uint16_t>& charmap) {
 	uint32_t code_point;
@@ -116,7 +116,6 @@ void char_vectorizer(const char * text,
 	while (count < nb_chars && place < length) {
 		place += to_cp(&text[place], &code_point);
 		got = charmap.find(code_point);
-		// std::cout << (char) code_point << ' ' << got->first << ' ' << got->second << " " << std::endl;
 		if (got != charmap.end() && !(last_token == whitespace && got->second == whitespace)) {
 			result[count++] = got->second;
 			last_token = got->second;
@@ -125,6 +124,28 @@ void char_vectorizer(const char * text,
 	
 	while (count < nb_chars)
 		result[count++] = whitespace;
+
+	return count;
+}
+
+void char_vectorizer(const char * text,
+	                 size_t length,
+	                 std::vector<uint16_t> & result,
+	                 std::unordered_map<uint32_t, uint16_t> & charmap) {
+	uint32_t code_point;
+	size_t place = 0;
+	std::unordered_map<uint32_t, uint16_t>::const_iterator got;
+
+	uint16_t whitespace = charmap[0x20], last_token = 0;
+
+	while (place < length) {
+		place += to_cp(&text[place], &code_point);
+		got = charmap.find(code_point);
+		if (got != charmap.end() && !(last_token == whitespace && got->second == whitespace)) {
+			result.push_back(got->second);
+			last_token = got->second;
+		}
+	}
 }
 
 std::unordered_map<uint32_t, size_t>
@@ -153,4 +174,19 @@ count_all_chars(const char * text, size_t length) {
 		countmap[code_point] += 1;
 	}
 	return countmap;
+}
+
+
+
+void dict_to_map(std::unordered_map<uint32_t, uint16_t> & cmap, PyObject * dict) {
+	PyObject * map = PyDict_Items(dict);
+	Py_ssize_t len  = PySequence_Fast_GET_SIZE(map);
+	PyObject ** items = PySequence_Fast_ITEMS(map);
+	uint32_t key;
+	uint16_t value;
+	for (int i = 0; i < len; ++i) {
+		PyArg_ParseTuple(items[i], "IH", &key, &value);
+		cmap[key] = value;
+	}
+	Py_DECREF(map);
 }

@@ -266,6 +266,7 @@ PyObject * cache_info(PyObject *self, PyObject * input);
 // text
 PyObject * count_characters(PyObject *self, PyObject * input);
 PyObject * char_tokenize(PyObject *self, PyObject *args, PyObject *keywds);
+PyObject * tokenize_string(PyObject *self, PyObject *args, PyObject *keywds);
 
 // test
 PyObject * Karray_notemplate_add(PyObject * here, PyObject * other);

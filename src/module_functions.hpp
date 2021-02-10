@@ -27,10 +27,53 @@ execute_func(PyObject *self, PyObject * input) {
 //     return result;
 // }
 
+
+PyObject *
+tokenize_string(PyObject *self, PyObject *args, PyObject *keywds) {
+	PyObject * corpus;
+    PyObject * mapping = NULL;
+    std::unordered_map<uint32_t, uint16_t> charmap;
+    Py_ssize_t size = 0;
+    size_t actual_length;
+
+    static char *kwlist[] = {"string", "mapping", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "OO", kwlist,
+                                     &corpus, &mapping))
+        return NULL;
+
+    if (!PyUnicode_Check(corpus)) {
+    	PyErr_SetString(PyExc_ValueError, "'string' should be a string");
+    	return NULL;
+    }
+
+	if (!PyDict_Check(mapping)) {
+		PyErr_SetString(PyExc_ValueError, "'mapping' should be a dict with single-char strings mapping to integers");
+		return NULL;
+	}
+
+	dict_to_map(charmap, mapping);
+
+	const char * utf8 = PyUnicode_AsUTF8AndSize(corpus, &size);
+
+	std::vector<uint16_t> vect;
+	char_vectorizer(utf8, size, vect, charmap);
+	uint16_t * buffer = new uint16_t[vect.size()];
+	std::copy(vect.data(), vect.data() + vect.size(), buffer);
+
+
+    npy_intp * dims = new npy_intp[1];
+    dims[0] = vect.size();
+    PyObject * result = PyArray_SimpleNewFromData(1, dims, NPY_UINT16, buffer);
+    PyArray_UpdateFlags(reinterpret_cast<PyArrayObject *>(result), NPY_ARRAY_OWNDATA);
+    return result;
+}
+
+
 PyObject *
 char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
 	PyObject * sentences;
-    int seq_length = 64;
+    int seq_length = 128;
     PyObject * mapping = NULL;
     std::unordered_map<uint32_t, uint16_t> charmap;
     Py_ssize_t len;
@@ -52,16 +95,7 @@ char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
 		return NULL;
 	}
 
-	PyObject * map = PyDict_Items(mapping);
-	len  = PySequence_Fast_GET_SIZE(map);
-	PyObject ** items = PySequence_Fast_ITEMS(map);
-	uint32_t key;
-	uint16_t value;
-	for (int i = 0; i < len; ++i) {
-		PyArg_ParseTuple(items[i], "IH", &key, &value);
-		charmap[key] = value;
-	}
-	Py_DECREF(map);
+	dict_to_map(charmap, mapping);
 
 	if (verbose) std::cout << "mapping loaded" << std::endl;
     
@@ -88,6 +122,7 @@ char_tokenize(PyObject *self, PyObject *args, PyObject *keywds) {
     PyArray_UpdateFlags(reinterpret_cast<PyArrayObject *>(result), NPY_ARRAY_OWNDATA);
     return result;
 }
+
 
 PyObject *
 count_characters(PyObject *self, PyObject * input) {
