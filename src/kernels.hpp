@@ -79,6 +79,24 @@ div_kernel(float * dest, float * lhs, float * rhs, ssize_t length) {
     }
 }
 
+// void inline
+// add_dkernel(float * self, float * lhs, float * rhs, float * lgrads, float * rgrads, ssize_t length) {
+//     int k = 0;
+// #if __AVX__
+//     __m256 v_a;
+//     for (k = 0; k < length - 8; k += 8) {
+//         v_a = _mm256_load_ps(&self[k]);
+//         _mm256_store_ps(&rgrads[k], v_a);
+//         _mm256_store_ps(&lgrads[k], v_a);
+//     }
+// #endif
+//     while (k < length) {
+//         lgrads[k] = self[k];
+//         rgrads[k] = self[k];
+//         ++k;
+//     }
+// }
+
 void inline
 add_dkernel(float * self, float * lhs, float * rhs, ssize_t length) {
     int k = 0;

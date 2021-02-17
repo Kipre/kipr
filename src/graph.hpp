@@ -186,6 +186,11 @@ int Graph_init(PyGraph *self, PyObject *args, PyObject *kwds) {
 		// printf("opcode %i, arg %i\n", op, arg);
 		switch (op) {
 
+		case (LOAD_CONST):
+			PyErr_SetString(Karray_error,
+				             "You should define your constants outside of the function.");
+			return -1;
+
 		case (LOAD_FAST):
 			if (!local.contains(arg)) {
 				local[arg] = size;

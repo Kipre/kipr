@@ -24,21 +24,15 @@ public:
 	size_t id;
 	std::string name = "op";
 	std::vector<Op *> children;
-	bool overwrite_gradients = true;
-
 	Karray arr;
-	Karray grad;
 
-	virtual void run() {
-		overwrite_gradients = true;
-	};
+	virtual void run() {};
 	virtual void prepare() {};
 	virtual void back() {};
 	virtual std::vector<Op *> operands() { return {}; };
 
 	void reset(Shape & new_shape) {
 		arr.reset(new_shape);
-		grad.reset(new_shape);
 	}
 
 	void add_child(Op * child) {
@@ -62,19 +56,26 @@ public:
 	};
 };
 
-template<binary_kernel kernel, binary_kernel dkernel, binary_op op>
-class EWBinaryOp: public Op {
+class BinaryOp: public Op {
 public:
-	size_t length {0};
+	size_t size {};
+	Op * larg {};
+	Op * rarg {};
+	Karray lgrads {};
+	Karray rgrads {};
+};
+
+template<binary_kernel kernel, binary_kernel dkernel, binary_op op> 
+class EWBinaryOp: public BinaryOp {
+public:
 	bool simple = true;
-	Op * larg; // left hand side...
-	Op * rarg;
 	NDVector lstr {};
 	NDVector rstr {};
 	Shape common {};
 
-	EWBinaryOp(size_t new_id, Op * new_lop, Op * new_rop) :
-		larg {new_lop}, rarg {new_rop} {
+	EWBinaryOp(size_t new_id, Op * new_lop, Op * new_rop) {
+		larg = new_lop;
+		rarg = new_rop;
 		id = new_id;
 		name = name;
 	};
@@ -82,9 +83,12 @@ public:
 	void prepare() {
 		Karray * lhs = &larg->arr, * rhs = &rarg->arr;
 
+		rgrads.reset(rhs->shape);
+		lgrads.reset(lhs->shape);
+
 		if (rhs->shape.length == lhs->shape.length) {
 			simple = true;
-			length = rhs->shape.length;
+			size = rhs->shape.length;
 			reset(rhs->shape);
 		} else {
 			simple = false;
@@ -98,11 +102,10 @@ public:
 	};
 
 	void run() {
-		Op::run();
 		Karray * lhs = &larg->arr, * rhs = &rarg->arr;
 
 		if (simple) {
-			kernel(arr.data, lhs->data, rhs->data, length);
+			kernel(arr.data, lhs->data, rhs->data, size);
 		} else {
 			Positions posi {0, 0, 0};
 			rec_binary_op<op>(arr.data, lhs->data, rhs->data,
@@ -111,17 +114,6 @@ public:
 	};
 
 	void back() {
-		// if (larg->overwrite_gradients) {
-		// 	larg->overwrite_gradients = false;
-
-		// }
-		// if (simple) {
-		// 	ope.dkernel(arr.data, lhs->data, rhs->data, length);
-		// } else {
-		// 	PyErr_Format(PyExc_NotImplementedError,
-		// 	             "not 'simple' %s is not implemented",
-		// 	             name);
-		// }
 	};
 
 	std::vector<Op *> operands() {
